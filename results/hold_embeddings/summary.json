@@ -1,0 +1,715 @@
+{
+  "model": "null_rule_16",
+  "plot_seed": 43,
+  "rows": 60000,
+  "seeds": {
+    "42": {
+      "trained": {
+        "token_table": {
+          "largest_departure_from_hold_plus_role": 2.9802322387695312e-08,
+          "role_share_of_table_variance": 0.23887425661087036,
+          "identity_vs_geometry_norm": 0.713119387626648
+        },
+        "tokens_kept": 1042,
+        "tokens_total": 1904,
+        "role_from_vector_unseen_hold": {
+          "token_table": 0.9990403071017274,
+          "context": 0.982725527831094,
+          "context_position_removed": 0.7591170825335892,
+          "shuffled_labels": 0.23947536788227772
+        },
+        "pairs_context_position_removed": {
+          "same_hold_different_role": 0.4446197748184204,
+          "different_hold_same_role": -0.0026434576138854027,
+          "different_hold_different_role": -0.0007527407724410295,
+          "same_role_wall_distance_spearman": -0.6448862058815285
+        },
+        "pairs_token_table": {
+          "same_hold_different_role": 0.9299254417419434,
+          "different_hold_same_role": -0.002661903155967593,
+          "different_hold_different_role": -0.0017503752605989575,
+          "same_role_wall_distance_spearman": -0.6598787265500898
+        },
+        "usage": {
+          "holds_used": 476,
+          "holds_with_all_four_affinities": 476,
+          "bias_interaction_vs_usage_spearman": 0.9009282132753713,
+          "affinity_interaction_vs_usage_spearman": 0.8880455099521943,
+          "role_correlation_usage": [
+            [
+              1.0,
+              -0.519,
+              0.096,
+              0.647
+            ],
+            [
+              -0.519,
+              1.0,
+              0.353,
+              -0.734
+            ],
+            [
+              0.096,
+              0.353,
+              1.0,
+              -0.205
+            ],
+            [
+              0.647,
+              -0.734,
+              -0.205,
+              1.0
+            ]
+          ],
+          "role_correlation_model": [
+            [
+              1.0,
+              0.375,
+              0.651,
+              -0.215
+            ],
+            [
+              0.375,
+              1.0,
+              0.636,
+              -0.696
+            ],
+            [
+              0.651,
+              0.636,
+              1.0,
+              -0.507
+            ],
+            [
+              -0.215,
+              -0.696,
+              -0.507,
+              1.0
+            ]
+          ],
+          "role_names": [
+            "hand",
+            "foot",
+            "start",
+            "finish"
+          ]
+        },
+        "foot_share_held_out_r2": {
+          "wall_position_only": 0.4688499238389733,
+          "geometry_features": 0.47539961827116517,
+          "learned_identity": 0.1843297343735354,
+          "learned_geometry": 0.9013004692660724,
+          "hold_vector": 0.9429536687897245,
+          "hold_vector_shuffled": -0.02887926736973756
+        },
+        "pca_variance_share": {
+          "holds": [
+            0.19950872659683228,
+            0.09689632803201675
+          ],
+          "table": [
+            0.1847057044506073,
+            0.09579495340585709
+          ],
+          "context": [
+            0.1293564885854721,
+            0.09113620221614838
+          ],
+          "context_position_removed": [
+            0.08959375321865082,
+            0.0811745673418045
+          ]
+        }
+      },
+      "untrained": {
+        "token_table": {
+          "largest_departure_from_hold_plus_role": 7.450580596923828e-09,
+          "role_share_of_table_variance": 0.3622477650642395,
+          "identity_vs_geometry_norm": 1.9182733297348022
+        },
+        "tokens_kept": 1042,
+        "tokens_total": 1904,
+        "role_from_vector_unseen_hold": {
+          "token_table": 1.0,
+          "context": 1.0,
+          "context_position_removed": 0.8512476007677543,
+          "shuffled_labels": 0.241234804862444
+        },
+        "pairs_context_position_removed": {
+          "same_hold_different_role": 0.8682629466056824,
+          "different_hold_same_role": -0.0032274036202579737,
+          "different_hold_different_role": -0.0017413708847016096,
+          "same_role_wall_distance_spearman": -0.2298934135823542
+        },
+        "pairs_token_table": {
+          "same_hold_different_role": 0.9921714663505554,
+          "different_hold_same_role": -0.0032873046584427357,
+          "different_hold_different_role": -0.0020340518094599247,
+          "same_role_wall_distance_spearman": -0.25646390216683135
+        },
+        "usage": {
+          "holds_used": 476,
+          "holds_with_all_four_affinities": 476,
+          "bias_interaction_vs_usage_spearman": null,
+          "affinity_interaction_vs_usage_spearman": 0.21432084115045877,
+          "role_correlation_usage": [
+            [
+              1.0,
+              -0.519,
+              0.096,
+              0.647
+            ],
+            [
+              -0.519,
+              1.0,
+              0.353,
+              -0.734
+            ],
+            [
+              0.096,
+              0.353,
+              1.0,
+              -0.205
+            ],
+            [
+              0.647,
+              -0.734,
+              -0.205,
+              1.0
+            ]
+          ],
+          "role_correlation_model": [
+            [
+              1.0,
+              0.816,
+              0.588,
+              0.761
+            ],
+            [
+              0.816,
+              1.0,
+              0.632,
+              0.927
+            ],
+            [
+              0.588,
+              0.632,
+              1.0,
+              0.763
+            ],
+            [
+              0.761,
+              0.927,
+              0.763,
+              1.0
+            ]
+          ],
+          "role_names": [
+            "hand",
+            "foot",
+            "start",
+            "finish"
+          ]
+        },
+        "foot_share_held_out_r2": {
+          "wall_position_only": 0.4688499238389733,
+          "geometry_features": 0.47539961827116517,
+          "learned_identity": -0.06732404432097683,
+          "learned_geometry": 0.6522358375980102,
+          "hold_vector": 0.3215947750986401,
+          "hold_vector_shuffled": -0.07166660869291697
+        },
+        "pca_variance_share": {
+          "holds": [
+            0.032626181840896606,
+            0.027063338086009026
+          ],
+          "table": [
+            0.1826186329126358,
+            0.12443306297063828
+          ],
+          "context": [
+            0.41206637024879456,
+            0.1256837099790573
+          ],
+          "context_position_removed": [
+            0.12240605801343918,
+            0.06192736700177193
+          ]
+        }
+      }
+    },
+    "43": {
+      "trained": {
+        "token_table": {
+          "largest_departure_from_hold_plus_role": 4.470348358154297e-08,
+          "role_share_of_table_variance": 0.23645174503326416,
+          "identity_vs_geometry_norm": 0.6979077458381653
+        },
+        "tokens_kept": 1042,
+        "tokens_total": 1904,
+        "role_from_vector_unseen_hold": {
+          "token_table": 0.9990403071017274,
+          "context": 0.9750479846449136,
+          "context_position_removed": 0.800383877159309,
+          "shuffled_labels": 0.24200255918106206
+        },
+        "pairs_context_position_removed": {
+          "same_hold_different_role": 0.45376601815223694,
+          "different_hold_same_role": -0.002336802426725626,
+          "different_hold_different_role": -0.0007275923271663487,
+          "same_role_wall_distance_spearman": -0.6553588605433411
+        },
+        "pairs_token_table": {
+          "same_hold_different_role": 0.934103786945343,
+          "different_hold_same_role": -0.0027357640210539103,
+          "different_hold_different_role": -0.001770789735019207,
+          "same_role_wall_distance_spearman": -0.6587151634263555
+        },
+        "usage": {
+          "holds_used": 476,
+          "holds_with_all_four_affinities": 476,
+          "bias_interaction_vs_usage_spearman": 0.8987521870189397,
+          "affinity_interaction_vs_usage_spearman": 0.8929150061305549,
+          "role_correlation_usage": [
+            [
+              1.0,
+              -0.519,
+              0.096,
+              0.647
+            ],
+            [
+              -0.519,
+              1.0,
+              0.353,
+              -0.734
+            ],
+            [
+              0.096,
+              0.353,
+              1.0,
+              -0.205
+            ],
+            [
+              0.647,
+              -0.734,
+              -0.205,
+              1.0
+            ]
+          ],
+          "role_correlation_model": [
+            [
+              1.0,
+              0.356,
+              0.643,
+              -0.188
+            ],
+            [
+              0.356,
+              1.0,
+              0.636,
+              -0.692
+            ],
+            [
+              0.643,
+              0.636,
+              1.0,
+              -0.5
+            ],
+            [
+              -0.188,
+              -0.692,
+              -0.5,
+              1.0
+            ]
+          ],
+          "role_names": [
+            "hand",
+            "foot",
+            "start",
+            "finish"
+          ]
+        },
+        "foot_share_held_out_r2": {
+          "wall_position_only": 0.4688499238389733,
+          "geometry_features": 0.47539961827116517,
+          "learned_identity": 0.16070687216749913,
+          "learned_geometry": 0.900854340936277,
+          "hold_vector": 0.9474197752155753,
+          "hold_vector_shuffled": -0.029660558591572128
+        },
+        "pca_variance_share": {
+          "holds": [
+            0.1891113966703415,
+            0.09882758557796478
+          ],
+          "table": [
+            0.17855356633663177,
+            0.08874719589948654
+          ],
+          "context": [
+            0.1671808809041977,
+            0.07367178797721863
+          ],
+          "context_position_removed": [
+            0.08408643305301666,
+            0.07559266686439514
+          ]
+        }
+      },
+      "untrained": {
+        "token_table": {
+          "largest_departure_from_hold_plus_role": 7.450580596923828e-09,
+          "role_share_of_table_variance": 0.39847689867019653,
+          "identity_vs_geometry_norm": 1.9900379180908203
+        },
+        "tokens_kept": 1042,
+        "tokens_total": 1904,
+        "role_from_vector_unseen_hold": {
+          "token_table": 1.0,
+          "context": 0.9990403071017274,
+          "context_position_removed": 0.8675623800383877,
+          "shuffled_labels": 0.24000319897632758
+        },
+        "pairs_context_position_removed": {
+          "same_hold_different_role": 0.8482562303543091,
+          "different_hold_same_role": -0.003226719330996275,
+          "different_hold_different_role": -0.0017200350994244218,
+          "same_role_wall_distance_spearman": -0.23462577822811048
+        },
+        "pairs_token_table": {
+          "same_hold_different_role": 0.9928020238876343,
+          "different_hold_same_role": -0.003284551901742816,
+          "different_hold_different_role": -0.002032570308074355,
+          "same_role_wall_distance_spearman": -0.24194193013124718
+        },
+        "usage": {
+          "holds_used": 476,
+          "holds_with_all_four_affinities": 476,
+          "bias_interaction_vs_usage_spearman": null,
+          "affinity_interaction_vs_usage_spearman": 0.17692586230498505,
+          "role_correlation_usage": [
+            [
+              1.0,
+              -0.519,
+              0.096,
+              0.647
+            ],
+            [
+              -0.519,
+              1.0,
+              0.353,
+              -0.734
+            ],
+            [
+              0.096,
+              0.353,
+              1.0,
+              -0.205
+            ],
+            [
+              0.647,
+              -0.734,
+              -0.205,
+              1.0
+            ]
+          ],
+          "role_correlation_model": [
+            [
+              1.0,
+              0.826,
+              0.525,
+              0.739
+            ],
+            [
+              0.826,
+              1.0,
+              0.485,
+              0.912
+            ],
+            [
+              0.525,
+              0.485,
+              1.0,
+              0.611
+            ],
+            [
+              0.739,
+              0.912,
+              0.611,
+              1.0
+            ]
+          ],
+          "role_names": [
+            "hand",
+            "foot",
+            "start",
+            "finish"
+          ]
+        },
+        "foot_share_held_out_r2": {
+          "wall_position_only": 0.4688499238389733,
+          "geometry_features": 0.47539961827116517,
+          "learned_identity": -0.1260571658790275,
+          "learned_geometry": 0.39565166688922626,
+          "hold_vector": 0.2164064961496921,
+          "hold_vector_shuffled": -0.0634944441351073
+        },
+        "pca_variance_share": {
+          "holds": [
+            0.02993059530854225,
+            0.02476981095969677
+          ],
+          "table": [
+            0.1891341656446457,
+            0.1417669802904129
+          ],
+          "context": [
+            0.43425849080085754,
+            0.11432501673698425
+          ],
+          "context_position_removed": [
+            0.10772981494665146,
+            0.07176831364631653
+          ]
+        }
+      }
+    },
+    "44": {
+      "trained": {
+        "token_table": {
+          "largest_departure_from_hold_plus_role": 2.9802322387695312e-08,
+          "role_share_of_table_variance": 0.2403334081172943,
+          "identity_vs_geometry_norm": 0.7201381921768188
+        },
+        "tokens_kept": 1042,
+        "tokens_total": 1904,
+        "role_from_vector_unseen_hold": {
+          "token_table": 0.9990403071017274,
+          "context": 0.9760076775431862,
+          "context_position_removed": 0.7859884836852208,
+          "shuffled_labels": 0.23987523992322457
+        },
+        "pairs_context_position_removed": {
+          "same_hold_different_role": 0.471812903881073,
+          "different_hold_same_role": -0.002609633607789874,
+          "different_hold_different_role": -0.000829027034342289,
+          "same_role_wall_distance_spearman": -0.6450309305680354
+        },
+        "pairs_token_table": {
+          "same_hold_different_role": 0.9312827587127686,
+          "different_hold_same_role": -0.0026751102413982153,
+          "different_hold_different_role": -0.0017653298564255238,
+          "same_role_wall_distance_spearman": -0.664904562084313
+        },
+        "usage": {
+          "holds_used": 476,
+          "holds_with_all_four_affinities": 476,
+          "bias_interaction_vs_usage_spearman": 0.8980664960155303,
+          "affinity_interaction_vs_usage_spearman": 0.8942769218776093,
+          "role_correlation_usage": [
+            [
+              1.0,
+              -0.519,
+              0.096,
+              0.647
+            ],
+            [
+              -0.519,
+              1.0,
+              0.353,
+              -0.734
+            ],
+            [
+              0.096,
+              0.353,
+              1.0,
+              -0.205
+            ],
+            [
+              0.647,
+              -0.734,
+              -0.205,
+              1.0
+            ]
+          ],
+          "role_correlation_model": [
+            [
+              1.0,
+              0.337,
+              0.66,
+              -0.176
+            ],
+            [
+              0.337,
+              1.0,
+              0.619,
+              -0.697
+            ],
+            [
+              0.66,
+              0.619,
+              1.0,
+              -0.487
+            ],
+            [
+              -0.176,
+              -0.697,
+              -0.487,
+              1.0
+            ]
+          ],
+          "role_names": [
+            "hand",
+            "foot",
+            "start",
+            "finish"
+          ]
+        },
+        "foot_share_held_out_r2": {
+          "wall_position_only": 0.4688499238389733,
+          "geometry_features": 0.47539961827116517,
+          "learned_identity": 0.23145567087932628,
+          "learned_geometry": 0.8991030388061221,
+          "hold_vector": 0.9432526492595066,
+          "hold_vector_shuffled": -0.023993224685777248
+        },
+        "pca_variance_share": {
+          "holds": [
+            0.19678369164466858,
+            0.0987476110458374
+          ],
+          "table": [
+            0.17791050672531128,
+            0.10364451259374619
+          ],
+          "context": [
+            0.18154509365558624,
+            0.08213651180267334
+          ],
+          "context_position_removed": [
+            0.08794588595628738,
+            0.07896764576435089
+          ]
+        }
+      },
+      "untrained": {
+        "token_table": {
+          "largest_departure_from_hold_plus_role": 7.450580596923828e-09,
+          "role_share_of_table_variance": 0.3998683989048004,
+          "identity_vs_geometry_norm": 1.9943289756774902
+        },
+        "tokens_kept": 1042,
+        "tokens_total": 1904,
+        "role_from_vector_unseen_hold": {
+          "token_table": 1.0,
+          "context": 0.9990403071017274,
+          "context_position_removed": 0.8618042226487524,
+          "shuffled_labels": 0.2426423544465771
+        },
+        "pairs_context_position_removed": {
+          "same_hold_different_role": 0.8670978546142578,
+          "different_hold_same_role": -0.003237547818571329,
+          "different_hold_different_role": -0.001753120799548924,
+          "same_role_wall_distance_spearman": -0.1730694198781538
+        },
+        "pairs_token_table": {
+          "same_hold_different_role": 0.9924116730690002,
+          "different_hold_same_role": -0.003287087194621563,
+          "different_hold_different_role": -0.0020341877825558186,
+          "same_role_wall_distance_spearman": -0.20925443468547938
+        },
+        "usage": {
+          "holds_used": 476,
+          "holds_with_all_four_affinities": 476,
+          "bias_interaction_vs_usage_spearman": null,
+          "affinity_interaction_vs_usage_spearman": 0.30217292994630496,
+          "role_correlation_usage": [
+            [
+              1.0,
+              -0.519,
+              0.096,
+              0.647
+            ],
+            [
+              -0.519,
+              1.0,
+              0.353,
+              -0.734
+            ],
+            [
+              0.096,
+              0.353,
+              1.0,
+              -0.205
+            ],
+            [
+              0.647,
+              -0.734,
+              -0.205,
+              1.0
+            ]
+          ],
+          "role_correlation_model": [
+            [
+              1.0,
+              0.806,
+              0.399,
+              0.722
+            ],
+            [
+              0.806,
+              1.0,
+              0.502,
+              0.925
+            ],
+            [
+              0.399,
+              0.502,
+              1.0,
+              0.677
+            ],
+            [
+              0.722,
+              0.925,
+              0.677,
+              1.0
+            ]
+          ],
+          "role_names": [
+            "hand",
+            "foot",
+            "start",
+            "finish"
+          ]
+        },
+        "foot_share_held_out_r2": {
+          "wall_position_only": 0.4688499238389733,
+          "geometry_features": 0.47539961827116517,
+          "learned_identity": -0.01322554089392014,
+          "learned_geometry": 0.674092817055443,
+          "hold_vector": 0.3761537668150269,
+          "hold_vector_shuffled": -0.0401274242550107
+        },
+        "pca_variance_share": {
+          "holds": [
+            0.02740163914859295,
+            0.024678688496351242
+          ],
+          "table": [
+            0.17919009923934937,
+            0.14240871369838715
+          ],
+          "context": [
+            0.4706149697303772,
+            0.10278400033712387
+          ],
+          "context_position_removed": [
+            0.1060245931148529,
+            0.06573640555143356
+          ]
+        }
+      }
+    }
+  }
+}

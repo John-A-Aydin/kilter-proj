@@ -116,6 +116,7 @@ findings, from `climb_v2_null_grade`:
 | `null_ascent_weighted` | `train.ascent_weighting = "log"` |
 | `null_rule_loss` | `train.rule_loss = true` |
 | `null_rule_16` (chosen) | rule loss and 16 epochs |
+| `null_rule_16_d256` | rule loss, 16 epochs, width 256, 8 layers, 8 heads |
 
 `train.rule_loss` masks illegal tokens during training, so the loss only ranks
 legal ones. These models are scored with the same mask (`nll_rules`), which is how
@@ -130,14 +131,57 @@ with rules applied:
 | `null_d256` | 37.44 | 44.90 | 37.68 | 29.34 | 37.31 | 95.9% |
 | `null_16_epochs` | 37.37 | 44.83 | 37.66 | 29.26 | 37.25 | 94.1% |
 | `null_rule_loss` | 37.36 | 44.75 | 37.54 | 29.24 | 37.18 | 95.3% |
+| `null_rule_16_d256` | 37.30 | 44.77 | 37.58 | 29.16 | 37.17 | 95.9% |
 | `null_rule_16` | 37.14 | 44.57 | 37.43 | 29.01 | 37.01 | 94.0% |
 
 `null_rule_16` was chosen on validation, and the website serves its best validation
 seed, 43. It scores 0.46 nats better than `climb_v2_null_grade` on test, but about 2
 points fewer of its samples pass the validity checks. Most of its runs stopped
 improving between epochs 12 and 15, so more epochs alone are unlikely to help much.
-`null_rule_16_d256` is defined in `run_seeds.py` but was stopped after 1-3 epochs; to
-leave it out, use `--skip null_rule_16_d256`.
+`null_rule_16_d256` stopped early at 11 or 12 epochs, with its best at 9 or 10. It
+fits worse than the smaller model, so the extra size stops helping once training is
+long enough.
+
+## Hold representations
+
+`.venv/bin/python experiments/hold_embeddings.py` asks what `null_rule_16` learned about
+holds in each role, writing to [`results/hold_embeddings/`](../results/hold_embeddings/).
+Token embeddings are `hold + geometry + role`, so a projection of the table separates the
+roles for any model. Every measure is therefore repeated on an untrained copy. Means
+over three seeds:
+
+| Measure | Untrained | Trained |
+| --- | ---: | ---: |
+| Role recognized on unseen holds, position removed | 86% | 78% |
+| Same hold in different roles, hidden-state cosine | 0.86 | 0.46 |
+| Same role, wall distance vs similarity (Spearman) | -0.21 | -0.65 |
+| Hold and role preferences vs real usage (Spearman) | 0.23 | 0.89 |
+| Foot share explained by the hold vector (held-out R²) | 0.30 | 0.94 |
+
+Role separation is not learned. What training adds is that a hold's representation
+comes to depend on its role, nearby holds grow similar, and foot use is stored in the
+hold vectors, mostly through the learned geometry network. The foot share comes from
+the training climbs, so this shows what the model stored, not that it generalizes.
+
+## Grading as a downstream task
+
+`.venv/bin/python experiments/grade_climbs.py` predicts a climb's V grade from its holds
+and angle, writing to [`results/grading/`](../results/grading/). The model is frozen and
+read with a null grade, so the label cannot leak in. Settings are chosen on validation.
+Test MSE over 16,897 rows, mean of three seeds (grade variance 6.66):
+
+| Method | MSE | RMSE (grades) | Within 1 grade | MSE, 5+ ascents |
+| --- | ---: | ---: | ---: | ---: |
+| Training mean at that angle | 5.04 | 2.24 | 34.1% | 6.68 |
+| Bag of holds, ridge | 2.86 | 1.69 | 47.7% | 2.86 |
+| Untrained model, MLP head | 2.39 | 1.55 | 52.6% | 2.06 |
+| Bag of holds, MLP head (main baseline) | 2.03 | 1.42 | 57.3% | 1.61 |
+| `null_rule_16`, ridge | 1.85 | 1.36 | 58.9% | 1.54 |
+| `null_rule_16`, Bayes over grades, no head | 1.83 | 1.35 | 60.4% | 1.45 |
+| `null_rule_16`, MLP head | 1.70 | 1.30 | 62.4% | 1.32 |
+
+The Bayes grader uses p(climb | grade, angle) from the generative model with a prior
+per angle. Errors are largest at both ends of the scale, where labels are noisier or rarer.
 
 ## Decoding rules
 
