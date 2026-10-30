@@ -5,7 +5,7 @@ const manifest = JSON.parse(await readFile(new URL('../public/model/manifest.jso
 async function ready(page) {
   await page.goto('/');
   await expect(page.locator('#model-status-text')).toHaveText('Model ready', { timeout: 60000 });
-  await expect(page.locator('path.hold')).toHaveCount(476);
+  await expect(page.locator('#svg-climb path.hold')).toHaveCount(476);
   await expect(page.locator('#svg-climb')).toHaveAttribute('data-renderer', 'boardsesh-aura');
   await expect(page.locator('#svg-climb')).toHaveAttribute('data-render-pending', 'false');
   await expect(page.locator('image.board-art')).toHaveCount(2);
@@ -43,7 +43,7 @@ test('click arbitrary holds, set grade and angle, complete with real model, and 
   await page.locator('#seed').fill('123');
   await page.locator('#generate').click();
   await expect(page.locator('#generation-status')).toContainText('Complete ·', { timeout: 30000 });
-  await expect(page.locator('.hold.generated').first()).toBeVisible();
+  await expect(page.locator('#svg-climb .hold.generated').first()).toBeVisible();
   for (const pick of picks) await expect(page.locator(`#hold-${pick.id}`)).toHaveAttribute('aria-pressed', 'true');
   const downloaded = page.waitForEvent('download');
   await page.locator('#export').click();
@@ -94,7 +94,7 @@ test('keyboard selection, cancellation, and mobile layout', async ({ page }) => 
   const hasOverflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
   expect(hasOverflow).toBe(false);
   await page.locator('#generate').click();
-  await expect(page.locator('.hold.generated').first()).toBeAttached();
+  await expect(page.locator('#svg-climb .hold.generated').first()).toBeAttached();
   await page.locator('#stop').click();
   await expect(page.locator('#generation-status')).toContainText('Stopped ·');
   await expect(page.locator(`#hold-${id}`)).toHaveAttribute('aria-pressed', 'true');
@@ -124,7 +124,7 @@ test('connects to a Kilter board over Web Bluetooth and puts the completed climb
     }
     return leds;
   });
-  const shown = await page.locator('path.hold[stroke]:not([stroke="transparent"])').evaluateAll(paths => paths.map(path => Number(path.id.slice(5))));
+  const shown = await page.locator('#svg-climb path.hold[stroke]:not([stroke="transparent"])').evaluateAll(paths => paths.map(path => Number(path.id.slice(5))));
   expect(Object.keys(leds).length).toBe(shown.length);
   for (const id of shown) expect(leds[mapping.positions[id]]).toBeDefined();
   expect(leds[mapping.positions[pick.id]]).toBe(0b11100011);
@@ -177,6 +177,43 @@ test('generates from nothing, and from two start holds plus a foot, with valid s
   expect(Math.max(...ids.map(id => ys.get(id)))).toBeGreaterThan(0.35);
 });
 
+test('shows the closest real climb below the generated one, and clears it when the request changes', async ({ page }) => {
+  await ready(page);
+  const panel = page.locator('#match-panel');
+  await expect(panel).toBeHidden();
+  await page.locator('#generate').click();
+  await expect(page.locator('#generation-status')).toContainText('Complete ·', { timeout: 30000 });
+  await expect(page.locator('#match-details')).toBeVisible({ timeout: 30000 });
+  await expect(page.locator('#match-count')).toContainText('climbs');
+  await expect(page.locator('#match-name')).not.toBeEmpty();
+  await expect(page.locator('#match-overlap')).toHaveText(/^\d+%$/);
+  await expect(page.locator('#svg-match')).toHaveAttribute('data-render-pending', 'false');
+  const board = await page.locator('.board-panel').first().boundingBox();
+  const box = await panel.boundingBox();
+  expect(box.y).toBeGreaterThanOrEqual(board.y + board.height);
+  // Holds shared with the generated climb are drawn solid, and only those.
+  const shared = Number((await page.locator('#match-shared').textContent()).match(/^(\d+) of your/)[1]);
+  const ids = locator => locator.evaluateAll(paths => paths.map(path => Number(path.id.split('-').pop())));
+  const solid = await ids(page.locator('#svg-match path.hold.selected'));
+  expect(solid.length).toBe(shared);
+  const yours = new Set(await ids(page.locator('#svg-climb path.hold:is(.selected, .generated)')));
+  expect(solid.every(id => yours.has(id))).toBe(true);
+  await expect(page.locator('#svg-match path.hold[tabindex]')).toHaveCount(0);
+
+  const downloaded = page.waitForEvent('download');
+  await page.locator('#export').click();
+  const output = JSON.parse(await readFile(await (await downloaded).path(), 'utf8'));
+  expect(output.closest_real_climb.shared_holds).toBe(shared);
+  expect(output.closest_real_climb.holds.length).toBeGreaterThan(0);
+
+  await page.locator('#tab-show').click();
+  await expect(panel).toBeHidden();
+  await page.locator('#tab-climb').click();
+  await expect(panel).toBeVisible();
+  await page.locator('#grade').selectOption('3');
+  await expect(panel).toBeHidden();
+});
+
 test('light show tab previews patterns, plays them on a connected board, and clears it on stop', async ({ page }) => {
   await mockBluetooth(page);
   await ready(page);
@@ -188,7 +225,7 @@ test('light show tab previews patterns, plays them on a connected board, and cle
   await expect(page.locator('#ble-send')).toBeHidden();
   await page.locator('#show-start').click();
   await expect(page.locator('#show-status')).toContainText('Previewing on screen · frame');
-  await expect.poll(() => page.locator('path.hold[stroke]:not([stroke="transparent"])').count()).toBeGreaterThan(0);
+  await expect.poll(() => page.locator('#svg-climb path.hold[stroke]:not([stroke="transparent"])').count()).toBeGreaterThan(0);
   await page.locator('#show-start').click();
   await expect(page.locator('#show-start-label')).toHaveText('Start light show');
 
@@ -216,7 +253,7 @@ test('light show tab previews patterns, plays them on a connected board, and cle
   await page.locator('#show-start').click();
   await expect(page.locator('#ble-message')).toHaveText('Light show stopped. Board LEDs cleared.');
   expect((await page.evaluate(() => window.bleWrites)).slice(-6)).toEqual([1, 1, 171, 2, 84, 3]);
-  await expect(page.locator('path.hold[stroke]:not([stroke="transparent"])')).toHaveCount(0);
+  await expect(page.locator('#svg-climb path.hold[stroke]:not([stroke="transparent"])')).toHaveCount(0);
 
   await page.locator('#tab-climb').click();
   await expect(page.locator('#panel-climb')).toBeVisible();
@@ -232,7 +269,7 @@ test('snake tab steers with W A S D, ends on the edge, and clears the wall when 
   await mockBluetooth(page);
   await ready(page);
   const geometry = new Map(manifest.holds.map(hold => [hold.id, hold]));
-  const head = () => page.locator('path.hold[stroke="#00FF00"]').evaluateAll(paths => paths.map(path => Number(path.id.slice(5))));
+  const head = () => page.locator('#svg-climb path.hold[stroke="#00FF00"]').evaluateAll(paths => paths.map(path => Number(path.id.slice(5))));
   await page.locator('#tab-snake').click();
   await expect(page.locator('#panel-snake')).toBeVisible();
   await expect(page.locator('#ble-send')).toBeHidden();
@@ -248,7 +285,7 @@ test('snake tab steers with W A S D, ends on the edge, and clears the wall when 
   const [start] = await head();
   await expect.poll(async () => geometry.get((await head())[0]).x).toBeGreaterThan(geometry.get(start).x);
   expect(geometry.get((await head())[0]).y).toBeCloseTo(geometry.get(start).y);
-  expect(await page.locator('path.hold[stroke="#FF00FF"]').count()).toBe(1);
+  expect(await page.locator('#svg-climb path.hold[stroke="#FF00FF"]').count()).toBe(1);
 
   // W turns up, and the snake runs into the top of the board.
   await page.keyboard.press('w');
@@ -261,6 +298,6 @@ test('snake tab steers with W A S D, ends on the edge, and clears the wall when 
   await page.locator('#tab-climb').click();
   await expect(page.locator('#ble-message')).toHaveText('Snake stopped. Board LEDs cleared.');
   expect((await page.evaluate(() => window.bleWrites)).slice(-6)).toEqual([1, 1, 171, 2, 84, 3]);
-  await expect(page.locator('path.hold[stroke]:not([stroke="transparent"])')).toHaveCount(0);
+  await expect(page.locator('#svg-climb path.hold[stroke]:not([stroke="transparent"])')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

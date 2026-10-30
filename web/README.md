@@ -24,15 +24,18 @@ the model and WebAssembly, are served locally; inference makes no API calls and
 does not send holds to an inference server. A first hosted visit still downloads
 the page and model assets and passes through the host's normal access checks.
 
-To use another v2 experiment, export its checkpoint with the same command, then
-rebuild. The page refuses models from the old `kilter.export_web`, which used a
+`web/public/model/` is committed, so a fresh clone can skip the export step. The site
+serves `null_rule_16`, seed 43. To use another v2 experiment, export its checkpoint
+with the same command, then rebuild. The page refuses models from the old `kilter.export_web`, which used a
 different sequence format. Export checks ONNX logits against PyTorch for empty,
 starts-only, starts-plus-feet, half-given, and full-length contexts at V0/0°,
 V5/40°, and V16/90°. It also records decoding fixtures: random generation states
 with the tokens Python's rules allow, which the browser tests replay. The manifest
 records the checkpoint and model SHA-256, board geometry, each token's canonical
 rank, hold and role limits, condition order, parameter count, and parity error.
-Only model weights and metadata are exported, without optimizer state or climbs.
+Model weights and metadata are exported without optimizer state. The export also
+writes `climbs.json` and `climbs.bin` (about 12 MB, 6 MB gzipped): every real climb in
+the dataset, with its name, holds, and grade and ascent count at each angle.
 
 ## Completion behavior
 
@@ -56,6 +59,20 @@ sampling. JSON exports contain all five dataset hold fields, the selected holds,
 grade, angle, normalized angle, seed, temperature, EOS status, and checkpoint
 identity. Stopping generation preserves your selected holds and labels the
 result as incomplete in its export.
+
+## Closest real climb
+
+After each generation, a second board below the first shows the most similar real
+climb among the 206,783 single-frame Kilter Original climbs in the dataset (all
+splits). Similarity is the hold overlap: shared physical holds divided by the holds
+in either climb, with roles ignored. Ties go to the climb with more holds in the
+same role, then the one with more ascents. Its shared holds are drawn solid and the
+rest dashed. The panel shows the climb's name, its grade at your angle (or at the
+nearest angle it was climbed at), and its grade at every angle. A badge marks a
+generated climb whose hold set already exists. The lookup runs in the browser with
+an inverted index from hold to climbs, built once from `climbs.bin`
+(`src/similar.mjs`). The JSON export includes the match as `closest_real_climb`.
+The page refuses a catalogue from a different dataset than the model.
 
 ## Lighting the climb on a board
 

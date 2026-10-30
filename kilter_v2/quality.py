@@ -19,7 +19,7 @@ import torch
 
 from .config import write_json
 from .data import BOS, EOS, PAD, START, given_mask, load_arrays, prepare
-from .experiment import evaluate, load_run
+from .experiment import evaluate_grades, load_run
 from .sampling import climb_checks, generate
 
 GRADES = (2, 5, 8, 11)
@@ -116,13 +116,15 @@ def quality_report(checkpoint, baseline=None, split="validation", samples=20, ou
         base = load_baseline(baseline)[0]
     report = {"checkpoint": str(checkpoint), "baseline": str(baseline) if baseline else None, "split": split,
               "samples_per_cell": samples, "grades": GRADES, "angles": ANGLES}
-    report["likelihood"] = {"v2": evaluate(model, arrays, split_id, "cpu")}
+    report["likelihood"] = {"v2": evaluate_grades(model, arrays, split_id, "cpu", config.train.p_null_grade)}
     if base is not None:
         report["likelihood"]["baseline_scratch_nll_per_climb"] = baseline_nll(base, rows)
 
     rng = np.random.default_rng(seed)
     generator = torch.Generator().manual_seed(seed)
     methods = defaultdict(list)
+    # A model that always trained on null grades has never seen a real one.
+    null_only = config.train.p_null_grade == 1
     for grade in GRADES:
         for angle in ANGLES:
             cell = [i for i, (_, c) in enumerate(rows) if c[0] == grade and round(c[1] * 90) == angle]
@@ -134,7 +136,7 @@ def quality_report(checkpoint, baseline=None, split="validation", samples=20, ou
                 methods["real"].append((grade, list(tokens)))
                 mask = given_mask(tokens, "starts_feet")
                 given = [(board.holds[board.split(t)[0]], board.split(t)[1]) for t in tokens[mask]]
-                completed = generate(model, board, grade, angle, given, generator=generator,
+                completed = generate(model, board, None if null_only else grade, angle, given, generator=generator,
                                      max_holds=config.data.max_holds)
                 methods["v2_given_starts_feet"].append((grade, board.encode(completed["holds"])))
                 if base is not None:
@@ -142,10 +144,14 @@ def quality_report(checkpoint, baseline=None, split="validation", samples=20, ou
                     methods["baseline_barrier_given_starts_feet"].append((grade, holds))
             for _ in range(len(chosen)):
                 for name, constrained in (("v2_scratch", True), ("v2_scratch_unconstrained", False)):
-                    result = generate(model, board, grade, angle, generator=generator, constrained=constrained,
-                                      max_holds=config.data.max_holds)
+                    result = generate(model, board, None if null_only else grade, angle, generator=generator,
+                                      constrained=constrained, max_holds=config.data.max_holds)
                     methods[name].append((grade, [board.token(board.dense[h["hold_token"]], h["hold_use_type"])
                                                   for h in result["holds"]]))
+                if 0 < config.train.p_null_grade < 1:
+                    result = generate(model, board, None, angle, generator=generator, max_holds=config.data.max_holds)
+                    methods["v2_scratch_null_grade"].append((grade, [board.token(board.dense[h["hold_token"]], h["hold_use_type"])
+                                                                     for h in result["holds"]]))
                 if base is not None:
                     holds, _ = baseline_sample(base, board, grade, angle, [], generator, max_holds=128)
                     methods["baseline_scratch"].append((grade, holds))

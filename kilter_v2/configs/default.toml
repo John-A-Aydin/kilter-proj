@@ -20,6 +20,7 @@ n_heads = 4
 ff_multiplier = 4
 dropout = 0.1
 coordinate_frequencies = 6
+null_grade = false
 
 [train]
 seed = 42
@@ -39,6 +40,8 @@ ascent_weighting = "none"
 p_scratch = 0.3
 p_starts = 0.45
 p_random = 0.25
+p_null_grade = 0.0
+rule_loss = false
 log_every = 100
 max_train_batches = 0
 max_eval_batches = 0

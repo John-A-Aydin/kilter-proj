@@ -4,6 +4,7 @@ import { BOARD_COLORS } from './board-config.mjs';
 import { KilterBluetooth, climbSignature, validateLedMap } from './bluetooth.mjs';
 import { PATTERNS, showFrame } from './lightshow.mjs';
 import { KEYS, newGame, snakeFrame, snakeGrid, step, turn } from './snake.mjs';
+import { closestClimb, gradeNear, loadCatalogue } from './similar.mjs';
 
 const $ = id => document.getElementById(id);
 const COLORS = BOARD_COLORS;
@@ -26,6 +27,11 @@ let pattern = 'wave';
 let show = null;
 let snake = null;
 let snakeBest = 0;
+// Real climbs for the closest-climb panel: undefined while loading, an Error if unavailable.
+let catalogue;
+let matchBoard;
+let match = null;
+let matchVersion = 0;
 try { snakeBest = Number(localStorage.getItem('snake-best')) || 0; } catch { /* Storage can be blocked. */ }
 const worker = new Worker(new URL('./worker.mjs', import.meta.url), { type: 'module' });
 
@@ -132,6 +138,9 @@ function updateSelections() {
 function resetResult() {
   generated = [];
   lastResult = null;
+  match = null;
+  matchVersion++;
+  $('match-panel').hidden = true;
   $('result-actions').hidden = true;
   $('error').hidden = true;
   $('generation-status').textContent = 'Your selected holds stay in every completed climb.';
@@ -178,10 +187,74 @@ function setTab(name) {
     $(button.getAttribute('aria-controls')).hidden = !active;
   });
   $('board-scroll').classList.toggle('show-mode', name !== 'climb');
+  $('match-panel').hidden = name !== 'climb' || !lastResult;
   if (name === 'climb') updateBoard();
   else board?.update([], new Map());
   renderShow();
   renderSnake();
+}
+
+const plural = (count, word) => `${count.toLocaleString()} ${word}${count === 1 ? '' : 's'}`;
+
+async function showMatch() {
+  const version = ++matchVersion;
+  const holds = allHolds();
+  match = null;
+  $('match-panel').hidden = !holds.length || tab !== 'climb';
+  $('match-details').hidden = true;
+  $('match-status').hidden = false;
+  if (!holds.length) return;
+  if (!catalogue) { $('match-status').textContent = 'Loading real climbs…'; return; }
+  if (catalogue instanceof Error) { $('match-status').textContent = `Real climbs are unavailable: ${catalogue.message}`; return; }
+  match = closestClimb(catalogue, holds);
+  if (!match) { $('match-status').textContent = 'No real climb uses any of these holds.'; return; }
+  const angle = activeRequest.angle;
+  const near = gradeNear(match.angles, angle);
+  const exact = match.shared === match.yours && match.shared === match.size;
+  $('match-count').textContent = `of ${catalogue.count.toLocaleString()} climbs`;
+  $('match-exact').hidden = !exact;
+  $('match-exact').textContent = match.sameRole === match.size ? 'Identical to a real climb' : 'Same holds as a real climb';
+  $('match-name').textContent = match.name || 'Untitled climb';
+  $('match-grade').textContent = (near.angle === angle ? '' : `Not climbed at ${angle}°. `)
+    + `V${near.grade} at ${near.angle}° · ${plural(near.ascents, 'ascent')}`;
+  $('match-overlap').textContent = `${Math.round(match.overlap * 100)}%`;
+  $('match-shared').textContent = `${match.shared} of your ${plural(match.yours, 'hold')} ${match.shared === 1 ? 'is' : 'are'} in this climb, `
+    + `${match.sameRole} in the same role. It has ${plural(match.size, 'hold')}.`;
+  $('match-angles').replaceChildren(...match.angles.map(row => {
+    const chip = document.createElement('span');
+    chip.textContent = `${row.angle}° V${row.grade}`;
+    chip.title = plural(row.ascents, 'ascent');
+    chip.classList.toggle('current', row.angle === angle);
+    return chip;
+  }));
+  $('match-status').hidden = true;
+  $('match-details').hidden = false;
+  const yours = new Set(holds.map(hold => hold.id));
+  try {
+    matchBoard ??= createBoard($('svg-match'), manifest, null, showError, { interactive: false, idPrefix: 'match-hold-' });
+    const board = await matchBoard;
+    if (version !== matchVersion) return;
+    board.update(match.holds, new Map(match.holds.filter(hold => yours.has(hold.id)).map(hold => [hold.id, hold.role])));
+  } catch (error) {
+    matchBoard = null;
+    showError(error.message);
+  }
+}
+
+async function loadRealClimbs() {
+  try {
+    const load = async (name, read) => {
+      const response = await fetch(`./model/${name}`);
+      if (!response.ok) throw new Error(`model/${name} is missing. Export the checkpoint again.`);
+      return read(response);
+    };
+    const [meta, buffer] = await Promise.all([load('climbs.json', r => r.json()), load('climbs.bin', r => r.arrayBuffer())]);
+    if (meta.data_fingerprint !== manifest.data_fingerprint) throw new Error('they come from a different dataset than the model.');
+    catalogue = loadCatalogue(meta, buffer);
+  } catch (error) {
+    catalogue = error;
+  }
+  if (lastResult) showMatch();
 }
 
 function renderShow() {
@@ -413,6 +486,9 @@ $('export').onclick = () => {
     angle: activeRequest.angle, normalized_angle: activeRequest.angle / 90,
     seed: activeRequest.seed, temperature: activeRequest.temperature,
     ended_with_eos: lastResult.endedWithEos, selected_holds: activeRequest.selected,
+    closest_real_climb: match && { name: match.name, overlap: match.overlap, shared_holds: match.shared,
+      same_role_holds: match.sameRole, holds: match.holds.map(hold => ({ hold_token: hold.id, hold_use_type: hold.role })),
+      angles: match.angles },
     model: { name: manifest.name, checkpoint_sha256: manifest.checkpoint_sha256 },
     frames: [allHolds().map(hold => ({ hold_token: hold.id, hold_use_type: hold.role,
       hold_x: geometry.get(hold.id).x, hold_y: geometry.get(hold.id).y,
@@ -447,6 +523,7 @@ worker.onmessage = ({ data }) => {
     const added = generated.filter(hold => !selected.has(hold.id)).length;
     if ($('ble-auto').checked && ble?.connected && allHolds().length) sendToBoard();
     $('generation-status').textContent = `${data.cancelled ? 'Stopped' : 'Complete'} · ${added} added · ${selected.size} picks preserved · V${activeRequest.grade} / ${activeRequest.angle}°`;
+    showMatch();
   } else if (data.type === 'error') {
     if (data.id && data.id !== activeId) return;
     showError(data.message);
@@ -474,5 +551,6 @@ fetch('./model/manifest.json').then(response => {
 }).then(async value => {
   manifest = value;
   $('model-info').textContent = `${manifest.name} · ${manifest.parameters.toLocaleString()} parameters. Trained on Kilter Original 12 × 12 climbs to complete a climb from nothing, from start holds plus some feet, or from any picks, conditioned on numeric V grade and angle / 90. All inference runs on your device.`;
+  loadRealClimbs();
   await Promise.all([draw(manifest), setUpBluetooth(manifest)]);
 }).catch(error => { showError(error.message); });

@@ -36,7 +36,7 @@ def main():
     sub.add_argument("--device", default="cpu")
     sub = commands.add_parser("sample", help="Generate climbs from nothing or from given holds")
     sub.add_argument("checkpoint", type=Path)
-    sub.add_argument("--grade", type=float, required=True, help="Numeric V scale, e.g. 5 for V5")
+    sub.add_argument("--grade", type=float, help="Numeric V scale, e.g. 5 for V5; omit for a null grade")
     sub.add_argument("--angle", type=float, required=True, help="Degrees in [0,90]")
     sub.add_argument("--given", action="append", default=[], metavar="HOLD:ROLE",
                      help="Given hold, e.g. 1176:start or 1091:foot; repeat for more")

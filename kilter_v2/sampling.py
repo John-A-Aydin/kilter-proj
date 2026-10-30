@@ -3,6 +3,7 @@ import numpy as np
 import torch
 
 from .data import BOS, EOS, FINISH, FOOT, MAX_FINISHES, MAX_STARTS, PAD, SEP, START, Board
+from .model import NULL_GRADE
 
 
 def validate_given(board, given, max_holds):
@@ -43,16 +44,59 @@ def allowed_tokens(board, used, last_rank, starts, finishes, count, max_holds):
     return allowed
 
 
+class LegalTokens:
+    """``allowed_tokens`` for every position of a batch of ``BOS given SEP rest`` inputs."""
+
+    def __init__(self, board, max_holds, device):
+        self.rank = torch.as_tensor(board.rank, dtype=torch.long, device=device)
+        self.max_holds = max_holds
+        self.n_holds = (board.vocab_size - 4) // 4
+        self.hold_of = torch.arange(board.vocab_size - 4, device=device) // 4
+        self.role_of = torch.arange(board.vocab_size - 4, device=device) % 4
+
+    @torch.no_grad()
+    def __call__(self, tokens):
+        is_hold = tokens >= 4
+        holds, roles = ((tokens - 4) // 4).clamp(min=0), (tokens - 4) % 4
+        used = torch.zeros(*tokens.shape, self.n_holds, dtype=torch.long, device=tokens.device)
+        used.scatter_(2, holds.unsqueeze(2), is_hold.long().unsqueeze(2))
+        used = used.cumsum(1) > 0
+        starts = (is_hold & (roles == START)).cumsum(1)
+        finishes = (is_hold & (roles == FINISH)).cumsum(1)
+        count = is_hold.cumsum(1)
+        in_rest = (tokens == SEP).cumsum(1) > 0
+        last_rank = self.rank[tokens].masked_fill(~(is_hold & in_rest), -1).cummax(1).values
+        needed = (starts == 0).long() + (finishes == 0).long()
+        role = self.role_of[None, None]
+        candidate = (self.rank[4:][None, None] > last_rank.unsqueeze(2)) & ~used[:, :, self.hold_of]
+        candidate &= (role != START) | (starts < MAX_STARTS).unsqueeze(2)
+        candidate &= (role != FINISH) | (finishes < MAX_FINISHES).unsqueeze(2)
+        no_start, no_finish = (starts == 0).unsqueeze(2), ((starts > 0) & (finishes == 0)).unsqueeze(2)
+        candidate &= ~no_start | (role == START)
+        candidate &= ~no_finish | (role != FOOT)
+        candidate &= ~(no_finish & (self.max_holds - count <= needed).unsqueeze(2)) | (role == FINISH)
+        candidate &= (count < self.max_holds).unsqueeze(2)
+        allowed = torch.zeros(*tokens.shape, self.rank.numel(), dtype=torch.bool, device=tokens.device)
+        allowed[:, :, 4:] = candidate
+        allowed[:, :, EOS] = needed == 0
+        return allowed
+
+
 @torch.no_grad()
 def generate(model, board, grade, angle, given=(), temperature=1.0, top_k=0, generator=None,
              constrained=True, max_holds=40):
-    """Sample the remaining holds. ``given`` is [(hold_id, role)]; returns holds, given first."""
-    if grade < 0 or not 0 <= angle <= 90 or temperature <= 0 or top_k < 0:
-        raise ValueError("Invalid grade, angle, temperature, or top_k")
+    """Sample the remaining holds. ``given`` is [(hold_id, role)]; returns holds, given first.
+
+    ``grade=None`` samples with a null grade, for models trained with one.
+    """
+    if (grade is None and not model.config.null_grade) or (grade is not None and grade < 0):
+        raise ValueError("Invalid grade: null needs a model trained with null grades")
+    if not 0 <= angle <= 90 or temperature <= 0 or top_k < 0:
+        raise ValueError("Invalid angle, temperature, or top_k")
     max_holds = min(max_holds, model.max_len - 2)
     given_tokens = validate_given(board, given, max_holds)
     device = next(model.parameters()).device
-    conditions = torch.tensor([[grade, angle / 90.0]], device=device)
+    conditions = torch.tensor([[NULL_GRADE if grade is None else grade, angle / 90.0]], device=device)
     tokens = [BOS, *given_tokens, SEP]
     used = {board.split(t)[0] for t in given_tokens}
     roles = [board.split(t)[1] for t in given_tokens]
@@ -106,4 +150,4 @@ def climb_checks(holds, y_of):
                     "largest_hand_gap": float(np.diff(route).max()) if len(route) > 1 else float("nan")}
 
 
-__all__ = ["Board", "allowed_tokens", "climb_checks", "generate", "validate_given"]
+__all__ = ["Board", "LegalTokens", "allowed_tokens", "climb_checks", "generate", "validate_given"]

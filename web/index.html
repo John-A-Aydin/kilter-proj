@@ -18,11 +18,32 @@
   <main>
     <div class="intro"><div><p class="eyebrow">A LITTLE HUMAN. A LITTLE TRANSFORMER.</p><h1>Your holds. A new possibility.</h1><p class="subtitle">Pick your start holds and maybe some feet, or nothing at all. Set your grade and angle. Let the model set the rest.</p></div><span class="board-label">KILTER ORIGINAL<br><strong>12 × 12 + kickboard</strong></span></div>
     <div class="workspace">
+      <div class="board-column">
       <section class="board-panel" aria-label="Interactive Kilter board">
         <div class="board-toolbar"><span><span class="tiny-dot"></span> YOUR CANVAS</span><div class="zoom"><button id="zoom-out" aria-label="Zoom out">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button></div></div>
         <div class="board-scroll" id="board-scroll"><svg id="svg-climb" xmlns="http://www.w3.org/2000/svg" role="group" aria-label="Kilter Original hold selector"></svg></div>
         <div class="board-footer"><span><i class="line solid"></i> Your picks</span><span><i class="line dashed"></i> Model additions</span><span class="hold-total">476 holds</span></div>
       </section>
+      <section class="board-panel match-panel" id="match-panel" aria-labelledby="match-heading" hidden>
+        <div class="board-toolbar"><span id="match-heading"><span class="tiny-dot"></span> CLOSEST REAL CLIMB</span><span id="match-count"></span></div>
+        <div class="match-body">
+          <div class="match-board"><svg id="svg-match" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The closest real climb on the board"></svg></div>
+          <div class="match-info">
+            <p class="match-status" id="match-status" role="status" aria-live="polite">Loading real climbs…</p>
+            <div id="match-details" hidden>
+              <span class="match-badge" id="match-exact" hidden>Same holds as a real climb</span>
+              <h2 id="match-name"></h2>
+              <p class="match-grade" id="match-grade"></p>
+              <div class="match-overlap"><strong id="match-overlap"></strong><span>hold overlap</span></div>
+              <p class="match-shared" id="match-shared"></p>
+              <div class="match-angles" id="match-angles" aria-label="Grades at each angle"></div>
+              <div class="match-legend"><span><i class="line solid"></i> Also in your climb</span><span><i class="line dashed"></i> Not in yours</span></div>
+              <p class="match-note">Overlap is shared holds divided by the holds in either climb, ignoring roles. Ties go to more holds in the same role, then more ascents.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+      </div>
       <aside class="controls" id="controls" data-tab="climb" aria-label="Controls">
         <div class="tabs" role="tablist" aria-label="Mode">
           <button role="tab" id="tab-climb" data-tab="climb" aria-controls="panel-climb" aria-selected="true">Set a climb</button>

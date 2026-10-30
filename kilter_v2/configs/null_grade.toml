@@ -1,0 +1,47 @@
+# The large v2 model, trained with half of its rows given a null grade.
+name = "climb_v2_null_grade"
+output_dir = "runs"
+
+[data]
+source = "data/processed/climbs.jsonl"
+vocabulary = "data/processed/hold_vocabulary.csv"
+cache_dir = "data/experiments_v2"
+split_seed = 42
+train_fraction = 0.90
+validation_fraction = 0.05
+max_holds = 40
+include_computed_grades = true
+remove_split_leakage = true
+
+[model]
+d_model = 192
+n_layers = 6
+n_heads = 6
+ff_multiplier = 4
+dropout = 0.1
+coordinate_frequencies = 6
+null_grade = true
+
+[train]
+seed = 42
+epochs = 8
+batch_size = 256
+learning_rate = 0.001
+weight_decay = 0.01
+beta1 = 0.9
+beta2 = 0.98
+warmup_fraction = 0.03
+min_lr_ratio = 0.05
+grad_clip = 1.0
+patience = 2
+device = "auto"
+threads = 4
+ascent_weighting = "none"
+p_scratch = 0.3
+p_starts = 0.45
+p_random = 0.25
+p_null_grade = 0.5
+rule_loss = false
+log_every = 100
+max_train_batches = 0
+max_eval_batches = 0

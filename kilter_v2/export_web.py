@@ -1,5 +1,9 @@
-"""Export a v2 checkpoint for browser inference (same ONNX interface as kilter/export_web.py)."""
+"""Export a v2 checkpoint for browser inference (same ONNX interface as kilter/export_web.py).
+
+Also exports every real climb in the dataset, so the page can show the closest one to a generated climb.
+"""
 import argparse
+from collections import defaultdict
 import csv
 import json
 from pathlib import Path
@@ -8,7 +12,7 @@ import numpy as np
 import torch
 
 from .config import write_json
-from .data import BOS, EOS, MAX_FINISHES, MAX_STARTS, PAD, ROLE_ORDER, SEP, sha256
+from .data import BOS, EOS, MAX_FINISHES, MAX_STARTS, PAD, ROLE_ORDER, SEP, load_arrays, prepare, sha256
 from .experiment import load_run
 from .model import parameter_count
 from .sampling import allowed_tokens
@@ -58,7 +62,65 @@ def decoding_fixtures(board, max_holds, rng, walks=12):
     return fixtures
 
 
-def export(checkpoint, output, vocabulary):
+def climb_catalogue(arrays, board, names):
+    """One entry per climb UUID across every split, most total ascents first.
+
+    Returns JSON metadata and the typed arrays that web/src/similar.mjs reads from climbs.bin, in order.
+    Holds are ``hold_id * 4 + role``; each angle row has its angle, V grade, and ascensionist count.
+    """
+    rows = defaultdict(list)
+    for i, uuid in enumerate(arrays["uuids"]):
+        rows[str(uuid)].append(i)
+    offsets, tokens = arrays["offsets"], arrays["tokens"]
+    ascents = arrays["ascents"].astype(np.int64)
+    order = sorted(rows, key=lambda uuid: -ascents[rows[uuid]].sum())
+    holds, hold_counts, angle_counts, angles, grades, row_ascents = [], [], [], [], [], []
+    for uuid in order:
+        first = rows[uuid][0]
+        climb = tokens[offsets[first]:offsets[first + 1]]
+        if any(not np.array_equal(tokens[offsets[i]:offsets[i + 1]], climb) for i in rows[uuid]):
+            raise ValueError(f"Climb {uuid} has different holds at different angles")
+        for token in climb:
+            dense, role = board.split(token)
+            holds.append(board.holds[dense] * 4 + role)
+        hold_counts.append(len(climb))
+        angle_counts.append(len(rows[uuid]))
+        for i in rows[uuid]:
+            grade, angle = arrays["conditions"][i]
+            angles.append(round(float(angle) * 90))
+            grades.append(round(float(grade)))
+            row_ascents.append(ascents[i])
+    # Widest types first, so every typed array starts on an aligned byte offset.
+    columns = [("ascents", np.uint32, row_ascents), ("holds", np.uint16, holds), ("hold_counts", np.uint8, hold_counts),
+               ("angle_counts", np.uint8, angle_counts), ("angles", np.uint8, angles), ("grades", np.uint8, grades)]
+    packed = []
+    for name, dtype, values in columns:
+        values = np.asarray(values)
+        if values.min() < 0 or values.max() > np.iinfo(dtype).max:
+            raise ValueError(f"{name} does not fit in {np.dtype(dtype).name}")
+        packed.append((name, values.astype(np.dtype(dtype).newbyteorder("<"))))
+    metadata = {"format": "kilter-climbs-v1", "climbs": len(order), "rows": len(row_ascents),
+                "names": [names.get(uuid, "") for uuid in order],
+                "arrays": [{"name": name, "type": np.dtype(values.dtype).name, "length": len(values)}
+                           for name, values in packed]}
+    return metadata, [values for _, values in packed]
+
+
+def export_climbs(config, board, climbs_csv, output):
+    with Path(climbs_csv).open(newline="") as source:
+        names = {r["climb_uuid"]: r["name"] for r in csv.DictReader(source)}
+    directory, metadata = prepare(config.data)
+    catalogue, columns = climb_catalogue(load_arrays(directory), board, names)
+    destination = output / "climbs.bin"
+    with destination.open("wb") as target:
+        for values in columns:
+            target.write(values.tobytes())
+    write_json(output / "climbs.json", {**catalogue, "data_fingerprint": metadata["fingerprint"],
+                                        "bin_sha256": sha256(destination)})
+    return catalogue["climbs"], destination.stat().st_size
+
+
+def export(checkpoint, output, vocabulary, climbs_csv):
     import onnx
     import onnxruntime as ort
 
@@ -114,8 +176,10 @@ def export(checkpoint, output, vocabulary):
     write_json(output / "manifest.json", manifest)
     write_json(output / "parity-fixtures.json", fixtures)
     write_json(output / "decoding-fixtures.json", decoding_fixtures(board, config.data.max_holds, rng))
+    climbs, climb_bytes = export_climbs(config, board, climbs_csv, output)
     print(json.dumps({"output": str(output), "parameters": manifest["parameters"],
-                      "onnx_bytes": destination.stat().st_size, "max_absolute_error": max_error}))
+                      "onnx_bytes": destination.stat().st_size, "max_absolute_error": max_error,
+                      "real_climbs": climbs, "climb_bytes": climb_bytes}))
 
 
 def main():
@@ -123,8 +187,10 @@ def main():
     parser.add_argument("checkpoint", type=Path)
     parser.add_argument("--output", type=Path, default=Path("web/public/model"))
     parser.add_argument("--vocabulary", type=Path, default=Path("data/processed/hold_vocabulary.csv"))
+    parser.add_argument("--climbs", type=Path, default=Path("data/processed/climbs.csv"),
+                        help="Climb metadata CSV, for the names of real climbs")
     args = parser.parse_args()
-    export(args.checkpoint, args.output, args.vocabulary)
+    export(args.checkpoint, args.output, args.vocabulary, args.climbs)
 
 
 if __name__ == "__main__":

@@ -17,7 +17,8 @@ from torch.utils.data import DataLoader, Sampler
 
 from .config import Config, ModelConfig, write_json
 from .data import EVAL_MODES, PAD, Board, ClimbDataset, Collator, load_arrays, prepare
-from .model import ClimbTransformer, parameter_count, weighted_token_loss
+from .model import NULL_GRADE, ClimbTransformer, parameter_count, weighted_token_loss
+from .sampling import LegalTokens
 
 
 def setup(config):
@@ -67,30 +68,52 @@ def eval_loader(arrays, split, mode, batch_size):
 
 
 @torch.no_grad()
-def evaluate(model, arrays, split, device, batch_size=512, max_batches=0, modes=EVAL_MODES):
+def evaluate(model, arrays, split, device, batch_size=512, max_batches=0, modes=EVAL_MODES, null_grade=False,
+             legal=None):
     """Per-climb negative log-likelihood (nats) of the non-given holds and EOS, for each given mode.
 
     ``scratch`` is the full joint probability of a climb's holds and roles, comparable to any
     model that assigns one sequence per climb, including the kilter/ baseline.
+    ``null_grade`` hides every row's grade from the model. With ``legal``, each mode also gets
+    ``nll_rules``: the same score when the decoding rules remove illegal tokens first.
     """
     model.eval()
     results = {}
     for mode in modes:
-        total, tokens, rows, correct = 0.0, 0, 0, 0
+        total, rule_total, tokens, rows, correct = 0.0, 0.0, 0, 0, 0
         for i, (x, y, conditions, _) in enumerate(eval_loader(arrays, split, mode, batch_size)):
             if max_batches and i >= max_batches:
                 break
+            if null_grade:
+                conditions[:, 0] = NULL_GRADE
             x, y, conditions = x.to(device), y.to(device), conditions.to(device)
             mask = y != PAD
             logits = model(x, conditions, output_mask=mask)
             losses = torch.nn.functional.cross_entropy(logits, y[mask], reduction="sum")
             total += losses.item()
+            if legal is not None:
+                ruled = logits.masked_fill(~legal(x)[mask], -torch.inf)
+                rule_total += torch.nn.functional.cross_entropy(ruled, y[mask], reduction="sum").item()
             correct += (logits.argmax(-1) == y[mask]).sum().item()
             tokens += mask.sum().item()
             rows += len(x)
         results[mode] = {"nll_per_climb": total / rows, "loss_per_token": total / tokens,
                          "token_accuracy": correct / tokens, "rows": rows}
+        if legal is not None:
+            results[mode]["nll_rules"] = rule_total / rows
     results["selection_nll"] = float(np.mean([results[m]["nll_per_climb"] for m in modes]))
+    if legal is not None:
+        results["selection_nll_rules"] = float(np.mean([results[m]["nll_rules"] for m in modes]))
+    return results
+
+
+def evaluate_grades(model, arrays, split, device, p_null_grade, max_batches=0, legal=None):
+    """Score with real grades, unless the model never saw one, and with null grades if it trained on them."""
+    results = evaluate(model, arrays, split, device, max_batches=max_batches, null_grade=p_null_grade == 1,
+                       legal=legal)
+    if 0 < p_null_grade < 1:
+        results["null_grade"] = evaluate(model, arrays, split, device, max_batches=max_batches, null_grade=True,
+                                         legal=legal)
     return results
 
 
@@ -115,8 +138,9 @@ def train(config, resume=None):
     device = setup(config.train)
     cache_dir, metadata = prepare(config.data)
     arrays = load_arrays(cache_dir)
-    model, _ = build_model(config.model, metadata, config.data)
+    model, board = build_model(config.model, metadata, config.data)
     model.to(device)
+    legal = LegalTokens(board, config.data.max_holds, device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.train.learning_rate,
                                   betas=(config.train.beta1, config.train.beta2),
                                   weight_decay=config.train.weight_decay)
@@ -187,9 +211,13 @@ def train(config, resume=None):
         for i, (x, y, conditions, weights) in enumerate(train_loader):
             if i >= batches:
                 break
+            if t.p_null_grade:
+                conditions[torch.rand(len(x)) < t.p_null_grade, 0] = NULL_GRADE
             x, y, conditions, weights = x.to(device), y.to(device), conditions.to(device), weights.to(device)
             optimizer.zero_grad(set_to_none=True)
             logits = model(x, conditions, output_mask=y != PAD)
+            if t.rule_loss:
+                logits = logits.masked_fill(~legal(x)[y != PAD], -torch.inf)
             loss, _ = weighted_token_loss(logits, y, weights)
             if not torch.isfinite(loss):
                 raise RuntimeError(f"Nonfinite loss at step {global_step}")
@@ -204,10 +232,11 @@ def train(config, resume=None):
                 print(json.dumps({"epoch": epoch + 1, "batch": i + 1, "batches": batches,
                                   "train_loss": loss_sum / weight_sum,
                                   "seconds": round(time.perf_counter() - epoch_start, 1)}), flush=True)
-        validation = evaluate(model, arrays, 1, device, max_batches=t.max_eval_batches)
-        improved = validation["selection_nll"] < best_loss
+        validation = evaluate_grades(model, arrays, 1, device, t.p_null_grade, t.max_eval_batches, legal)
+        score = validation["selection_nll_rules" if t.rule_loss else "selection_nll"]
+        improved = score < best_loss
         if improved:
-            best_loss, stale_epochs = validation["selection_nll"], 0
+            best_loss, stale_epochs = score, 0
         else:
             stale_epochs += 1
         record = {"epoch": epoch + 1, "step": global_step, "train_loss": loss_sum / max(1, weight_sum),
@@ -256,13 +285,15 @@ def load_run(checkpoint, device="cpu"):
 
 
 def evaluate_run(checkpoint, split="test", device="cpu"):
-    model, _, config, metadata = load_run(checkpoint, device)
+    model, board, config, metadata = load_run(checkpoint, device)
     torch.set_num_threads(config.train.threads)
     cache_dir, current = prepare(config.data)
     if current["fingerprint"] != metadata["fingerprint"]:
         raise ValueError("Dataset changed since training")
     result = {"split": split, "checkpoint": str(checkpoint),
-              **evaluate(model, load_arrays(cache_dir), {"validation": 1, "test": 2}[split], device)}
+              **evaluate_grades(model, load_arrays(cache_dir), {"validation": 1, "test": 2}[split], device,
+                                config.train.p_null_grade,
+                                legal=LegalTokens(board, config.data.max_holds, device))}
     write_json(Path(checkpoint).parent / f"{Path(checkpoint).stem}_{split}.json", result)
     print(json.dumps(result), flush=True)
     return result

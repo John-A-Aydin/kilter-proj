@@ -13,6 +13,25 @@ include normalized coordinates, usage types, kickboard flags, and stable tokens.
 See [data/README.md](data/README.md) for reproduction commands, schemas,
 source dates, grade/ascent provenance, and validation.
 
+## v2 climb transformer
+
+[`kilter_v2/`](kilter_v2/README.md) is a rebuilt model that generates a climb from
+nothing, or completes one from given holds such as your start holds plus some feet.
+It trains on `BOS <given> SEP <rest> EOS` in a canonical start/hand/finish/foot
+order, uses hold geometry in its embeddings, and is larger (0.9M and 2.9M
+parameters). On the same held-out climbs, the chosen 2.9M run scores **45.34 nats
+per climb** on test, against **50.54** for this baseline. Completing a real climb's
+starts plus every other foot gives a structurally valid climb 98% of the time,
+against 16% for the baseline's barrier decoding. The web interface uses v2, now the 2.9M `null_rule_16` model (37.01 nats per climb across
+the three modes with decoding rules applied; see the v2 README). The
+baseline below is unchanged. See the [v2 README](kilter_v2/README.md) for the
+format, commands, full results, and caveats.
+
+```bash
+.venv/bin/python -m kilter_v2 train
+.venv/bin/python -m kilter_v2 sample runs/<run>/best.pt --grade 5 --angle 40 --given 1176:start --given 1192:start
+```
+
 ## Interactive climb completion
 
 The [web interface](web/README.md) lets you select holds and roles on the board,

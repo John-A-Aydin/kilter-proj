@@ -5,6 +5,10 @@ from torch.nn import functional as F
 from .data import PAD, SEP
 
 MAX_GRADE = 16.0
+# Stands for "no grade" in the grade slot of conditions; real grades are never negative.
+NULL_GRADE = -1.0
+# Columns of condition_features that depend on the grade.
+GRADE_FEATURES = [0, 2, 3, 4, 5, 10, 11, 12, 13]
 
 
 class Block(nn.Module):
@@ -30,11 +34,19 @@ class Block(nn.Module):
         return x + self.mlp(self.norm2(x))
 
 
-def condition_features(conditions):
-    """[V grade, angle/90] -> normalized values with sinusoidal features, so their effect can be nonlinear."""
+def condition_features(conditions, null_grade=False):
+    """[V grade, angle/90] -> normalized values with sinusoidal features, so their effect can be nonlinear.
+
+    With ``null_grade``, null rows get zeros in the grade columns and a 1 in one extra column.
+    """
     values = torch.stack([conditions[:, 0] / MAX_GRADE, conditions[:, 1]], dim=1)
     scaled = values.unsqueeze(-1) * (torch.pi * 2.0 ** torch.arange(4, device=values.device))
-    return torch.cat([values, scaled.sin().flatten(1), scaled.cos().flatten(1)], dim=1)
+    features = torch.cat([values, scaled.sin().flatten(1), scaled.cos().flatten(1)], dim=1)
+    if not null_grade:
+        return features
+    null = conditions[:, :1] == NULL_GRADE
+    features[:, GRADE_FEATURES] = features[:, GRADE_FEATURES].masked_fill(null, 0.0)
+    return torch.cat([features, null.to(features.dtype)], dim=1)
 
 
 class ClimbTransformer(nn.Module):
@@ -54,7 +66,7 @@ class ClimbTransformer(nn.Module):
         self.geometry = nn.Sequential(nn.Linear(self.hold_features.shape[1], d), nn.GELU(), nn.Linear(d, d))
         self.position = nn.Embedding(max_len, d)
         self.segment = nn.Embedding(2, d)
-        self.condition = nn.Sequential(nn.Linear(18, d), nn.GELU(), nn.Linear(d, d))
+        self.condition = nn.Sequential(nn.Linear(19 if config.null_grade else 18, d), nn.GELU(), nn.Linear(d, d))
         self.dropout = nn.Dropout(config.dropout)
         self.blocks = nn.ModuleList([Block(config) for _ in range(config.n_layers)])
         self.norm = nn.LayerNorm(d)
@@ -86,7 +98,7 @@ class ClimbTransformer(nn.Module):
         position = index - sep_index * segment
         table = self.token_table()
         x = (F.embedding(tokens, table) + self.position(position) + self.segment(segment)
-             + self.condition(condition_features(conditions)).unsqueeze(1))
+             + self.condition(condition_features(conditions, self.config.null_grade)).unsqueeze(1))
         x = self.dropout(x)
         for block in self.blocks:
             x = block(x)

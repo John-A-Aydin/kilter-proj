@@ -1,0 +1,122 @@
+{
+  "ar_transformer_s42": {
+    "best.pt": "3e12be207cd07c9448a26b771b1ef51310b73773b7fff0ca27fd6434fb068f7b",
+    "run": "runs/20261030T004007463275Z_ar_transformer"
+  },
+  "ar_transformer_s43": {
+    "best.pt": "cbb164099a93774977aefc07ddf6744ad2aa4f59eca68a8237146c0931c2577b",
+    "run": "runs/20261030T154915874647Z_ar_transformer"
+  },
+  "ar_transformer_s44": {
+    "best.pt": "b2b165c2c94b504dda56dfc19c8c48e73924ceadb165b068589e182a9e2fe8d4",
+    "run": "runs/20261030T154915895501Z_ar_transformer"
+  },
+  "climb_v2_d192_s42": {
+    "best.pt": "fcc5cb6eea33cd7b281bd1892cf06ef244de2f6a78945ee422b21e3507c336a8",
+    "run": "runs/20261030T004007515833Z_climb_v2_d192"
+  },
+  "climb_v2_d192_s43": {
+    "best.pt": "03eb9c4a063dc9220195d43c35927038400e3f356cf639c99431cfc8fc0a9cbd",
+    "run": "runs/20261030T155340059990Z_climb_v2_d192"
+  },
+  "climb_v2_d192_s44": {
+    "best.pt": "d42acc2a9bfae06ce91063e001d496dd3e8cc1f9a6dcd5aaa52dde23954f5c7b",
+    "run": "runs/20261030T155508448477Z_climb_v2_d192"
+  },
+  "climb_v2_no_grade_s42": {
+    "best.pt": "375621bbce08d244c2ccc69c2e0613f9695fa47448e19cf9913fda567d0007da",
+    "run": "runs/20261030T153708686689Z_climb_v2_no_grade"
+  },
+  "climb_v2_no_grade_s43": {
+    "best.pt": "3d3053ad40cad5e0255aec4e0a17ce0ac4f91cb6c58511502dd15238f99940a1",
+    "run": "runs/20261030T160621118732Z_climb_v2_no_grade"
+  },
+  "climb_v2_no_grade_s44": {
+    "best.pt": "cc923bee7ffb45f04481b8e08407284efed3cdf89a2ace98be37bfd6b8951fcf",
+    "run": "runs/20261030T161503414624Z_climb_v2_no_grade"
+  },
+  "climb_v2_null_grade_s42": {
+    "best.pt": "2cbe917018580a540a45232897df475d4c93a7a6614e719c3fd5a0098f43cba0",
+    "run": "runs/20261030T153146776441Z_climb_v2_null_grade"
+  },
+  "climb_v2_null_grade_s43": {
+    "best.pt": "07891f86e4c80a9ed9bb08855b51ffca0a1dc24e5a4379c9d596cf39aeb03e71",
+    "run": "runs/20261030T160150580882Z_climb_v2_null_grade"
+  },
+  "climb_v2_null_grade_s44": {
+    "best.pt": "e7ca9e902c316586368fd09599344a51e44d7b6c7f0949aa032371c906540e3b",
+    "run": "runs/20261030T160433555866Z_climb_v2_null_grade"
+  },
+  "climb_v2_s42": {
+    "best.pt": "f9bdf58a677617166cabb9031d8095becb2d51083fcfc1531f4638e0801293bd",
+    "run": "runs/20261030T004007514421Z_climb_v2"
+  },
+  "climb_v2_s43": {
+    "best.pt": "82df71af7ad4c906cd040d312eae232a65ef7101e0cbffb655cfda0aea5bd1d7",
+    "run": "runs/20261030T154915909423Z_climb_v2"
+  },
+  "climb_v2_s44": {
+    "best.pt": "713b5219b4c328b8ce1fc98986d9b70dcf604bb3f84821637c51f991eeb281cf",
+    "run": "runs/20261030T155339831256Z_climb_v2"
+  },
+  "null_16_epochs_s42": {
+    "best.pt": "9358d4c0a6f08dcbb528157b1383bfe6cbddf486a918b89db611cd7dbda249f0",
+    "run": "runs/20261030T164437930407Z_null_16_epochs"
+  },
+  "null_16_epochs_s43": {
+    "best.pt": "39602a7b52561aa64cbefedb1ba22840ba42b48a1595dd33f85db0c96a3ac50d",
+    "run": "runs/20261030T164437930669Z_null_16_epochs"
+  },
+  "null_16_epochs_s44": {
+    "best.pt": "d9cc9f36150cec046c4a76dc3c3ca8c436d46a9a5c685c9bd5b31cb58ba7311a",
+    "run": "runs/20261030T164437930472Z_null_16_epochs"
+  },
+  "null_ascent_weighted_s42": {
+    "best.pt": "48e5a02ef5951c4ab07402eaffc7d90a6d9ec08b0ead81466b71ad18bdb1a81f",
+    "run": "runs/20261030T173357709486Z_null_ascent_weighted"
+  },
+  "null_ascent_weighted_s43": {
+    "best.pt": "af4eb934f0ed4fbeef4f60bdab50cfe832f7b0b0ce8948204a704ecf7b3daf9b",
+    "run": "runs/20261030T173542676780Z_null_ascent_weighted"
+  },
+  "null_ascent_weighted_s44": {
+    "best.pt": "37d3f7cdea6250bef2119285cee77a0a7654017ab7f8b33a0ef18e053b46e390",
+    "run": "runs/20261030T173724581465Z_null_ascent_weighted"
+  },
+  "null_d256_s42": {
+    "best.pt": "1cea98a5439589d266a9e6b4a01ad9f5b89eb36a2a7ef9d4e3cae4f215c64991",
+    "run": "runs/20261030T171034318600Z_null_d256"
+  },
+  "null_d256_s43": {
+    "best.pt": "ae7c8c4dcbc49e3212218b85651f07ee5037a0f7741e1ae3090bda2026b3ac3a",
+    "run": "runs/20261030T171223440440Z_null_d256"
+  },
+  "null_d256_s44": {
+    "best.pt": "4c7307860d4b5efd7bee28ca6a922562935dd66945ed603fcaf9216198994129",
+    "run": "runs/20261030T171425107595Z_null_d256"
+  },
+  "null_rule_16_s42": {
+    "best.pt": "a7994e9b428c812ecc19c3e07d44f0ad2ac0766fd1032f4059e9f87612d007ef",
+    "run": "runs/20261030T183726219416Z_null_rule_16"
+  },
+  "null_rule_16_s43": {
+    "best.pt": "445f538c02c90704462470e7a7b91a517e8c69487f3edd509b522e409ba6930d",
+    "run": "runs/20261030T183726212458Z_null_rule_16"
+  },
+  "null_rule_16_s44": {
+    "best.pt": "90bd3d29f298e6d3c8de879ade8abc2ca01bd02b6c123cd37e09a1634bd7be6d",
+    "run": "runs/20261030T183726211581Z_null_rule_16"
+  },
+  "null_rule_loss_s42": {
+    "best.pt": "c15f3c6260725f3c80b257930c98125af86f2cd8fee2259ca4da90b6bedc3e11",
+    "run": "runs/20261030T174616506154Z_null_rule_loss"
+  },
+  "null_rule_loss_s43": {
+    "best.pt": "86e377a301dd9e29eb5ec9c30a3d44d1d71e75969398d5813efaa5308de275cf",
+    "run": "runs/20261030T174744382107Z_null_rule_loss"
+  },
+  "null_rule_loss_s44": {
+    "best.pt": "f7656381f6ea4c9dad72969abe9db47403b2632917083401ff0f0814135c43dc",
+    "run": "runs/20261030T174922091314Z_null_rule_loss"
+  }
+}

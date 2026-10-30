@@ -40,6 +40,13 @@ def validate(raw_dir, output_dir, progress=False):
             require(table in {"board_climbs", "board_climb_stats"}, "Unexpected source table")
             require(db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == info["rowCount"],
                     f"Source row count mismatch: {table}")
+        require(not db.execute("""
+            SELECT 1 FROM board_climbs c WHERE c.layout_id = :layout_id
+              AND EXISTS (SELECT 1 FROM json_each(c.compatible_size_ids) WHERE value IN (8, 14))
+              AND NOT EXISTS (SELECT 1 FROM json_each(c.compatible_size_ids) WHERE value = :size_id)
+              AND c.is_listed = 1 AND COALESCE(c.is_draft, 0) = 0 AND COALESCE(c.is_hidden, 0) = 0
+        """, {"layout_id": layout["id"], "size_id": size["id"]}).fetchone(),
+                "An 8x12 or 7x10 climb is not compatible with the exported board")
         source_rows = db.execute(QUERY, {"layout_id": layout["id"], "size_id": size["id"]})
         grade_mapping = get_difficulty_mapping(geometry)
         require(manifest["schema_version"] == 2 and manifest["row_key"] == ["climb_uuid", "angle"],

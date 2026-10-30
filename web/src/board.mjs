@@ -7,7 +7,8 @@ const ASSETS = new URL('../vendor/boardsesh/', import.meta.url);
 // Image layering and placement projection follow Boardsesh's BoardRenderer and
 // BoardLitupHolds. Traced paths give each hold an accurate, keyboard-accessible
 // hit area; the actual Boardsesh WASM renderer supplies the Aura overlay.
-export async function createBoard(svg, manifest, onHoldClick, onError) {
+// A non-interactive board is display-only: its holds take no clicks or focus.
+export async function createBoard(svg, manifest, onHoldClick, onError, { interactive = true, idPrefix = 'hold-' } = {}) {
   const response = await fetch(new URL('kilter-original-12x12.json', ASSETS));
   if (!response.ok) throw new Error('Could not load the Kilter hold outlines.');
   const config = buildBoardConfig(manifest, await response.json());
@@ -34,17 +35,22 @@ export async function createBoard(svg, manifest, onHoldClick, onError) {
   const paths = new Map();
   for (const hold of config.holds) {
     const path = document.createElementNS(NS, 'path');
-    path.id = `hold-${hold.id}`;
+    path.id = `${idPrefix}${hold.id}`;
     path.classList.add('hold');
     path.setAttribute('d', outlinePath(hold));
     path.setAttribute('fill', 'transparent');
     path.setAttribute('stroke', 'transparent');
-    path.setAttribute('tabindex', '0');
-    path.setAttribute('role', 'button');
-    path.onclick = onHoldClick;
-    path.onkeydown = event => {
-      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onHoldClick(event); }
-    };
+    if (interactive) {
+      path.setAttribute('tabindex', '0');
+      path.setAttribute('role', 'button');
+      path.onclick = onHoldClick;
+      path.onkeydown = event => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onHoldClick(event); }
+      };
+    } else {
+      path.classList.add('static');
+      path.setAttribute('aria-hidden', 'true');
+    }
     paths.set(hold.id, path);
     svg.append(path);
   }
@@ -85,6 +91,7 @@ export async function createBoard(svg, manifest, onHoldClick, onError) {
       path.setAttribute('stroke', entry ? BOARD_COLORS[entry.role] : 'transparent');
       path.setAttribute('stroke-width', locked ? '2.5' : '1.5');
       path.setAttribute('stroke-dasharray', entry && !locked ? '4 4' : 'none');
+      if (!interactive) continue;
       path.setAttribute('aria-pressed', String(locked));
       path.setAttribute('aria-label', `Hold ${id}, ${lookup.get(id).name}${entry ? `, ${ROLE_NAMES[entry.role]}${locked ? ', locked' : ', generated'}` : ''}`);
     }

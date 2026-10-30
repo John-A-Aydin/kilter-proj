@@ -2,7 +2,7 @@
 
 You are finishing work that was paused while two training runs completed. Read
 this whole file first. All commands run from the repository root,
-`/home/alex/School/kilter-proj`. Use `.venv/bin/python`. Do not commit anything
+`/home/john/School/kilter-proj`. Use `.venv/bin/python`. Do not commit anything
 unless the user asks.
 
 ## The goal
@@ -30,7 +30,12 @@ Done and tested:
   `web/public/model/`). It works, but it is not the final model.
 - `.gitignore` now ignores `data/experiments_v2/`.
 
-Remaining (your job):
+Steps 1–4 below were completed on 2026-10-29 on `/home/john`, after rebuilding the
+data and retraining all three runs on the GPU (the original `/home/alex` runs were not
+available). The large run was chosen then. The website now serves `null_rule_16`, seed 43; results are in
+[kilter_v2/README.md](kilter_v2/README.md). Only step 5 remains.
+
+Remaining (originally):
 
 1. Confirm both runs finished: each run directory has a `summary.json`. If not,
    follow [TRAINING.md](TRAINING.md).
@@ -45,17 +50,17 @@ Remaining (your job):
 
 | Run | Directory |
 | --- | --- |
-| Baseline (`kilter/`) | `runs/20261029T174149845596Z_ar_transformer/` |
-| v2 default (width 128, 4 layers, 0.9M params) | `runs/20261029T193736564212Z_climb_v2/` |
-| v2 large (width 192, 6 layers, 2.9M params) | `runs/20261029T193821590530Z_climb_v2_d192/` |
+| Baseline (`kilter/`) | `runs/20261030T004007463275Z_ar_transformer/` |
+| v2 default (width 128, 4 layers, 0.9M params) | `runs/20261030T004007514421Z_climb_v2/` |
+| v2 large (width 192, 6 layers, 2.9M params), **chosen** | `runs/20261030T004007515833Z_climb_v2_d192/` |
 
 If the user restarted a run, its directory name changed. Use `ls runs/`.
 
 ## Commands for the remaining steps
 
 ```bash
-V2=runs/20261029T193736564212Z_climb_v2          # repeat for the d192 run
-BASE=runs/20261029T174149845596Z_ar_transformer/best.pt
+V2=runs/20261030T004007514421Z_climb_v2          # repeat for the d192 run
+BASE=runs/20261030T004007463275Z_ar_transformer/best.pt
 
 # Per-epoch validation history (nats per climb for each given-hold mode).
 cat $V2/metrics.jsonl | python3 -c "import sys,json

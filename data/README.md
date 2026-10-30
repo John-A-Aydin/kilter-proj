@@ -60,7 +60,12 @@ The exporter selects **Kilter Board Original**, layout **1**, size **10**,
 must be listed, published, visible in the current snapshot, and compatible with
 size 10 according to `compatible_size_ids`. Every decoded hold must also exist
 inside the board's geometry; a bad row stops the export with its climb UUID.
-Climbs that fit a smaller wall are included when they also fit this board.
+
+The 8x12 and 7x10 walls are crops of the same Original layout, sharing its
+placement IDs and coordinates, so every public 8x12 and 7x10 climb is also
+compatible with size 10 and is exported on the 12x12 coordinate system;
+`validate.py` enforces this. 16x12 climbs that need holds beyond the 12x12 wall
+and Homewall layouts are excluded.
 
 A qualifying **climb–angle pair** has a positive `ascensionist_count` at that
 angle in either saved stats source. All recorded angles are included, including

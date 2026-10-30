@@ -10,8 +10,8 @@ from kilter_v2.config import Config, DataConfig, ModelConfig, TrainConfig, load_
 from kilter_v2.data import (BOS, EOS, FINISH, FOOT, HAND, PAD, SEP, START, Board, ClimbDataset, Collator,
                             build_example, climb_problem, given_mask, load_arrays, prepare, split_for_uuid)
 from kilter_v2.experiment import evaluate, load_run, train
-from kilter_v2.model import ClimbTransformer, weighted_token_loss
-from kilter_v2.sampling import allowed_tokens, climb_checks, generate, validate_given
+from kilter_v2.model import NULL_GRADE, ClimbTransformer, condition_features, weighted_token_loss
+from kilter_v2.sampling import LegalTokens, allowed_tokens, climb_checks, generate, validate_given
 
 # Six holds on a 2x3 grid: ids 10..15, y rising with id.
 ROWS = [{"id": 10 + i, "x": (i % 2) / 2, "y": (i // 2) / 3, "kickboard": int(i < 2), "set": 1 + 19 * (i % 2)}
@@ -105,6 +105,28 @@ class ModelTests(unittest.TestCase):
         self.model(torch.tensor([[BOS, 5, 9, SEP, 13, PAD]]), c)
         self.assertEqual(positions[-1].tolist(), [[0, 1, 2, 0, 1, 2]])
 
+    def test_null_grade_hides_the_grade_but_not_the_angle(self):
+        conditions = torch.tensor([[NULL_GRADE, 0.25], [NULL_GRADE, 0.5], [5.0, 0.25], [0.0, 0.25]])
+        features = condition_features(conditions, null_grade=True)
+        self.assertEqual(features[:, -1].tolist(), [1, 1, 0, 0])
+        plain = condition_features(conditions)
+        self.assertTrue(torch.equal(features[2:, :-1], plain[2:]))
+        self.assertFalse(torch.equal(features[0, :-1], features[1, :-1]))
+        self.assertFalse(torch.equal(features[0], features[3]))
+        grade_free = condition_features(torch.tensor([[NULL_GRADE, 0.25]]), null_grade=True)
+        self.assertTrue(torch.equal(grade_free[0], features[0]))
+        model = ClimbTransformer(ModelConfig(d_model=16, n_heads=2, n_layers=2, dropout=0, coordinate_frequencies=2,
+                                             null_grade=True), self.board.features(2), 10).eval()
+        tokens = torch.tensor([[BOS, SEP]])
+        logits = [model(tokens, torch.tensor([c])) for c in ([NULL_GRADE, 0.25], [NULL_GRADE, 0.5], [5.0, 0.25])]
+        self.assertFalse(torch.equal(logits[0], logits[1]))
+        self.assertFalse(torch.equal(logits[0], logits[2]))
+
+    def test_models_without_null_grade_keep_their_shape(self):
+        self.assertEqual(self.model.condition[0].in_features, 18)
+        with self.assertRaises(ValueError):
+            Config(train=TrainConfig(p_null_grade=0.5)).validate()
+
     def test_tied_table_shares_geometry_between_roles(self):
         table = self.model.token_table()
         self.assertEqual(table.shape, (self.board.vocab_size, 16))
@@ -171,6 +193,30 @@ class SamplingTests(unittest.TestCase):
         self.assertTrue(all(role == FINISH for _, role in reserve))
         self.assertTrue(PAD not in done and BOS not in done and SEP not in done)
 
+    def test_batched_rules_match_the_decoder(self):
+        rng = np.random.default_rng(3)
+        legal = LegalTokens(self.board, 6, "cpu")
+        for _ in range(200):
+            climb = [hold(11, START), hold(12, HAND), hold(13, HAND), hold(15, FINISH), hold(10, FOOT)]
+            tokens = self.board.encode(climb)
+            x, _ = build_example(tokens, rng.random(len(tokens)) < 0.5)
+            batched = legal(torch.tensor([x]))[0].numpy()
+            given = x[1:x.index(SEP)]
+            used, last, starts, finishes = set(), -1, 0, 0
+            for token in given:
+                used.add(self.board.split(token)[0])
+                starts += self.board.split(token)[1] == START
+                finishes += self.board.split(token)[1] == FINISH
+            for position in range(x.index(SEP), len(x)):
+                if position > x.index(SEP):
+                    dense, role = self.board.split(x[position])
+                    used.add(dense)
+                    starts += role == START
+                    finishes += role == FINISH
+                    last = self.board.rank[x[position]]
+                expected = allowed_tokens(self.board, used, last, starts, finishes, len(used), 6)
+                np.testing.assert_array_equal(batched[position], expected)
+
     def test_generation_keeps_given_holds_and_never_repeats_them(self):
         class Adversary(torch.nn.Module):
             """Always prefers EOS, then the given holds again, then start tokens."""
@@ -201,6 +247,31 @@ class SamplingTests(unittest.TestCase):
             validate_given(self.board, [(10, START), (11, START), (12, START)], 10)
         with self.assertRaises(ValueError):
             validate_given(self.board, [(10, START), (10, FOOT)], 10)
+
+
+class CatalogueTests(unittest.TestCase):
+    def test_real_climbs_are_one_per_uuid_most_ascended_first(self):
+        from kilter_v2.export_web import climb_catalogue
+        board = Board(ROWS)
+        a = board.encode([hold(10, START), hold(13, HAND), hold(15, FINISH)])
+        b = board.encode([hold(11, START), hold(14, FINISH), hold(12, FOOT)])
+        # Climb A at 40°; climb B at 20° and 50°, with more ascents in total.
+        arrays = {"tokens": np.array(a + b + b, dtype=np.int32), "offsets": np.array([0, 3, 6, 9]),
+                  "uuids": np.array(["A", "B", "B"]), "ascents": np.array([5, 3, 4]),
+                  "conditions": np.array([[2, 40 / 90], [7, 20 / 90], [8, 50 / 90]], dtype=np.float32)}
+        metadata, columns = climb_catalogue(arrays, board, {"A": "Alpha", "B": "Bravo"})
+        values = {spec["name"]: column for spec, column in zip(metadata["arrays"], columns)}
+        self.assertEqual(metadata["names"], ["Bravo", "Alpha"])
+        self.assertEqual(values["hold_counts"].tolist(), [3, 3])
+        self.assertEqual(values["angle_counts"].tolist(), [2, 1])
+        self.assertEqual(values["angles"].tolist(), [20, 50, 40])
+        self.assertEqual(values["grades"].tolist(), [7, 8, 2])
+        self.assertEqual(values["ascents"].tolist(), [3, 4, 5])
+        self.assertEqual([(int(v) >> 2, int(v) & 3) for v in values["holds"][:3]],
+                         [(11, START), (14, FINISH), (12, FOOT)])
+        arrays["tokens"][-1] = board.token(board.dense[13], FOOT)
+        with self.assertRaises(ValueError):
+            climb_catalogue(arrays, board, {})
 
 
 class LifecycleTests(unittest.TestCase):
@@ -248,6 +319,19 @@ class LifecycleTests(unittest.TestCase):
                               max_holds=loaded.data.max_holds)
             self.assertEqual(sample["holds"][0], {"hold_token": 10, "hold_use_type": START, "given": True})
             self.assertLessEqual(len(sample["holds"]), 8)
+            with self.assertRaises(ValueError):
+                generate(model, board, None, 40, generator=torch.Generator().manual_seed(1))
+            config.model.null_grade, config.train.p_null_grade, config.train.epochs = True, 0.5, 1
+            config.train.rule_loss = True
+            run = train(config)
+            model, board, loaded, _ = load_run(run / "best.pt")
+            validation = json.loads((run / "metrics.jsonl").read_text().splitlines()[0])["validation"]
+            self.assertTrue(np.isfinite(validation["scratch"]["nll_per_climb"]))
+            self.assertTrue(np.isfinite(validation["null_grade"]["scratch"]["nll_per_climb"]))
+            self.assertLess(validation["selection_nll_rules"], validation["selection_nll"])
+            sample = generate(model, board, None, 40, generator=torch.Generator().manual_seed(1),
+                              max_holds=loaded.data.max_holds)
+            self.assertIsNone(sample["v_grade"])
 
 
 if __name__ == "__main__":

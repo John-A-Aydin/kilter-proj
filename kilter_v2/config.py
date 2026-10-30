@@ -27,6 +27,8 @@ class ModelConfig:
     ff_multiplier: int = 4
     dropout: float = 0.1
     coordinate_frequencies: int = 6
+    # Adds an input that marks a grade as null. Needed when train.p_null_grade is above 0.
+    null_grade: bool = False
 
 
 @dataclass
@@ -50,6 +52,10 @@ class TrainConfig:
     p_scratch: float = 0.3
     p_starts: float = 0.45
     p_random: float = 0.25
+    # Share of training rows whose grade is replaced by null; resampled every batch.
+    p_null_grade: float = 0.0
+    # Train on the decoding rules: illegal tokens get no probability, so the loss ignores them.
+    rule_loss: bool = False
     log_every: int = 100
     max_train_batches: int = 0
     max_eval_batches: int = 0
@@ -95,9 +101,11 @@ class Config:
             raise ValueError("ascent_weighting must be 'none' or 'log'")
         if min(t.p_scratch, t.p_starts, t.p_random) < 0 or abs(t.p_scratch + t.p_starts + t.p_random - 1) > 1e-6:
             raise ValueError("p_scratch, p_starts, and p_random must be nonnegative and sum to 1")
+        if not 0 <= t.p_null_grade <= 1 or (t.p_null_grade > 0 and not m.null_grade):
+            raise ValueError("p_null_grade must be in [0,1] and above 0 only with model.null_grade")
         if min(t.max_train_batches, t.max_eval_batches) < 0:
             raise ValueError("Batch limits must be nonnegative")
-        if not all(isinstance(v, bool) for v in (d.include_computed_grades, d.remove_split_leakage)):
+        if not all(isinstance(v, bool) for v in (d.include_computed_grades, d.remove_split_leakage, m.null_grade, t.rule_loss)):
             raise ValueError("Boolean options must be true or false")
         if not self.name or Path(self.name).name != self.name or self.name in {".", ".."}:
             raise ValueError("name must be a single directory name")
