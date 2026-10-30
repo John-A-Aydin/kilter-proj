@@ -4,3 +4,7 @@ __pycache__/
 data/raw/
 data/processed/
 data/.kilter-export-*/
+data/experiments/
+runs/
+.pytest_cache/
+data/experiments_v2/

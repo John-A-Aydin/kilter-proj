@@ -1,0 +1,37 @@
+Boardsesh Kilter Original visualization
+======================================
+Source: https://github.com/boardsesh/boardsesh
+Revision: 15f6a8588585992725d9f9ba181271a0de9165f9
+License: Apache-2.0; see boardsesh/LICENSE.
+Copyright and authorship remain with the Boardsesh contributors and original
+asset creators. No affiliation or endorsement is claimed.
+
+Unmodified assets in boardsesh/:
+- board_renderer_wasm.js and board_renderer_wasm_bg.wasm:
+  packages/board-renderer/wasm/pkg/ (Rust/WASM Aura renderer).
+- kilter-original-12x12.cjs:
+  packages/shared/board-art-geometry/src/generated/kilter/1-10.cjs.
+  kilter-original-12x12.json is a JSON serialization of the same geometry.
+- 45-1.webp and 46-1.webp:
+  packages/web/public/images/kilter/product_sizes_layouts_sets/.
+  These are the Original 12x12 bolt-on and screw-on image layers.
+
+Adapted source in ../../src/board-config.mjs, board.mjs, and board-worker.mjs:
+- packages/shared/board-render/src/board-details.ts and render-config.ts
+- packages/shared/board-look/src/settings.ts and aura-fields.ts
+- packages/board-constants/src/hold-states.ts
+- packages/web/app/components/board-renderer/board-renderer.tsx
+- packages/web/app/components/board-renderer/board-litup-holds.tsx
+- packages/web/app/lib/board-render-worker/board-render.worker.ts
+Our adapters use browser DOM modules instead of React, add keyboard-accessible
+traced hit areas and locked/generated outlines, and load all assets locally.
+They keep Boardsesh's editor glow settings, coordinate projection and role
+palette, and call its unmodified WASM renderer. See boardsesh/provenance.json
+for original source paths and SHA-256 checksums.
+
+ONNX Runtime Web
+================
+Source: https://github.com/microsoft/onnxruntime
+Package: onnxruntime-web, version 1.31.1, pinned in package-lock.json.
+License: MIT; see ONNXRUNTIME-LICENSE.
+The original npm distribution bundles license comments in its JavaScript assets.

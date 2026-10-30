@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Pick your Kilter start holds and some feet, or nothing. A grade- and angle-conditioned transformer sets the rest.">
+  <meta name="theme-color" content="#f4f3ed">
+  <title>Kilter Climb Lab</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2328312a'/%3E%3Cpath d='M16 46 29 16l7 18 7-10 8 22' fill='none' stroke='%23c6e887' stroke-width='5' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./src/style.css">
+  <script type="module" src="./src/app.mjs"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="Kilter Climb Lab home"><span class="brand-mark">↗</span> Kilter <span>Climb Lab</span></a>
+    <div class="model-status" id="model-status" role="status"><span class="status-dot"></span><span id="model-status-text">Loading model…</span></div>
+  </header>
+  <main>
+    <div class="intro"><div><p class="eyebrow">A LITTLE HUMAN. A LITTLE TRANSFORMER.</p><h1>Your holds. A new possibility.</h1><p class="subtitle">Pick your start holds and maybe some feet, or nothing at all. Set your grade and angle. Let the model set the rest.</p></div><span class="board-label">KILTER ORIGINAL<br><strong>12 × 12 + kickboard</strong></span></div>
+    <div class="workspace">
+      <section class="board-panel" aria-label="Interactive Kilter board">
+        <div class="board-toolbar"><span><span class="tiny-dot"></span> YOUR CANVAS</span><div class="zoom"><button id="zoom-out" aria-label="Zoom out">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Zoom in">+</button></div></div>
+        <div class="board-scroll" id="board-scroll"><svg id="svg-climb" xmlns="http://www.w3.org/2000/svg" role="group" aria-label="Kilter Original hold selector"></svg></div>
+        <div class="board-footer"><span><i class="line solid"></i> Your picks</span><span><i class="line dashed"></i> Model additions</span><span class="hold-total">476 holds</span></div>
+      </section>
+      <aside class="controls" id="controls" data-tab="climb" aria-label="Controls">
+        <div class="tabs" role="tablist" aria-label="Mode">
+          <button role="tab" id="tab-climb" data-tab="climb" aria-controls="panel-climb" aria-selected="true">Set a climb</button>
+          <button role="tab" id="tab-show" data-tab="show" aria-controls="panel-show" aria-selected="false" tabindex="-1">Light show</button>
+          <button role="tab" id="tab-snake" data-tab="snake" aria-controls="panel-snake" aria-selected="false" tabindex="-1">Snake</button>
+        </div>
+        <div class="tab-panel" id="panel-climb" role="tabpanel" aria-labelledby="tab-climb">
+        <section class="control-card">
+          <div class="step-heading"><span class="step-number">01</span><h2>Make it yours</h2></div>
+          <p class="hint">Choose a role, then tap a hold. Tap it again to remove it. Up to two start and two finish holds.</p>
+          <div class="role-picker" role="group" aria-label="Hold role">
+            <button class="role-button start active" data-role="2" aria-pressed="true"><i></i>Start</button>
+            <button class="role-button hand" data-role="0" aria-pressed="false"><i></i>Hand</button>
+            <button class="role-button finish" data-role="3" aria-pressed="false"><i></i>Finish</button>
+            <button class="role-button foot" data-role="1" aria-pressed="false"><i></i>Foot</button>
+          </div>
+          <div class="selection-heading"><span><strong id="selected-count">0</strong> locked holds</span><button class="text-button" id="clear" disabled>Clear picks</button></div>
+          <div id="selected-holds" class="selected-holds"><p class="empty-selection">Pick your start holds and maybe some feet.<br>Or pick nothing and generate from scratch.</p></div>
+        </section>
+        <section class="control-card">
+          <div class="step-heading"><span class="step-number">02</span><h2>Set the challenge</h2></div>
+          <div class="grade-row"><label for="grade">Target grade</label><select id="grade" aria-label="Target V grade"></select></div>
+          <div class="angle-heading"><label for="angle">Wall angle</label><output id="angle-value" for="angle">40°</output></div>
+          <input id="angle" type="range" min="0" max="90" step="5" value="40">
+          <div class="range-labels"><span>0° · vertical</span><span>90° · roof</span></div>
+          <p class="angle-note" id="angle-note" hidden>The model's training data covers angles up to 70°.</p>
+          <details class="advanced"><summary>Sampling settings</summary><div class="advanced-fields"><label for="temperature">Temperature <output id="temperature-value">0.90</output></label><input id="temperature" type="range" min="0.2" max="1.5" step="0.05" value="0.9"><label for="seed">Seed</label><input id="seed" type="number" min="0" max="4294967295" value="42" step="1"><label class="checkbox-label"><input type="checkbox" id="vary-seed" checked> New seed on each generation</label></div></details>
+        </section>
+        <section class="generate-card">
+          <button class="generate-button" id="generate" disabled><span id="generate-label">Loading model…</span><span aria-hidden="true">↗</span></button>
+          <button class="stop-button" id="stop" hidden>Stop generation</button>
+          <p id="generation-status" role="status" aria-live="polite">Your selected holds stay in every completed climb.</p>
+          <div class="result-actions" id="result-actions" hidden><button id="keep-generated">Keep these holds</button><button id="export">Export JSON ↓</button></div>
+          <p class="error" id="error" role="alert" hidden></p>
+        </section>
+        </div>
+        <div class="tab-panel" id="panel-show" role="tabpanel" aria-labelledby="tab-show" hidden>
+        <section class="control-card show-card">
+          <div class="step-heading"><span class="step-number">✦</span><h2>Light show</h2></div>
+          <p class="hint">Pick a pattern and press start. It plays on the board preview, and on your wall once a board is connected below.</p>
+          <div class="role-picker" role="group" aria-label="Light show pattern">
+            <button class="role-button pattern-button active" data-pattern="wave" aria-pressed="true">Rising wave</button>
+            <button class="role-button pattern-button" data-pattern="scanner" aria-pressed="false">Scanner</button>
+            <button class="role-button pattern-button" data-pattern="ripple" aria-pressed="false">Ripple</button>
+            <button class="role-button pattern-button" data-pattern="sparkle" aria-pressed="false">Sparkle</button>
+          </div>
+          <p class="pattern-description" id="pattern-description">A band of light climbs the wall, changing color on each pass.</p>
+          <div class="angle-heading"><label for="show-speed">Speed</label><output id="show-speed-value" for="show-speed">4 fps</output></div>
+          <input id="show-speed" type="range" min="1" max="8" step="1" value="4">
+          <div class="range-labels"><span>Slow</span><span>Fast</span></div>
+          <p class="ble-note">Each frame is a full LED update over Bluetooth, so the wall can lag behind the preview at high speeds.</p>
+        </section>
+        <section class="generate-card">
+          <button class="generate-button" id="show-start" disabled><span id="show-start-label">Loading board…</span><span aria-hidden="true">✦</span></button>
+          <p id="show-status" role="status" aria-live="polite">Preview only until a board is connected.</p>
+        </section>
+        </div>
+        <div class="tab-panel" id="panel-snake" role="tabpanel" aria-labelledby="tab-snake" hidden>
+        <section class="control-card show-card">
+          <div class="step-heading"><span class="step-number">◆</span><h2>Snake</h2></div>
+          <p class="hint">Steer with W A S D or the arrow keys. Eat the magenta hold to grow, and don’t run into the edge of the board or your own tail.</p>
+          <div class="snake-scores"><div><span>Score</span><strong id="snake-score">0</strong></div><div><span>Best</span><strong id="snake-best">0</strong></div></div>
+          <div class="angle-heading"><label for="snake-speed">Speed</label><output id="snake-speed-value" for="snake-speed">4 moves/s</output></div>
+          <input id="snake-speed" type="range" min="2" max="10" step="1" value="4">
+          <div class="range-labels"><span>Slow</span><span>Fast</span></div>
+          <p class="ble-note">The game uses the 17 × 19 grid of bolt-on holds. Each move waits for the wall to light up, so a connected board can slow the game at high speeds.</p>
+        </section>
+        <section class="generate-card">
+          <button class="generate-button" id="snake-start" disabled><span id="snake-start-label">Loading board…</span><span aria-hidden="true">◆</span></button>
+          <p id="snake-status" role="status" aria-live="polite">Press start or a W A S D key to play.</p>
+        </section>
+        </div>
+        <section class="control-card board-link">
+          <div class="step-heading"><span class="step-number">↯</span><h2>Light up the wall</h2><span class="link-pill" id="ble-pill">Offline</span></div>
+          <p class="hint" id="ble-message" role="status" aria-live="polite">Loading the board’s LED map…</p>
+          <div class="ble-actions"><button class="ble-connect" id="ble-connect" disabled>Connect board</button><button class="ble-send" id="ble-send" disabled>Send climb</button></div>
+          <div class="ble-row"><label class="checkbox-label ble-auto"><input type="checkbox" id="ble-auto"> Send each completed climb</label><button class="text-button" id="ble-clear" disabled>Turn off LEDs</button></div>
+          <details class="advanced"><summary>Connection settings</summary><div class="advanced-fields"><label for="ble-protocol">LED protocol<select id="ble-protocol"><option value="">Auto</option><option value="3">API v3</option><option value="2">API v2</option></select></label><p class="ble-note">Auto reads the protocol from the board’s Bluetooth name. Change it only if a sent climb lights the wrong holds or nothing at all. The board stays lit after you disconnect.</p></div></details>
+        </section>
+        <details class="about"><summary>About this experiment</summary><p id="model-info">Loading trained transformer…</p><p>Your picks are given to the model exactly, and it was trained to complete climbs from such picks. Decoding only rules out what no training climb does: repeating a hold, or having other than one or two start and finish holds. Generated climbs have not been checked for climbability.</p><p>Board visualization uses <a href="https://github.com/boardsesh/boardsesh" target="_blank" rel="noreferrer">Boardsesh</a> artwork, traced hold shapes, and its Aura renderer (<a href="./vendor/boardsesh/LICENSE" target="_blank">Apache 2.0 license</a>). Inference uses <a href="https://onnxruntime.ai/docs/tutorials/web/" target="_blank" rel="noreferrer">ONNX Runtime Web</a>.</p></details>
+      </aside>
+    </div>
+    <footer class="page-footer"><span>A playground for climbing experiments.</span><span>Your picks and model inference stay in this browser.</span></footer>
+  </main>
+</body>
+</html>

@@ -1,5 +1,4 @@
-def main():
-    print("Hello from kilter-proj!")
+from kilter.__main__ import main
 
 
 if __name__ == "__main__":

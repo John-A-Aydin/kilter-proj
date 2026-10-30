@@ -1,0 +1,55 @@
+{
+  "repository": "https://github.com/boardsesh/boardsesh",
+  "revision": "15f6a8588585992725d9f9ba181271a0de9165f9",
+  "license": "Apache-2.0",
+  "files": {
+    "LICENSE": {
+      "source": "LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    "board_renderer_wasm.js": {
+      "source": "packages/board-renderer/wasm/pkg/board_renderer_wasm.js",
+      "sha256": "0769d26dde33cf464ee913689163e74f8dcdcf2ea2e13c408018e8ddee5a6a07"
+    },
+    "board_renderer_wasm_bg.wasm": {
+      "source": "packages/board-renderer/wasm/pkg/board_renderer_wasm_bg.wasm",
+      "sha256": "2695bfce07bf42dde44946354d8f4cfae759bae592f07acbf7009707f699a4d1"
+    },
+    "kilter-original-12x12.cjs": {
+      "source": "packages/shared/board-art-geometry/src/generated/kilter/1-10.cjs",
+      "sha256": "ee40d07b84ff55717a6d8f09ffde74be841a40a7640fc61cb1cd6d5a28241709"
+    },
+    "45-1.webp": {
+      "source": "packages/web/public/images/kilter/product_sizes_layouts_sets/45-1.webp",
+      "sha256": "1b538086c4331c38ab81e0bd6ddb9a0ca73ea6c70c529c18dc55ac85f514243e"
+    },
+    "46-1.webp": {
+      "source": "packages/web/public/images/kilter/product_sizes_layouts_sets/46-1.webp",
+      "sha256": "7ae055982ce20ef8de39d11bcacbd56f7d6a53bdc6340f886eb82d8c45ba4172"
+    },
+    "kilter-original-12x12.json": {
+      "source": "packages/shared/board-art-geometry/src/generated/kilter/1-10.cjs",
+      "transformation": "JSON.stringify(module.exports)",
+      "sha256": "1ad09467cb5b32700f655206ebc0372df99f8a862adb0ba60b9cba4a1e6f9f7f"
+    },
+    "bluetooth/aurora.ts": {
+      "source": "packages/shared/ble-protocol/src/aurora.ts",
+      "sha256": "90095683563b41157497c7debc8a48c30cd9eafa6bc243c077d2814aa1ee4ef3"
+    },
+    "bluetooth/transport.ts": {
+      "source": "packages/shared/ble-protocol/src/transport.ts",
+      "sha256": "efa1cb105728d5854c5adf8d677824c5552a7c46b2f4dbda65fc4a0d8d71fc4f"
+    },
+    "bluetooth/web-transport.ts": {
+      "source": "packages/shared/ble-protocol/src/web-transport.ts",
+      "sha256": "f4f871b41e410a0a0d7f4be1b0e9c47053f7d893ade212b691d6d515751dee02"
+    },
+    "kilter-original-12x12-leds.json": {
+      "source": "packages/board-constants/src/generated/led-placements-data.ts",
+      "transformation": "LED_PLACEMENTS.kilter['1-10'] with fixed layout metadata",
+      "upstream_source_sha256": "b6fab4409244ba704da83d944837866329d8d39e81fbb00f6b514ffa687184c2",
+      "sha256": "4658bde214a913f455df7f96a1b7be0e5ea6bba490a4ee458c6d05fc89d371a3",
+      "independent_verification": "Matches placements JOIN leds in local BoardLib kilter.sqlite3 for layout 1, size 10, sets 1 and 20."
+    }
+  }
+}
