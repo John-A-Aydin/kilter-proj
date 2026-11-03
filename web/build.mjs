@@ -1,6 +1,7 @@
 import { cp, mkdir, rm, access } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildExperimentsPage } from './experiments-page.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 await import('./vendor-bluetooth.mjs');
@@ -13,7 +14,8 @@ await mkdir(path.join(root, 'dist/vendor/ort'), { recursive: true });
 await cp(path.join(root, 'public'), path.join(root, 'dist'), { recursive: true, filter: source => !source.endsWith('.ts') });
 await cp(path.join(root, 'src'), path.join(root, 'dist/src'), { recursive: true });
 await cp(path.join(root, 'index.html'), path.join(root, 'dist/index.html'));
+await buildExperimentsPage(path.join(root, 'dist/experiments.html'));
 for (const name of ['ort.wasm.min.mjs', 'ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm']) {
   await cp(path.join(root, 'node_modules/onnxruntime-web/dist', name), path.join(root, 'dist/vendor/ort', name));
 }
-console.log('Built dist/ with the trained model and local ONNX Runtime assets.');
+console.log('Built dist/ with the trained model, local ONNX Runtime assets, and the experiments page.');

@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), 'dist');
 const types = { '.html': 'text/html', '.mjs': 'text/javascript', '.js': 'text/javascript',
-  '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.wasm': 'application/wasm', '.onnx': 'application/octet-stream' };
+  '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.wasm': 'application/wasm', '.onnx': 'application/octet-stream',
+  '.bin': 'application/octet-stream', '.txt': 'text/plain' };
 const port = Number(process.env.PORT || 4173);
 createServer(async (request, response) => {
   try {

@@ -2,9 +2,11 @@
 
 A transformer that generates climbs for the Kilter Board (Original, 12×12), conditioned
 on a numeric V grade and the wall angle. It can generate a climb **from nothing**, or
-**complete one from given holds**, such as your start holds plus some feet. A
-[web interface](web/README.md) runs the model in the browser and can light the climb up
-on a real board over Bluetooth.
+**complete one from given holds**, such as your start holds plus some feet.
+
+**Try it at [john-a-aydin.github.io/kilter-proj](https://john-a-aydin.github.io/kilter-proj/).**
+The [web interface](web/README.md) runs the model in your browser and can light the
+climb up on a real board over Bluetooth. Its **Experiments** tab presents every result.
 
 On held-out test climbs, the large model scores **45.31 nats per climb** from scratch,
 against **50.45** for the [baseline](docs/baseline.md), with no decoding rules (means
@@ -25,7 +27,8 @@ for every result, including the `null_rule_16` model the website serves.
 | [`results/`](results/) | Each experiment's committed outputs, in `results/<script name>/` |
 | [`docs/`](docs/) | Write-ups of the [model](docs/model.md) and the [baseline](docs/baseline.md) |
 | [`tests/`](tests/) | Python tests for both models |
-| [`web/`](web/README.md) | The browser interface |
+| [`web/`](web/README.md) | The website: the climb tool and the experiments page |
+| [`.github/workflows/`](.github/workflows/) | Publishes `web/` to GitHub Pages on every push to `main` |
 
 Generated files stay out of Git: the raw and processed data under `data/`, encoded
 datasets under `data/cache/`, and training runs under `runs/`.
@@ -51,7 +54,7 @@ is CUDA when available, otherwise CPU; installing a CUDA build of PyTorch is req
 to use an NVIDIA GPU. Each training run gets its own timestamped folder under `runs/`.
 [docs/model.md](docs/model.md#commands) lists every command.
 
-To run the web interface with the committed model:
+To run the website locally with the committed model:
 
 ```bash
 cd web && npm ci && npm run build && npm start

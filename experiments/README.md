@@ -1,6 +1,6 @@
 # Experiments
 
-Each experiment is one script in this folder. It writes its results to
+Each experiment is one script in [`experiments/`](.). It writes its results to
 `results/<script name>/`, which is committed. Checkpoints stay in the git-ignored
 `runs/` folder; [`results/compare_models/checkpoints.json`](../results/compare_models/checkpoints.json)
 records which run each result came from and its checksum. Run scripts from the
@@ -12,7 +12,7 @@ repository root.
 | [`hold_embeddings.py`](hold_embeddings.py) | What does the chosen model learn about holds in each role? | [`results/hold_embeddings/`](../results/hold_embeddings/) |
 | [`grade_climbs.py`](grade_climbs.py) | Does the model help predict a climb's grade? | [`results/grade_climbs/`](../results/grade_climbs/) |
 
-To add an experiment, add a script here with a docstring that says what it measures
+To add an experiment, add a script to `experiments/` with a docstring that says what it measures
 and how to run it, write its outputs to `results/<script name>/`, and add a row above
 and a section below. New model settings go in [`configs/`](../configs/) or as
 `--set` overrides, so every experiment trains through the same `python -m kilter train`.
@@ -32,6 +32,12 @@ every run), `summary.csv` (mean, standard deviation, minimum and maximum over se
 
 The baseline's three-seed means are 3.721 validation and 3.740 test loss per token,
 and 50.59 validation and 50.45 test nats per climb.
+
+Real climbs get shorter as they get harder. From V2 to V11, real held-out climbs
+lose 2.2 holds on average. The large model's samples lose 2.2 with decoding rules
+and 1.9 without, and the baseline's lose 0.9. Each grade has about 50 samples per seed:
+
+<!-- chart: holds-by-grade -->
 
 ### Null grade
 
@@ -130,3 +136,5 @@ over 16,897 rows, mean of three seeds (grade variance 6.66):
 
 The Bayes grader uses p(climb | grade, angle) from the generative model with a prior
 per angle. Errors are largest at both ends of the scale, where labels are noisier or rarer.
+
+<!-- chart: grading-error -->

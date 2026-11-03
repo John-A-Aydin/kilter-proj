@@ -301,3 +301,24 @@ test('snake tab steers with W A S D, ends on the edge, and clears the wall when 
   await expect(page.locator('#svg-climb path.hold[stroke]:not([stroke="transparent"])')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+test('the experiments tab renders the write-up and interactive charts, and links back to the tool', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.getByRole('navigation', { name: 'Site' }).getByRole('link', { name: 'Experiments' }).click();
+  await expect(page).toHaveURL(/experiments\.html$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Experiments');
+  await expect(page.locator('#model-comparison')).toBeVisible();
+  await expect(page.locator('figure[data-chart] svg')).toHaveCount(2);
+  const chart = page.locator('figure[data-chart="holds-by-grade"]');
+  await chart.locator('svg').focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(chart.locator('.chart-tooltip')).toContainText('V2');
+  await expect(chart.locator('.chart-tooltip')).toContainText('Real held-out climbs');
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  await page.getByRole('navigation', { name: 'Site' }).getByRole('link', { name: 'Climb tool' }).click();
+  await expect(page.locator('#model-status-text')).toHaveText('Model ready', { timeout: 60000 });
+  expect(errors).toEqual([]);
+});

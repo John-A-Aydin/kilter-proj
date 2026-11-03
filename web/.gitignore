@@ -2,8 +2,6 @@ node_modules/
 dist/
 test-results/
 playwright-report/
-.sites-runtime/
-.sites-checkout/
 # Generated from the vendored TypeScript by vendor-bluetooth.mjs.
 public/vendor/boardsesh/bluetooth/aurora.mjs
 public/vendor/boardsesh/bluetooth/transport.mjs

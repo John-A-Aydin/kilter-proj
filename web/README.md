@@ -19,7 +19,8 @@ npm run build
 npm start
 ```
 
-Open **http://127.0.0.1:4173**. Node 20+ is supported. All runtime assets, including
+Open **http://127.0.0.1:4173**; the experiments page is at `/experiments.html`.
+Node 20+ is supported. All runtime assets, including
 the model and WebAssembly, are served locally; inference makes no API calls and
 does not send holds to an inference server. A first hosted visit still downloads
 the page and model assets and passes through the host's normal access checks.
@@ -167,10 +168,22 @@ These tests cannot replace a check on a physical board.
 Browser tests use port 4174 (override with `PLAYWRIGHT_PORT`), leaving a running
 app on port 4173 untouched.
 
-## Local artifacts
+## Experiments page
 
-The interface is kept local, as requested. No application source or model weights
-have been uploaded or published. `.openai/hosting.json` retains an unused private
-Site registration; it is not needed to run the app. `dist/` contains the complete
-static app. This training repository gitignores generated model exports,
-dependencies, build output, and browser-test results.
+`experiments.html`, linked as **Experiments** in the header, is built by
+`experiments-page.mjs` during `npm run build`. It renders
+[`experiments/README.md`](../experiments/README.md) and links its relative paths to the
+repository on GitHub. A `<!-- chart: name -->` line in that README places a line chart
+defined in `chartData()`, read from the committed CSVs in `results/`. Charts have a
+hover and arrow-key readout and a data table. Editing the README or the results and
+rebuilding updates the page; a chart name with no definition fails the build.
+
+## Hosting
+
+[`.github/workflows/pages.yml`](../.github/workflows/pages.yml) runs `npm ci` and
+`npm test` (which builds `dist/`) on every push to `main`, then publishes `dist/` to
+GitHub Pages. Enable it once under the repository's **Settings → Pages → Source:
+GitHub Actions**. Every path in the site is relative, so it works under the
+`/kilter-proj/` subpath. Pages serves HTTPS, which Web Bluetooth needs. Pages can't
+set cross-origin isolation headers, so ONNX Runtime runs single-threaded, as it does
+locally. The browser tests are not part of the workflow; run them before pushing.
