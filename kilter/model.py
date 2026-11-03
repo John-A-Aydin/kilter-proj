@@ -1,10 +1,14 @@
-from dataclasses import replace
-
 import torch
 from torch import nn
 from torch.nn import functional as F
 
-from .data import PAD
+from .data import PAD, SEP
+
+MAX_GRADE = 16.0
+# Stands for "no grade" in the grade slot of conditions; real grades are never negative.
+NULL_GRADE = -1.0
+# Columns of condition_features that depend on the grade.
+GRADE_FEATURES = [0, 2, 3, 4, 5, 10, 11, 12, 13]
 
 
 class Block(nn.Module):
@@ -30,20 +34,43 @@ class Block(nn.Module):
         return x + self.mlp(self.norm2(x))
 
 
-class AutoregressiveTransformer(nn.Module):
-    def __init__(self, config, vocab_size, max_seq_len):
+def condition_features(conditions, null_grade=False):
+    """[V grade, angle/90] -> normalized values with sinusoidal features, so their effect can be nonlinear.
+
+    With ``null_grade``, null rows get zeros in the grade columns and a 1 in one extra column.
+    """
+    values = torch.stack([conditions[:, 0] / MAX_GRADE, conditions[:, 1]], dim=1)
+    scaled = values.unsqueeze(-1) * (torch.pi * 2.0 ** torch.arange(4, device=values.device))
+    features = torch.cat([values, scaled.sin().flatten(1), scaled.cos().flatten(1)], dim=1)
+    if not null_grade:
+        return features
+    null = conditions[:, :1] == NULL_GRADE
+    features[:, GRADE_FEATURES] = features[:, GRADE_FEATURES].masked_fill(null, 0.0)
+    return torch.cat([features, null.to(features.dtype)], dim=1)
+
+
+class ClimbTransformer(nn.Module):
+    """Causal decoder over BOS given SEP rest EOS, with geometry-aware tied hold/role embeddings."""
+
+    def __init__(self, config, hold_features, max_len):
         super().__init__()
+        d = config.d_model
         self.config = config
-        self.max_seq_len = max_seq_len
-        self.token_embedding = nn.Embedding(vocab_size, config.d_model)
-        self.position_embedding = nn.Embedding(max_seq_len, config.d_model) if config.positional_embeddings else None
-        # Continuous numeric V grade and angle/90; no categorical grade lookup.
-        self.condition_projection = nn.Linear(2, config.d_model)
+        self.max_len = max_len
+        self.register_buffer("hold_features", torch.as_tensor(hold_features, dtype=torch.float32), persistent=False)
+        n_holds = self.hold_features.shape[0]
+        self.vocab_size = 4 + 4 * n_holds
+        self.special = nn.Embedding(4, d)
+        self.hold = nn.Embedding(n_holds, d)
+        self.role = nn.Embedding(4, d)
+        self.geometry = nn.Sequential(nn.Linear(self.hold_features.shape[1], d), nn.GELU(), nn.Linear(d, d))
+        self.position = nn.Embedding(max_len, d)
+        self.segment = nn.Embedding(2, d)
+        self.condition = nn.Sequential(nn.Linear(19 if config.null_grade else 18, d), nn.GELU(), nn.Linear(d, d))
         self.dropout = nn.Dropout(config.dropout)
         self.blocks = nn.ModuleList([Block(config) for _ in range(config.n_layers)])
-        self.norm = nn.LayerNorm(config.d_model)
-        self.lm_head = nn.Linear(config.d_model, vocab_size, bias=False)
-        self.lm_head.weight = self.token_embedding.weight
+        self.norm = nn.LayerNorm(d)
+        self.output_bias = nn.Parameter(torch.zeros(self.vocab_size))
         self.apply(self._initialize)
 
     @staticmethod
@@ -53,42 +80,45 @@ class AutoregressiveTransformer(nn.Module):
             if isinstance(module, nn.Linear) and module.bias is not None:
                 nn.init.zeros_(module.bias)
 
+    def token_table(self):
+        """Embedding of every token: specials, then hold identity + geometry + role, in token-id order."""
+        holds = self.hold.weight + self.geometry(self.hold_features)
+        hold_roles = (holds.unsqueeze(1) + self.role.weight.unsqueeze(0)).reshape(-1, holds.shape[1])
+        return torch.cat([self.special.weight, hold_roles])
+
     def forward(self, tokens, conditions, output_mask=None):
         length = tokens.shape[1]
-        if length > self.max_seq_len:
-            raise ValueError(f"Context {length} exceeds {self.max_seq_len}")
-        x = self.token_embedding(tokens) + self.condition_projection(conditions).unsqueeze(1)
-        if self.position_embedding is not None:
-            x = x + self.position_embedding(torch.arange(length, device=tokens.device))
+        if length > self.max_len:
+            raise ValueError(f"Context {length} exceeds {self.max_len}")
+        # Positions restart at SEP so the remaining-hold positions do not depend on how many were given.
+        index = torch.arange(length, device=tokens.device).unsqueeze(0)
+        is_sep = tokens == SEP
+        segment = is_sep.long().cumsum(1).clamp(max=1)
+        sep_index = (is_sep.long() * index).amax(1, keepdim=True)
+        position = index - sep_index * segment
+        table = self.token_table()
+        x = (F.embedding(tokens, table) + self.position(position) + self.segment(segment)
+             + self.condition(condition_features(conditions, self.config.null_grade)).unsqueeze(1))
         x = self.dropout(x)
         for block in self.blocks:
             x = block(x)
         x = self.norm(x)
-        # Avoid projecting padding to the full vocabulary during loss/metrics.
         if output_mask is not None:
             x = x[output_mask]
-        return self.lm_head(x)
+        return x @ table.T + self.output_bias
 
 
 def parameter_count(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
-def resolve_model(config, vocab_size, max_seq_len, train_rows):
-    target = round(train_rows * config.parameters_per_example)
-    if config.d_model != "auto":
-        return config, target
-    # Size against the learned-position baseline for matched-width ablations.
-    # The formula counts the tied embedding once and every trainable bias/norm.
-    def count(width):
-        f = config.ff_multiplier
-        return ((vocab_size + max_seq_len + 5) * width
-                + config.n_layers * ((4 + 2 * f) * width * width + (9 + f) * width))
-    widths = range(config.n_heads, max(config.n_heads * 2, int(target**0.5) + config.n_heads), config.n_heads)
-    width = min(widths, key=lambda d: abs(count(d) - target))
-    return replace(config, d_model=width), target
+def weighted_token_loss(logits, targets, row_weights):
+    """Cross entropy summed per target, weighted per row, normalized by weighted target count.
 
-
-def token_loss(logits, targets, reduction="mean"):
-    return F.cross_entropy(logits.reshape(-1, logits.shape[-1]), targets.reshape(-1),
-                           ignore_index=PAD, reduction=reduction)
+    ``logits`` covers only non-PAD targets (row-major), matching ``targets[targets != PAD]``.
+    """
+    mask = targets != PAD
+    flat_targets = targets[mask]
+    weights = row_weights.unsqueeze(1).expand_as(targets)[mask]
+    losses = F.cross_entropy(logits, flat_targets, reduction="none")
+    return (losses * weights).sum() / weights.sum(), losses

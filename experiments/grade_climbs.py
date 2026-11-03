@@ -28,10 +28,10 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from hold_embeddings import reset  # noqa: E402
-from kilter_v2.data import PAD, ClimbDataset, Collator, load_arrays, prepare  # noqa: E402
-from kilter_v2.experiment import load_run  # noqa: E402
-from kilter_v2.model import NULL_GRADE  # noqa: E402
-from kilter_v2.sampling import LegalTokens  # noqa: E402
+from kilter.data import PAD, ClimbDataset, Collator, load_arrays, prepare  # noqa: E402
+from kilter.experiment import load_run  # noqa: E402
+from kilter.model import NULL_GRADE  # noqa: E402
+from kilter.sampling import LegalTokens  # noqa: E402
 
 MODEL = "null_rule_16"
 SEEDS = (42, 43, 44)
@@ -193,11 +193,11 @@ def bootstrap_gap(first, second, truth, climbs, seed=0):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, default=ROOT / "results" / "grading")
+    parser.add_argument("--output", type=Path, default=ROOT / "results" / "grade_climbs")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = parser.parse_args()
     device = args.device
-    checkpoints = json.loads((ROOT / "results" / "checkpoints.json").read_text())
+    checkpoints = json.loads((ROOT / "results" / "compare_models" / "checkpoints.json").read_text())
     args.output.mkdir(parents=True, exist_ok=True)
     first = ROOT / checkpoints[f"{MODEL}_s{SEEDS[0]}"]["run"] / "best.pt"
     model, board, config, _ = load_run(first)

@@ -4,7 +4,7 @@ output_dir = "runs"
 [data]
 source = "data/processed/climbs.jsonl"
 vocabulary = "data/processed/hold_vocabulary.csv"
-cache_dir = "data/experiments"
+cache_dir = "data/cache/baseline"
 split_seed = 42
 train_fraction = 0.90
 validation_fraction = 0.05

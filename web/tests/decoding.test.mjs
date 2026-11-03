@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { BOS, EOS, SEP, allowedTokens, completeClimb, seededRandom, validateRequest } from '../src/decoding.mjs';
 
-// Six holds on a 2x3 grid, ranked like kilter_v2.data.Board: role order, then y, then x.
+// Six holds on a 2x3 grid, ranked like kilter.data.Board: role order, then y, then x.
 const ROLE_ORDER = { 2: 0, 0: 1, 3: 2, 1: 3 };
 const holds = Array.from({ length: 6 }, (_, i) => ({ id: 100 + i, x: (i % 2) / 2, y: Math.floor(i / 2) / 3 }));
 const order = holds.flatMap((hold, i) => [0, 1, 2, 3].map(role => ({ token: 4 + 4 * i + role, key: [ROLE_ORDER[role], hold.y, hold.x, i] })))
@@ -48,7 +48,7 @@ test('from nothing, a climb starts with a start hold and must reach a finish bef
   assert.ok(reserve.length && reserve.every(t => (t - 4) % 4 === 3));
 });
 
-test('the browser rules match kilter_v2 exactly on exported generation states', () => {
+test('the browser rules match kilter exactly on exported generation states', () => {
   const real = JSON.parse(readFileSync(new URL('../public/model/manifest.json', import.meta.url)));
   const fixtures = JSON.parse(readFileSync(new URL('../public/model/decoding-fixtures.json', import.meta.url)));
   assert.ok(fixtures.length > 50);
@@ -89,7 +89,7 @@ test('validates IDs, roles, duplicates, role limits, conditions, seed, and model
     { selected: [{ id: 100, role: 2 }, { id: 101, role: 2 }, { id: 102, role: 2 }] }]) {
     assert.throws(() => validateRequest({ ...request, ...invalid }, manifest));
   }
-  assert.throws(() => validateRequest(request, { ...manifest, format: undefined }), /kilter_v2/);
+  assert.throws(() => validateRequest(request, { ...manifest, format: undefined }), /kilter\.export_web/);
   assert.throws(() => validateRequest({ ...request, selected: holds.map(h => ({ id: h.id, role: 0 })) },
     { ...manifest, max_holds: 6 }), /at most 6/);
 });

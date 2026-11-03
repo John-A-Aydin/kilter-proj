@@ -1,4 +1,4 @@
-// Mirrors kilter_v2/sampling.py. The model was trained on BOS <given> SEP <rest> EOS,
+// Mirrors kilter/sampling.py. The model was trained on BOS <given> SEP <rest> EOS,
 // so picks are an exact condition: they go in the given block and the model adds the rest.
 export const PAD = 0;
 export const BOS = 1;
@@ -22,7 +22,7 @@ export function seededRandom(seed) {
 
 export function validateRequest(request, manifest) {
   const { grade, angle, temperature, seed, selected } = request;
-  if (manifest.format !== 'kilter-v2') throw new Error('This page needs a model exported by kilter_v2.export_web.');
+  if (manifest.format !== 'kilter-v2') throw new Error('This page needs a model exported by kilter.export_web.');
   if (!Number.isFinite(grade) || grade < 0 || grade > 22) throw new Error('Choose a numeric V grade from 0 to 22.');
   if (!Number.isFinite(angle) || angle < 0 || angle > 90) throw new Error('Angle must be between 0° and 90°.');
   if (!Number.isFinite(temperature) || temperature <= 0 || temperature > 2) throw new Error('Temperature must be in (0, 2].');

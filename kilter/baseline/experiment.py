@@ -1,4 +1,4 @@
-"""Training, checkpointing, and likelihood evaluation. Checkpoints are trusted local files."""
+"""Training, checkpointing, evaluation, and sampling. Checkpoints are trusted local files."""
 from dataclasses import asdict
 from datetime import datetime, timezone
 import json
@@ -16,9 +16,8 @@ import torch
 from torch.utils.data import DataLoader, Sampler
 
 from .config import Config, ModelConfig, write_json
-from .data import EVAL_MODES, PAD, Board, ClimbDataset, Collator, load_arrays, prepare
-from .model import NULL_GRADE, ClimbTransformer, parameter_count, weighted_token_loss
-from .sampling import LegalTokens
+from .data import BOS, EOS, PAD, ClimbDataset, Tokenizer, collate, load_arrays, prepare
+from .model import AutoregressiveTransformer, parameter_count, resolve_model, token_loss
 
 
 def setup(config):
@@ -27,6 +26,8 @@ def setup(config):
     random.seed(config.seed)
     np.random.seed(config.seed)
     torch.manual_seed(config.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(config.seed)
     torch.use_deterministic_algorithms(True)
     device = config.device
     if device == "auto":
@@ -36,7 +37,6 @@ def setup(config):
 
 class LengthBucketSampler(Sampler):
     """Shuffle each epoch, group nearby lengths within random pools, then shuffle batches."""
-
     def __init__(self, dataset, batch_size, generator):
         self.lengths = np.diff(dataset.arrays["offsets"])[dataset.indices]
         self.batch_size = batch_size
@@ -56,65 +56,35 @@ class LengthBucketSampler(Sampler):
             yield batches[i]
 
 
-def build_model(model_config, metadata, data_config):
-    board = Board.from_json(metadata["board"])
-    return ClimbTransformer(model_config, board.features(model_config.coordinate_frequencies),
-                            data_config.max_holds + 2), board
-
-
-def eval_loader(arrays, split, mode, batch_size):
-    return DataLoader(ClimbDataset(arrays, split), batch_size=batch_size, shuffle=False,
-                      collate_fn=Collator(mode=mode))
+def make_loader(arrays, split, config, generator=None):
+    dataset = ClimbDataset(arrays, split)
+    common = dict(generator=generator, num_workers=config.num_workers, collate_fn=collate)
+    if split == 0 and config.length_bucketing:
+        return DataLoader(dataset, batch_sampler=LengthBucketSampler(dataset, config.batch_size, generator), **common)
+    return DataLoader(dataset, batch_size=config.batch_size, shuffle=split == 0, **common)
 
 
 @torch.no_grad()
-def evaluate(model, arrays, split, device, batch_size=512, max_batches=0, modes=EVAL_MODES, null_grade=False,
-             legal=None):
-    """Per-climb negative log-likelihood (nats) of the non-given holds and EOS, for each given mode.
-
-    ``scratch`` is the full joint probability of a climb's holds and roles, comparable to any
-    model that assigns one sequence per climb, including the kilter/ baseline.
-    ``null_grade`` hides every row's grade from the model. With ``legal``, each mode also gets
-    ``nll_rules``: the same score when the decoding rules remove illegal tokens first.
-    """
+def evaluate(model, loader, device, max_batches=0):
     model.eval()
-    results = {}
-    for mode in modes:
-        total, rule_total, tokens, rows, correct = 0.0, 0.0, 0, 0, 0
-        for i, (x, y, conditions, _) in enumerate(eval_loader(arrays, split, mode, batch_size)):
-            if max_batches and i >= max_batches:
-                break
-            if null_grade:
-                conditions[:, 0] = NULL_GRADE
-            x, y, conditions = x.to(device), y.to(device), conditions.to(device)
-            mask = y != PAD
-            logits = model(x, conditions, output_mask=mask)
-            losses = torch.nn.functional.cross_entropy(logits, y[mask], reduction="sum")
-            total += losses.item()
-            if legal is not None:
-                ruled = logits.masked_fill(~legal(x)[mask], -torch.inf)
-                rule_total += torch.nn.functional.cross_entropy(ruled, y[mask], reduction="sum").item()
-            correct += (logits.argmax(-1) == y[mask]).sum().item()
-            tokens += mask.sum().item()
-            rows += len(x)
-        results[mode] = {"nll_per_climb": total / rows, "loss_per_token": total / tokens,
-                         "token_accuracy": correct / tokens, "rows": rows}
-        if legal is not None:
-            results[mode]["nll_rules"] = rule_total / rows
-    results["selection_nll"] = float(np.mean([results[m]["nll_per_climb"] for m in modes]))
-    if legal is not None:
-        results["selection_nll_rules"] = float(np.mean([results[m]["nll_rules"] for m in modes]))
-    return results
-
-
-def evaluate_grades(model, arrays, split, device, p_null_grade, max_batches=0, legal=None):
-    """Score with real grades, unless the model never saw one, and with null grades if it trained on them."""
-    results = evaluate(model, arrays, split, device, max_batches=max_batches, null_grade=p_null_grade == 1,
-                       legal=legal)
-    if 0 < p_null_grade < 1:
-        results["null_grade"] = evaluate(model, arrays, split, device, max_batches=max_batches, null_grade=True,
-                                         legal=legal)
-    return results
+    total_loss, correct, count, rows = 0.0, 0, 0, 0
+    for i, (x, y, conditions) in enumerate(loader):
+        if max_batches and i >= max_batches:
+            break
+        x, y, conditions = x.to(device), y.to(device), conditions.to(device)
+        mask = y != PAD
+        logits = model(x, conditions, output_mask=mask)
+        targets = y[mask]
+        total_loss += token_loss(logits, targets, reduction="sum").item()
+        correct += (logits.argmax(-1) == targets).sum().item()
+        count += mask.sum().item()
+        rows += len(x)
+    if not count:
+        raise ValueError("Evaluation split has no target tokens")
+    loss = total_loss / count
+    return {"loss": loss, "perplexity": math.exp(min(loss, 700)),
+            "token_accuracy": correct / count, "tokens": count, "rows": rows,
+            "partial": bool(max_batches and rows < len(loader.dataset))}
 
 
 def checkpoint_save(path, state):
@@ -129,37 +99,38 @@ def git_output(*args):
 
 
 def snapshot_source(run_dir):
-    root = Path(__file__).resolve().parent
-    shutil.copytree(root, run_dir / "source" / "kilter_v2",
-                    ignore=shutil.ignore_patterns("__pycache__"))
+    root = Path(__file__).resolve().parents[2]
+    destination = run_dir / "source"
+    destination.mkdir()
+    for name in ("kilter", "configs", "tests"):
+        shutil.copytree(root / name, destination / name, ignore=shutil.ignore_patterns("__pycache__"))
+    for name in ("pyproject.toml", "uv.lock", "README.md"):
+        shutil.copy2(root / name, destination / name)
+    (destination / "working-tree.diff").write_text(git_output("diff", "HEAD"))
 
 
 def train(config, resume=None):
     device = setup(config.train)
     cache_dir, metadata = prepare(config.data)
     arrays = load_arrays(cache_dir)
-    model, board = build_model(config.model, metadata, config.data)
-    model.to(device)
-    legal = LegalTokens(board, config.data.max_holds, device)
+    resolved, target = resolve_model(config.model, metadata["vocab_size"], config.data.max_seq_len,
+                                     metadata["splits"]["train"]["rows"])
+    model = AutoregressiveTransformer(resolved, metadata["vocab_size"], config.data.max_seq_len).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.train.learning_rate,
                                   betas=(config.train.beta1, config.train.beta2),
                                   weight_decay=config.train.weight_decay)
     generator = torch.Generator().manual_seed(config.train.seed)
-    t = config.train
-    collator = Collator(probabilities=(t.p_scratch, t.p_starts, t.p_random), weighting=t.ascent_weighting,
-                        seed=t.seed)
-    train_dataset = ClimbDataset(arrays, 0)
-    train_loader = DataLoader(train_dataset, batch_sampler=LengthBucketSampler(train_dataset, t.batch_size, generator),
-                              collate_fn=collator)
-    batches = min(len(train_loader), t.max_train_batches or len(train_loader))
-    total_steps = batches * t.epochs
-    warmup_steps = round(total_steps * t.warmup_fraction)
+    train_loader = make_loader(arrays, 0, config.train, generator)
+    validation_loader = make_loader(arrays, 1, config.train)
+    batches = min(len(train_loader), config.train.max_train_batches or len(train_loader))
+    total_steps = batches * config.train.epochs
+    warmup_steps = round(total_steps * config.train.warmup_fraction)
 
     def lr_factor(step):
         if step < warmup_steps:
             return (step + 1) / max(1, warmup_steps)
         progress = min(1.0, (step - warmup_steps) / max(1, total_steps - warmup_steps))
-        return t.min_lr_ratio + (1 - t.min_lr_ratio) * (1 + math.cos(math.pi * progress)) / 2
+        return config.train.min_lr_ratio + (1 - config.train.min_lr_ratio) * (1 + math.cos(math.pi * progress)) / 2
 
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_factor)
     start_epoch, global_step, best_loss, stale_epochs = 0, 0, float("inf"), 0
@@ -180,10 +151,13 @@ def train(config, resume=None):
         np.random.set_state(state["numpy_state"])
         torch.set_rng_state(state["torch_state"])
         generator.set_state(state["loader_state"])
-        collator.rng.bit_generator.state = state["collator_state"]
+        if device.type == "cuda" and state["cuda_state"] is not None:
+            torch.cuda.set_rng_state_all(state["cuda_state"])
+        # Remove metrics newer than the last successfully saved epoch.
         metrics_path = run_dir / "metrics.jsonl"
         if metrics_path.exists():
-            kept = [line for line in metrics_path.read_text().splitlines() if json.loads(line)["epoch"] <= start_epoch]
+            kept = [line for line in metrics_path.read_text().splitlines()
+                    if json.loads(line)["epoch"] <= start_epoch]
             metrics_path.write_text("\n".join(kept) + ("\n" if kept else ""))
     else:
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
@@ -191,8 +165,9 @@ def train(config, resume=None):
         run_dir.mkdir(parents=True)
         write_json(run_dir / "config.json", config.to_dict())
         write_json(run_dir / "dataset.json", {**metadata, "cache_directory": str(cache_dir.resolve())})
-        write_json(run_dir / "model.json", {**asdict(config.model), "parameters": parameter_count(model),
-                                           "max_len": model.max_len, "vocab_size": model.vocab_size})
+        write_json(run_dir / "model.json", {**asdict(resolved), "parameters": parameter_count(model),
+                                           "target_parameters": target,
+                                           "parameters_per_training_row": parameter_count(model) / metadata["splits"]["train"]["rows"]})
         write_json(run_dir / "environment.json", {
             "python": platform.python_version(), "torch": torch.__version__, "numpy": np.__version__,
             "platform": platform.platform(), "device": str(device), "git_commit": git_output("rev-parse", "HEAD"),
@@ -200,74 +175,74 @@ def train(config, resume=None):
         })
         snapshot_source(run_dir)
     print(json.dumps({"run": str(run_dir), "device": str(device), "parameters": parameter_count(model),
-                      "splits": metadata["splits"], "excluded": metadata["excluded"]}), flush=True)
+                      "target_parameters": target, "model": asdict(resolved), "splits": metadata["splits"]}), flush=True)
     session_start = time.perf_counter()
     completed_epochs = start_epoch
-    end_epoch = start_epoch if stale_epochs >= t.patience else t.epochs
+    end_epoch = start_epoch if stale_epochs >= config.train.patience else config.train.epochs
     for epoch in range(start_epoch, end_epoch):
         epoch_start = time.perf_counter()
         model.train()
-        loss_sum, weight_sum = 0.0, 0.0
-        for i, (x, y, conditions, weights) in enumerate(train_loader):
+        loss_sum, tokens_seen = 0.0, 0
+        for i, (x, y, conditions) in enumerate(train_loader):
             if i >= batches:
                 break
-            if t.p_null_grade:
-                conditions[torch.rand(len(x)) < t.p_null_grade, 0] = NULL_GRADE
-            x, y, conditions, weights = x.to(device), y.to(device), conditions.to(device), weights.to(device)
+            x, y, conditions = x.to(device), y.to(device), conditions.to(device)
             optimizer.zero_grad(set_to_none=True)
-            logits = model(x, conditions, output_mask=y != PAD)
-            if t.rule_loss:
-                logits = logits.masked_fill(~legal(x)[y != PAD], -torch.inf)
-            loss, _ = weighted_token_loss(logits, y, weights)
+            mask = y != PAD
+            logits = model(x, conditions, output_mask=mask)
+            loss = token_loss(logits, y[mask])
             if not torch.isfinite(loss):
                 raise RuntimeError(f"Nonfinite loss at step {global_step}")
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), t.grad_clip, error_if_nonfinite=True)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), config.train.grad_clip, error_if_nonfinite=True)
             optimizer.step()
             scheduler.step()
-            loss_sum += loss.item()
-            weight_sum += 1
+            n = mask.sum().item()
+            loss_sum += loss.item() * n
+            tokens_seen += n
             global_step += 1
-            if (i + 1) % t.log_every == 0:
+            if (i + 1) % config.train.log_every == 0:
                 print(json.dumps({"epoch": epoch + 1, "batch": i + 1, "batches": batches,
-                                  "train_loss": loss_sum / weight_sum,
+                                  "train_loss": loss_sum / tokens_seen,
                                   "seconds": round(time.perf_counter() - epoch_start, 1)}), flush=True)
-        validation = evaluate_grades(model, arrays, 1, device, t.p_null_grade, t.max_eval_batches, legal)
-        score = validation["selection_nll_rules" if t.rule_loss else "selection_nll"]
-        improved = score < best_loss
+        validation = evaluate(model, validation_loader, device, config.train.max_eval_batches)
+        improved = validation["loss"] < best_loss
         if improved:
-            best_loss, stale_epochs = score, 0
+            best_loss, stale_epochs = validation["loss"], 0
         else:
             stale_epochs += 1
-        record = {"epoch": epoch + 1, "step": global_step, "train_loss": loss_sum / max(1, weight_sum),
+        record = {"epoch": epoch + 1, "step": global_step, "train_loss": loss_sum / tokens_seen,
                   "validation": validation, "learning_rate": optimizer.param_groups[0]["lr"],
-                  "seconds": time.perf_counter() - epoch_start, "partial_training_epoch": batches < len(train_loader)}
+                  "seconds": time.perf_counter() - epoch_start,
+                  "partial_training_epoch": batches < len(train_loader)}
         with (run_dir / "metrics.jsonl").open("a") as output:
             output.write(json.dumps(record, allow_nan=False) + "\n")
         state = {
-            "config": config.to_dict(), "data_fingerprint": metadata["fingerprint"],
+            "config": config.to_dict(), "model_config": asdict(resolved), "data_fingerprint": metadata["fingerprint"],
             "model": model.state_dict(), "optimizer": optimizer.state_dict(), "scheduler": scheduler.state_dict(),
             "epoch": epoch + 1, "global_step": global_step, "best_loss": best_loss, "stale_epochs": stale_epochs,
             "random_state": random.getstate(), "numpy_state": np.random.get_state(),
             "torch_state": torch.get_rng_state(), "loader_state": generator.get_state(),
-            "collator_state": collator.rng.bit_generator.state,
+            "cuda_state": torch.cuda.get_rng_state_all() if device.type == "cuda" else None,
         }
         if improved:
             checkpoint_save(run_dir / "best.pt", state)
         checkpoint_save(run_dir / "last.pt", state)
         completed_epochs = epoch + 1
         print(json.dumps(record), flush=True)
-        if stale_epochs >= t.patience:
+        if stale_epochs >= config.train.patience:
             break
     best = torch.load(run_dir / "best.pt", map_location="cpu", weights_only=False)
     summary = {
         "name": config.name, "run": str(run_dir), "parameters": parameter_count(model),
-        "best_epoch": best["epoch"], "best_validation_selection_nll": best["best_loss"],
+        "target_parameters": target, "best_epoch": best["epoch"], "best_validation_loss": best["best_loss"],
         "epochs_completed": completed_epochs, "steps": global_step,
-        "session_seconds": time.perf_counter() - session_start, "data_fingerprint": metadata["fingerprint"],
+        "session_seconds": time.perf_counter() - session_start,
+        "data_fingerprint": metadata["fingerprint"],
         "partial_training_epochs": batches < len(train_loader),
-        "partial_validation": bool(t.max_eval_batches),
+        "partial_validation": bool(config.train.max_eval_batches and config.train.max_eval_batches < len(validation_loader)),
     }
+    # Test is deliberately opt-in after model selection, to avoid tuning against it.
     write_json(run_dir / "summary.json", summary)
     print(json.dumps(summary), flush=True)
     return run_dir
@@ -278,22 +253,48 @@ def load_run(checkpoint, device="cpu"):
     state = torch.load(checkpoint, map_location="cpu", weights_only=False)
     config = Config.from_dict(state["config"])
     metadata = json.loads((checkpoint.parent / "dataset.json").read_text())
-    model, board = build_model(ModelConfig(**state["config"]["model"]), metadata, config.data)
+    model = AutoregressiveTransformer(ModelConfig(**state["model_config"]), metadata["vocab_size"], config.data.max_seq_len)
     model.load_state_dict(state["model"])
     model.to(device).eval()
-    return model, board, config, metadata
+    return model, config, metadata
 
 
 def evaluate_run(checkpoint, split="test", device="cpu"):
-    model, board, config, metadata = load_run(checkpoint, device)
+    model, config, metadata = load_run(checkpoint, device)
     torch.set_num_threads(config.train.threads)
     cache_dir, current = prepare(config.data)
     if current["fingerprint"] != metadata["fingerprint"]:
         raise ValueError("Dataset changed since training")
-    result = {"split": split, "checkpoint": str(checkpoint),
-              **evaluate_grades(model, load_arrays(cache_dir), {"validation": 1, "test": 2}[split], device,
-                                config.train.p_null_grade,
-                                legal=LegalTokens(board, config.data.max_holds, device))}
+    loader = make_loader(load_arrays(cache_dir), {"validation": 1, "test": 2}[split], config.train)
+    result = {"split": split, "checkpoint": str(checkpoint), **evaluate(model, loader, device)}
     write_json(Path(checkpoint).parent / f"{Path(checkpoint).stem}_{split}.json", result)
     print(json.dumps(result), flush=True)
     return result
+
+
+@torch.no_grad()
+def sample(checkpoint, grade, angle, count=1, temperature=1.0, top_k=0, seed=42, device="cpu"):
+    if grade < 0 or not 0 <= angle <= 90 or temperature <= 0 or count < 1 or top_k < 0:
+        raise ValueError("Invalid sample grade, angle, count, temperature, or top_k")
+    model, config, metadata = load_run(checkpoint, device)
+    torch.set_num_threads(config.train.threads)
+    torch.manual_seed(seed)
+    tokenizer = Tokenizer(metadata["holds"])
+    conditions = torch.tensor([[grade, angle / 90.0]], device=device, dtype=torch.float32)
+    results = []
+    for _ in range(count):
+        tokens = [BOS]
+        for _ in range(config.data.max_seq_len):
+            logits = model(torch.tensor([tokens], device=device), conditions)[0, -1] / temperature
+            # Special tokens PAD/BOS cannot occur inside a generated climb.
+            logits[PAD] = logits[BOS] = -float("inf")
+            if top_k:
+                threshold = logits.topk(min(top_k, logits.numel())).values[-1]
+                logits[logits < threshold] = -float("inf")
+            token = torch.multinomial(logits.softmax(-1), 1).item()
+            tokens.append(token)
+            if token == EOS:
+                break
+        results.append({"v_grade": grade, "angle": angle, "normalized_angle": angle / 90.0,
+                        "ended_with_eos": tokens[-1] == EOS, "frames": tokenizer.decode(tokens)})
+    return results

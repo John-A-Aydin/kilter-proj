@@ -28,9 +28,9 @@ from torch.utils.data import DataLoader
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from kilter_v2.data import ROLE_NAMES, ClimbDataset, Collator, load_arrays, prepare  # noqa: E402
-from kilter_v2.experiment import load_run  # noqa: E402
-from kilter_v2.sampling import LegalTokens  # noqa: E402
+from kilter.data import ROLE_NAMES, ClimbDataset, Collator, load_arrays, prepare  # noqa: E402
+from kilter.experiment import load_run  # noqa: E402
+from kilter.sampling import LegalTokens  # noqa: E402
 
 MODEL = "null_rule_16"
 SEEDS = (42, 43, 44)
@@ -257,7 +257,7 @@ def main():
     parser.add_argument("--output", type=Path, default=ROOT / "results" / "hold_embeddings")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = parser.parse_args()
-    checkpoints = json.loads((ROOT / "results" / "checkpoints.json").read_text())
+    checkpoints = json.loads((ROOT / "results" / "compare_models" / "checkpoints.json").read_text())
     args.output.mkdir(parents=True, exist_ok=True)
     reports = {}
     for seed in SEEDS:

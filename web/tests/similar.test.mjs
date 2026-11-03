@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { climbHolds, closestClimb, gradeNear, loadCatalogue } from '../src/similar.mjs';
 
-// Packs climbs the way kilter_v2/export_web.py does: hold_id * 4 + role, widest arrays first.
+// Packs climbs the way kilter/export_web.py does: hold_id * 4 + role, widest arrays first.
 function pack(climbs) {
   const columns = [
     ['ascents', Uint32Array, climbs.flatMap(c => c.angles.map(a => a.ascents))],

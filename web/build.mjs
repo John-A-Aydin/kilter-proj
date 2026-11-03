@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.dirname(fileURLToPath(import.meta.url));
 await import('./vendor-bluetooth.mjs');
 await access(path.join(root, 'public/model/model.onnx')).catch(() => {
-  throw new Error('Export a checkpoint first: uv run --extra web python -m kilter.export_web <checkpoint>');
+  throw new Error('Export a checkpoint first: uv run --frozen --extra web python -m kilter.export_web runs/<run>/best.pt');
 });
 await rm(path.join(root, 'dist'), { recursive: true, force: true });
 await mkdir(path.join(root, 'dist/vendor/ort'), { recursive: true });

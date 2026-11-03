@@ -1,4 +1,4 @@
-// Closest real climb to a set of holds. kilter_v2/export_web.py writes model/climbs.json and
+// Closest real climb to a set of holds. kilter/export_web.py writes model/climbs.json and
 // model/climbs.bin: every climb in the dataset, most total ascents first.
 const TYPES = { uint8: Uint8Array, uint16: Uint16Array, uint32: Uint32Array };
 

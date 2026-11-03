@@ -6,12 +6,12 @@ import unittest
 import numpy as np
 import torch
 
-from kilter_v2.config import Config, DataConfig, ModelConfig, TrainConfig, load_config
-from kilter_v2.data import (BOS, EOS, FINISH, FOOT, HAND, PAD, SEP, START, Board, ClimbDataset, Collator,
+from kilter.config import Config, DataConfig, ModelConfig, TrainConfig, load_config
+from kilter.data import (BOS, EOS, FINISH, FOOT, HAND, PAD, SEP, START, Board, ClimbDataset, Collator,
                             build_example, climb_problem, given_mask, load_arrays, prepare, split_for_uuid)
-from kilter_v2.experiment import evaluate, load_run, train
-from kilter_v2.model import NULL_GRADE, ClimbTransformer, condition_features, weighted_token_loss
-from kilter_v2.sampling import LegalTokens, allowed_tokens, climb_checks, generate, validate_given
+from kilter.experiment import evaluate, load_run, train
+from kilter.model import NULL_GRADE, ClimbTransformer, condition_features, weighted_token_loss
+from kilter.sampling import LegalTokens, allowed_tokens, climb_checks, generate, validate_given
 
 # Six holds on a 2x3 grid: ids 10..15, y rising with id.
 ROWS = [{"id": 10 + i, "x": (i % 2) / 2, "y": (i // 2) / 3, "kickboard": int(i < 2), "set": 1 + 19 * (i % 2)}
@@ -59,7 +59,7 @@ class RepresentationTests(unittest.TestCase):
         self.assertEqual(heavy, 6.0)
 
     def test_filters_and_split_match_baseline(self):
-        from kilter.data import split_for_uuid as baseline_split
+        from kilter.baseline.data import split_for_uuid as baseline_split
         config = DataConfig()
         for key in (f"climb-{i}" for i in range(500)):
             self.assertEqual(split_for_uuid(key, config), baseline_split(key, config))
@@ -71,7 +71,7 @@ class RepresentationTests(unittest.TestCase):
         self.assertIsNone(climb_problem([[hold(10, START), hold(11, FINISH)]], 40))
 
     def test_config_overrides_and_typos(self):
-        path = Path(__file__).parents[1] / "configs" / "default.toml"
+        path = Path(__file__).parents[1] / "configs" / "climb.toml"
         self.assertEqual(load_config(path).to_dict(), Config().to_dict())
         config = load_config(path, ["model.d_model=64", "train.ascent_weighting=log"])
         self.assertEqual((config.model.d_model, config.train.ascent_weighting), (64, "log"))
@@ -251,7 +251,7 @@ class SamplingTests(unittest.TestCase):
 
 class CatalogueTests(unittest.TestCase):
     def test_real_climbs_are_one_per_uuid_most_ascended_first(self):
-        from kilter_v2.export_web import climb_catalogue
+        from kilter.export_web import climb_catalogue
         board = Board(ROWS)
         a = board.encode([hold(10, START), hold(13, HAND), hold(15, FINISH)])
         b = board.encode([hold(11, START), hold(14, FINISH), hold(12, FOOT)])

@@ -1,6 +1,6 @@
 # Kilter Climb Lab
 
-A static browser interface for the v2 climb transformer ([kilter_v2/](../kilter_v2/README.md)).
+A static browser interface for the climb transformer ([docs/model.md](../docs/model.md)).
 Pick your start holds and maybe some feet, or nothing at all. Choose a numeric V
 grade and angle, and click **Complete climb**. Solid outlines are your picks; dashed
 outlines are model additions. Generation appears one hold at a time and runs in a
@@ -12,7 +12,7 @@ From the training repository root:
 
 ```bash
 uv sync --frozen --extra web
-uv run --frozen --extra web python -m kilter_v2.export_web runs/<v2 run>/best.pt
+uv run --frozen --extra web python -m kilter.export_web runs/<run>/best.pt
 cd web
 npm ci
 npm run build
@@ -25,9 +25,9 @@ does not send holds to an inference server. A first hosted visit still downloads
 the page and model assets and passes through the host's normal access checks.
 
 `web/public/model/` is committed, so a fresh clone can skip the export step. The site
-serves `null_rule_16`, seed 43. To use another v2 experiment, export its checkpoint
-with the same command, then rebuild. The page refuses models from the old `kilter.export_web`, which used a
-different sequence format. Export checks ONNX logits against PyTorch for empty,
+serves `null_rule_16`, seed 43. To use another run, export its checkpoint
+with the same command, then rebuild. The page refuses models in any other format.
+Export checks ONNX logits against PyTorch for empty,
 starts-only, starts-plus-feet, half-given, and full-length contexts at V0/0°,
 V5/40°, and V16/90°. It also records decoding fixtures: random generation states
 with the tokens Python's rules allow, which the browser tests replay. The manifest
@@ -48,7 +48,7 @@ approximated with barriers, and the model can add holds anywhere on the wall.
 Decoding follows the canonical order: start, hand, finish, foot, each bottom to
 top. It also masks what no training climb does: repeating a hold, more than two
 start or finish holds, or ending without at least one of each. The rules are in
-`src/decoding.mjs` and mirror `kilter_v2/sampling.py`. Picks are limited the same
+`src/decoding.mjs` and mirror `kilter/sampling.py`. Picks are limited the same
 way: at most two start and two finish holds, and at most 40 holds in a climb.
 Numeric conditions remain `[V_grade, angle_degrees / 90]`. No claim is made that a
 generated climb is physically climbable or matches its requested grade.

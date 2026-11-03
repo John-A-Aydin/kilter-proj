@@ -1,10 +1,9 @@
 .venv/
 __pycache__/
 *.pyc
+.pytest_cache/
 data/raw/
 data/processed/
+data/cache/
 data/.kilter-export-*/
-data/experiments/
-runs/
-.pytest_cache/
-data/experiments_v2/
+/runs/

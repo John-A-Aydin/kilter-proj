@@ -7,10 +7,10 @@ from unittest.mock import patch
 import numpy as np
 import torch
 
-from kilter.config import Config, DataConfig, ModelConfig, TrainConfig, load_config
-from kilter.data import BOS, EOS, FRAME, PAD, Tokenizer, collate, load_arrays, prepare, split_for_uuid, v_grade
-from kilter.experiment import LengthBucketSampler, evaluate_run, sample, train
-from kilter.model import AutoregressiveTransformer, parameter_count, resolve_model, token_loss
+from kilter.baseline.config import Config, DataConfig, ModelConfig, TrainConfig, load_config
+from kilter.baseline.data import BOS, EOS, FRAME, PAD, Tokenizer, collate, load_arrays, prepare, split_for_uuid, v_grade
+from kilter.baseline.experiment import LengthBucketSampler, evaluate_run, sample, train
+from kilter.baseline.model import AutoregressiveTransformer, parameter_count, resolve_model, token_loss
 
 
 class RepresentationTests(unittest.TestCase):
@@ -46,11 +46,11 @@ class RepresentationTests(unittest.TestCase):
         self.assertEqual(set(original.values()), {0, 1, 2})
 
     def test_config_overrides_and_typos(self):
-        config = load_config("configs/ar_transformer.toml", ["model.positional_embeddings=false", "train.seed=7"])
+        config = load_config("configs/baseline.toml", ["model.positional_embeddings=false", "train.seed=7"])
         self.assertFalse(config.model.positional_embeddings)
         self.assertEqual(config.train.seed, 7)
         with self.assertRaises(ValueError):
-            load_config("configs/ar_transformer.toml", ["model.position_embeddings=false"])
+            load_config("configs/baseline.toml", ["model.position_embeddings=false"])
 
 
 class ModelTests(unittest.TestCase):
@@ -137,7 +137,7 @@ class LifecycleTests(unittest.TestCase):
             for uuid in set(arrays["uuids"]):
                 self.assertEqual(len(set(arrays["splits"][arrays["uuids"] == uuid])), 1)
             self.assertEqual(set(arrays["conditions"][:, 1]), {0, 0.5, 1})
-            from kilter.data import ClimbDataset
+            from kilter.baseline.data import ClimbDataset
             dataset = ClimbDataset(arrays, 0)
             sampler = LengthBucketSampler(dataset, 13, torch.Generator().manual_seed(7))
             first_epoch = list(sampler)
@@ -146,13 +146,13 @@ class LifecycleTests(unittest.TestCase):
             self.assertNotEqual(first_epoch, list(sampler))
             self.assertEqual(prepare(config.data)[1]["fingerprint"], metadata["fingerprint"])
             # Interrupt immediately after the first epoch's durable last checkpoint.
-            from kilter import experiment
+            from kilter.baseline import experiment
             original = experiment.checkpoint_save
             def interrupt(path, state):
                 original(path, state)
                 if path.name == "last.pt":
                     raise InterruptedError("simulated interruption")
-            with patch("kilter.experiment.checkpoint_save", side_effect=interrupt):
+            with patch("kilter.baseline.experiment.checkpoint_save", side_effect=interrupt):
                 with self.assertRaises(InterruptedError):
                     train(config)
             interrupted = next((root / "runs").glob("*/last.pt"))

@@ -1,4 +1,4 @@
-"""Sample-quality and likelihood report for a v2 checkpoint, optionally against the kilter/ baseline.
+"""Sample-quality and likelihood report for a v2 checkpoint, optionally against the baseline.
 
 All methods are scored on the same held-out rows and grade/angle cells:
 
@@ -112,7 +112,7 @@ def quality_report(checkpoint, baseline=None, split="validation", samples=20, ou
     rows = [(arrays["tokens"][offsets[i]:offsets[i + 1]], arrays["conditions"][i]) for i in held]
     base = None
     if baseline:
-        from kilter.experiment import load_run as load_baseline
+        from .baseline.experiment import load_run as load_baseline
         base = load_baseline(baseline)[0]
     report = {"checkpoint": str(checkpoint), "baseline": str(baseline) if baseline else None, "split": split,
               "samples_per_cell": samples, "grades": GRADES, "angles": ANGLES}
