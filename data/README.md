@@ -12,6 +12,26 @@ by the published computed-grade table for 2,556 rows, and explicitly unavailable
 for 27 rows. All 27 ungraded rows are retained. Processed files occupy about
 1.56 GB (the compact metadata-only `climbs.csv` is about 105 MB).
 
+## Committed training data
+
+Training, evaluation, and the website's similar-climb lookup read only
+`data/training/`, which is committed, so none of the steps below are needed to use
+them:
+
+| File | Contents |
+| --- | --- |
+| `training/climbs.jsonl.gz` | All 339,659 climb–angle rows of `processed/climbs.jsonl`, in the same order, keeping only `climb_angle_id`, `climb_uuid`, `angle`, `grade_hueco`, `grade_status`, `ascensionist_count`, `name`, `setter_username`, and `frames`. Each hold keeps `hold_use_type` and `hold_token`; coordinates come from the vocabulary. About 20 MB (263 MB uncompressed). |
+| `training/hold_vocabulary.csv` | An unchanged copy of `processed/hold_vocabulary.csv`. |
+
+Both models encode it into exactly the same arrays as the full `processed/climbs.jsonl`.
+After rebuilding `processed/`, regenerate it with:
+
+```bash
+uv run --frozen python data/export_training.py
+```
+
+The output is byte-identical for the same input.
+
 ## Run
 
 From the repository root, with Python 3.12+ and [uv](https://docs.astral.sh/uv/):

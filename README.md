@@ -20,6 +20,7 @@ for every result, including the `null_rule_16` model the website serves.
 | Path | Contents |
 | --- | --- |
 | [`data/`](data/README.md) | Download, convert, and validate the Kilter catalogue |
+| [`data/training/`](data/README.md#committed-training-data) | The committed training data: every climb–angle row's holds, grade, and name, plus the hold vocabulary |
 | [`kilter/`](kilter/) | The climb transformer: data encoding, model, training, sampling, evaluation, web export |
 | [`kilter/baseline/`](kilter/baseline/) | The original transformer, kept as the comparison baseline |
 | [`configs/`](configs/) | Training configs (`climb.toml`, `climb_null_grade.toml`, `baseline.toml`) |
@@ -30,8 +31,10 @@ for every result, including the `null_rule_16` model the website serves.
 | [`web/`](web/README.md) | The website: the climb tool and the experiments page |
 | [`.github/workflows/`](.github/workflows/) | Publishes `web/` to GitHub Pages on every push to `main` |
 
-Generated files stay out of Git: the raw and processed data under `data/`, encoded
-datasets under `data/cache/`, and training runs under `runs/`.
+The data needed to train every model and to build the website's similar-climb lookup is
+committed in [`data/training/`](data/README.md#committed-training-data) (about 20 MB), so
+no download is needed. Other generated files stay out of Git: the raw and full processed
+catalogue under `data/`, encoded datasets under `data/cache/`, and training runs under `runs/`.
 
 ## Quick start
 
@@ -39,7 +42,6 @@ From the repository root, using Python 3.12+ and [uv](https://docs.astral.sh/uv/
 
 ```bash
 uv sync --frozen
-# Download and prepare the catalogue into data/processed/; see data/README.md.
 
 # Train the default model, then generate from it.
 uv run --frozen python -m kilter train

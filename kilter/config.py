@@ -6,8 +6,8 @@ import tomllib
 
 @dataclass
 class DataConfig:
-    source: str = "data/processed/climbs.jsonl"
-    vocabulary: str = "data/processed/hold_vocabulary.csv"
+    source: str = "data/training/climbs.jsonl.gz"
+    vocabulary: str = "data/training/hold_vocabulary.csv"
     cache_dir: str = "data/cache/climb"
     # Same UUID hash and seed as the baseline, so validation/test rows match it.
     split_seed: int = 42

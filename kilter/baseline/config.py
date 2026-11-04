@@ -6,8 +6,8 @@ import tomllib
 
 @dataclass
 class DataConfig:
-    source: str = "data/processed/climbs.jsonl"
-    vocabulary: str = "data/processed/hold_vocabulary.csv"
+    source: str = "data/training/climbs.jsonl.gz"
+    vocabulary: str = "data/training/hold_vocabulary.csv"
     cache_dir: str = "data/cache/baseline"
     split_seed: int = 42
     train_fraction: float = 0.9

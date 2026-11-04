@@ -2,8 +2,8 @@ name = "ar_transformer"
 output_dir = "runs"
 
 [data]
-source = "data/processed/climbs.jsonl"
-vocabulary = "data/processed/hold_vocabulary.csv"
+source = "data/training/climbs.jsonl.gz"
+vocabulary = "data/training/hold_vocabulary.csv"
 cache_dir = "data/cache/baseline"
 split_seed = 42
 train_fraction = 0.90

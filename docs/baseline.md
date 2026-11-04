@@ -86,7 +86,7 @@ sequence is `BOS hold/role … FRAME hold/role … EOS`. Within each frame, hold
 sorted by their stable physical token. This is a deterministic serialization of a
 climb's holds, **not a recorded movement sequence**. Multi-frame climbs keep frame
 boundaries. Coordinates and kickboard identity can be recovered from
-`data/processed/hold_vocabulary.csv`; they are not additional model inputs.
+`data/training/hold_vocabulary.csv`; they are not additional model inputs.
 
 The model projects `[v_grade, angle_degrees / 90]` through a learned `Linear(2,
 d_model)` layer and adds the result to every token embedding. `V5` becomes the number

@@ -1,6 +1,7 @@
 """Stable tokenization and UUID-grouped splits, cached as compact ragged arrays."""
 from collections import Counter
 import csv
+import gzip
 from dataclasses import asdict
 import hashlib
 import json
@@ -16,6 +17,12 @@ from .config import write_json
 PAD, BOS, EOS, FRAME = range(4)
 SPECIAL_TOKENS = ["PAD", "BOS", "EOS", "FRAME"]
 CACHE_VERSION = 1
+
+
+def open_lines(path):
+    """Open a JSONL source as text, decompressing it if it ends in .gz."""
+    path = Path(path)
+    return gzip.open(path, "rt", encoding="utf-8") if path.suffix == ".gz" else path.open(encoding="utf-8")
 
 
 def sha256(path):
@@ -100,7 +107,7 @@ def prepare(config):
     tokens, offsets, conditions, uuids, splits, row_ids = [], [0], [], [], [], []
     excluded = Counter()
     grade_histogram, angle_histogram = Counter(), Counter()
-    with Path(config.source).open() as source:
+    with open_lines(config.source) as source:
         for line in source:
             row = json.loads(line)
             grade = v_grade(row["grade_hueco"])

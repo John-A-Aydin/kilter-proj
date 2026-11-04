@@ -26,7 +26,7 @@ These problems were measured on the baseline checkpoint:
 
 ## Data
 
-`prepare` reads `data/processed/climbs.jsonl` and caches encoded arrays under
+`prepare` reads the committed `data/training/climbs.jsonl.gz` and caches encoded arrays under
 `data/cache/climb/`, keyed by the content hash of the source, the vocabulary,
 `data.py`, and the data settings. Rows are dropped if they are multi-frame (1,370),
 have no V grade (27), have 0 or more than 2 starts (50) or finishes (6), or have more

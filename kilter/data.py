@@ -9,6 +9,7 @@ start holds plus some feet, and from arbitrary picks.
 """
 from collections import Counter
 import csv
+import gzip
 from dataclasses import asdict
 import hashlib
 import json
@@ -30,6 +31,12 @@ ROLE_ORDER = {START: 0, HAND: 1, FINISH: 2, FOOT: 3}
 MAX_STARTS = MAX_FINISHES = 2
 CACHE_VERSION = 1
 EVAL_MODES = ("scratch", "starts", "starts_feet")
+
+
+def open_lines(path):
+    """Open a JSONL source as text, decompressing it if it ends in .gz."""
+    path = Path(path)
+    return gzip.open(path, "rt", encoding="utf-8") if path.suffix == ".gz" else path.open(encoding="utf-8")
 
 
 def sha256(path):
@@ -159,7 +166,7 @@ def prepare(config):
     directory.mkdir(parents=True, exist_ok=True)
     tokens, offsets, conditions, ascents, uuids, row_ids, splits, signatures = [], [0], [], [], [], [], [], []
     excluded = Counter()
-    with Path(config.source).open() as source:
+    with open_lines(config.source) as source:
         for line in source:
             row = json.loads(line)
             grade = v_grade(row["grade_hueco"])

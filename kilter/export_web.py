@@ -12,7 +12,7 @@ import numpy as np
 import torch
 
 from .config import write_json
-from .data import BOS, EOS, MAX_FINISHES, MAX_STARTS, PAD, ROLE_ORDER, SEP, load_arrays, prepare, sha256
+from .data import BOS, EOS, MAX_FINISHES, MAX_STARTS, PAD, ROLE_ORDER, SEP, load_arrays, open_lines, prepare, sha256
 from .experiment import load_run
 from .model import parameter_count
 from .sampling import allowed_tokens
@@ -106,9 +106,9 @@ def climb_catalogue(arrays, board, names):
     return metadata, [values for _, values in packed]
 
 
-def export_climbs(config, board, climbs_csv, output):
-    with Path(climbs_csv).open(newline="") as source:
-        names = {r["climb_uuid"]: r["name"] for r in csv.DictReader(source)}
+def export_climbs(config, board, output):
+    with open_lines(config.data.source) as source:
+        names = {row["climb_uuid"]: row["name"] for row in map(json.loads, source)}
     directory, metadata = prepare(config.data)
     catalogue, columns = climb_catalogue(load_arrays(directory), board, names)
     destination = output / "climbs.bin"
@@ -120,7 +120,7 @@ def export_climbs(config, board, climbs_csv, output):
     return catalogue["climbs"], destination.stat().st_size
 
 
-def export(checkpoint, output, vocabulary, climbs_csv):
+def export(checkpoint, output, vocabulary):
     import onnx
     import onnxruntime as ort
 
@@ -176,7 +176,7 @@ def export(checkpoint, output, vocabulary, climbs_csv):
     write_json(output / "manifest.json", manifest)
     write_json(output / "parity-fixtures.json", fixtures)
     write_json(output / "decoding-fixtures.json", decoding_fixtures(board, config.data.max_holds, rng))
-    climbs, climb_bytes = export_climbs(config, board, climbs_csv, output)
+    climbs, climb_bytes = export_climbs(config, board, output)
     print(json.dumps({"output": str(output), "parameters": manifest["parameters"],
                       "onnx_bytes": destination.stat().st_size, "max_absolute_error": max_error,
                       "real_climbs": climbs, "climb_bytes": climb_bytes}))
@@ -186,11 +186,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("checkpoint", type=Path)
     parser.add_argument("--output", type=Path, default=Path("web/public/model"))
-    parser.add_argument("--vocabulary", type=Path, default=Path("data/processed/hold_vocabulary.csv"))
-    parser.add_argument("--climbs", type=Path, default=Path("data/processed/climbs.csv"),
-                        help="Climb metadata CSV, for the names of real climbs")
+    parser.add_argument("--vocabulary", type=Path, default=Path("data/training/hold_vocabulary.csv"))
     args = parser.parse_args()
-    export(args.checkpoint, args.output, args.vocabulary, args.climbs)
+    export(args.checkpoint, args.output, args.vocabulary)
 
 
 if __name__ == "__main__":
