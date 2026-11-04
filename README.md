@@ -29,6 +29,7 @@ for every result, including the `null_rule_16` model the website serves.
 | [`docs/`](docs/) | Write-ups of the [model](docs/model.md) and the [baseline](docs/baseline.md) |
 | [`tests/`](tests/) | Python tests for both models |
 | [`web/`](web/README.md) | The website: the climb tool and the experiments page |
+| [`wireframe/`](wireframe/README.md) | Prototype: 3D climber wireframes from beta videos, placed on the board |
 | [`.github/workflows/`](.github/workflows/) | Publishes `web/` to GitHub Pages on every push to `main` |
 
 The data needed to train every model and to build the website's similar-climb lookup is

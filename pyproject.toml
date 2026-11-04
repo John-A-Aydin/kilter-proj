@@ -16,6 +16,9 @@ web = [
     "onnx>=1.17,<2",
     "onnxruntime>=1.20,<2",
 ]
+wireframe = [
+    "mediapipe>=1.2.2",
+]
 
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
