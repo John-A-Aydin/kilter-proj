@@ -1,0 +1,12 @@
+{
+  "d_model": 48,
+  "dropout": 0.1,
+  "ff_multiplier": 4,
+  "n_heads": 4,
+  "n_layers": 2,
+  "parameters": 154512,
+  "parameters_per_example": 0.5,
+  "parameters_per_training_row": 0.5070971680248376,
+  "positional_embeddings": true,
+  "target_parameters": 152350
+}

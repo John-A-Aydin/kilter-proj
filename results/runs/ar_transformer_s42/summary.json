@@ -1,0 +1,14 @@
+{
+  "best_epoch": 9,
+  "best_validation_loss": 3.7261940332794894,
+  "data_fingerprint": "f62040b9653f43c0e99a9e5a3e545b807d0df21459c836701ef065f3bad969f1",
+  "epochs_completed": 10,
+  "name": "ar_transformer",
+  "parameters": 154512,
+  "partial_training_epochs": false,
+  "partial_validation": false,
+  "run": "runs/20261030T004007463275Z_ar_transformer",
+  "session_seconds": 367.92613948100006,
+  "steps": 11910,
+  "target_parameters": 152350
+}

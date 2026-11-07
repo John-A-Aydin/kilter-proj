@@ -1,0 +1,10 @@
+{
+  "checkpoint": "runs/20261030T154915874647Z_ar_transformer/best.pt",
+  "loss": 3.7357942361188914,
+  "partial": false,
+  "perplexity": 41.92130776116633,
+  "rows": 16926,
+  "split": "test",
+  "token_accuracy": 0.171199958434001,
+  "tokens": 230958
+}

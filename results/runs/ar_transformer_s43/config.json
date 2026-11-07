@@ -1,0 +1,43 @@
+{
+  "data": {
+    "cache_dir": "data/experiments",
+    "include_computed_grades": true,
+    "max_seq_len": 128,
+    "source": "data/processed/climbs.jsonl",
+    "split_seed": 42,
+    "train_fraction": 0.9,
+    "validation_fraction": 0.05,
+    "vocabulary": "data/processed/hold_vocabulary.csv"
+  },
+  "model": {
+    "d_model": "auto",
+    "dropout": 0.1,
+    "ff_multiplier": 4,
+    "n_heads": 4,
+    "n_layers": 2,
+    "parameters_per_example": 0.5,
+    "positional_embeddings": true
+  },
+  "name": "ar_transformer",
+  "output_dir": "runs",
+  "train": {
+    "batch_size": 256,
+    "beta1": 0.9,
+    "beta2": 0.999,
+    "device": "auto",
+    "epochs": 10,
+    "grad_clip": 1.0,
+    "learning_rate": 0.0003,
+    "length_bucketing": true,
+    "log_every": 100,
+    "max_eval_batches": 0,
+    "max_train_batches": 0,
+    "min_lr_ratio": 0.1,
+    "num_workers": 0,
+    "patience": 3,
+    "seed": 43,
+    "threads": 4,
+    "warmup_fraction": 0.05,
+    "weight_decay": 0.01
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "checkpoint": "runs/20261030T164437930407Z_null_16_epochs/best.pt",
+  "null_grade": {
+    "scratch": {
+      "loss_per_token": 3.371944013550034,
+      "nll_per_climb": 45.67001522287939,
+      "nll_rules": 45.466011975018546,
+      "rows": 16897,
+      "token_accuracy": 0.21169299338008782
+    },
+    "selection_nll": 37.97691613329567,
+    "selection_nll_rules": 37.78336304866311,
+    "starts": {
+      "loss_per_token": 3.258471237130416,
+      "nll_per_climb": 38.387556544618434,
+      "nll_rules": 38.2066792135176,
+      "rows": 16897,
+      "token_accuracy": 0.22194704135918136
+    },
+    "starts_feet": {
+      "loss_per_token": 3.1984935782470494,
+      "nll_per_climb": 29.873176632389175,
+      "nll_rules": 29.677397957453188,
+      "rows": 16897,
+      "token_accuracy": 0.24876119989354556
+    }
+  },
+  "scratch": {
+    "loss_per_token": 3.3249628291251225,
+    "nll_per_climb": 45.03369641116352,
+    "nll_rules": 44.83053835568403,
+    "rows": 16897,
+    "token_accuracy": 0.21717681501387343
+  },
+  "selection_nll": 37.467672440321415,
+  "selection_nll_rules": 37.2748144264392,
+  "split": "test",
+  "starts": {
+    "loss_per_token": 3.217038907845752,
+    "nll_per_climb": 37.89944854321378,
+    "nll_rules": 37.71961573354519,
+    "rows": 16897,
+    "token_accuracy": 0.22777440081181147
+  },
+  "starts_feet": {
+    "loss_per_token": 3.1553121610137227,
+    "nll_per_climb": 29.469872366586944,
+    "nll_rules": 29.274289190088382,
+    "rows": 16897,
+    "token_accuracy": 0.2542423359144309
+  }
+}

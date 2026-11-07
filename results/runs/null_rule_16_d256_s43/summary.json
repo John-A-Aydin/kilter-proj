@@ -1,0 +1,13 @@
+{
+  "best_epoch": 9,
+  "best_validation_selection_nll": 37.218964298172004,
+  "data_fingerprint": "082387aa517d72cb83ff3702d1c7eef130e2eeb58a15ad785bba1122ae59742c",
+  "epochs_completed": 11,
+  "name": "null_rule_16_d256",
+  "parameters": 6599796,
+  "partial_training_epochs": false,
+  "partial_validation": false,
+  "run": "/home/john/School/kilter-proj/runs/20261030T190941840290Z_null_rule_16_d256",
+  "session_seconds": 1458.8701274370032,
+  "steps": 13046
+}
