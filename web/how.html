@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="How the Kilter Climb Lab transformer is built and trained: sequence format, architecture, training mixture, and the experiments behind each choice.">
+  <meta name="theme-color" content="#f4f3ed">
+  <title>How It Works · Kilter Climb Lab</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2328312a'/%3E%3Cpath d='M16 46 29 16l7 18 7-10 8 22' fill='none' stroke='%23c6e887' stroke-width='5' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./src/style.css">
+  <link rel="stylesheet" href="./src/how.css">
+  <script type="module" src="./src/how.mjs"></script>
+</head>
+<body class="how-page">
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="Kilter Climb Lab home"><span class="brand-mark">↗</span> Kilter <span>Climb Lab</span></a>
+    <nav class="site-nav" aria-label="Site"><a href="./">Climb tool</a><a href="./how.html" aria-current="page">How it works</a><a href="./experiments.html">Experiments</a></nav>
+  </header>
+  <main class="how">
+    <div class="intro how-intro">
+      <div>
+        <p class="eyebrow">UNDER THE HOOD</p>
+        <h1>How the model sets a climb</h1>
+        <p class="subtitle">A small transformer reads the holds you picked, plus a grade and an angle, and predicts the rest of the climb one hold at a time. This page covers how a climb becomes tokens, what the network looks like, how it was trained, and the experiments behind each choice.</p>
+      </div>
+    </div>
+
+    <section class="stat-row" aria-label="Key numbers" id="stats">
+      <div class="stat"><span class="stat-label">Test likelihood, from nothing</span><strong id="stat-nll">–</strong><span class="stat-note" id="stat-nll-note">nats per climb (lower is better)</span></div>
+      <div class="stat"><span class="stat-label">Parameters</span><strong id="stat-params">2.86M</strong><span class="stat-note">width 192 · 6 layers · 6 heads</span></div>
+      <div class="stat"><span class="stat-label">Training climbs</span><strong>303,547</strong><span class="stat-note">climb–angle rows, Kilter Original 12 × 12</span></div>
+      <div class="stat"><span class="stat-label">Training length</span><strong>16 epochs</strong><span class="stat-note" id="stat-epochs">best checkpoint picked on validation</span></div>
+    </section>
+
+    <nav class="toc" aria-label="On this page">
+      <a href="#sequence">1 · Climb to tokens</a><a href="#architecture">2 · Architecture</a><a href="#training">3 · Training</a><a href="#decisions">4 · Decisions</a><a href="#decoding">5 · Decoding</a><a href="#results">6 · What it learned</a><a href="#caveats">Caveats</a>
+    </nav>
+
+    <section class="how-section" id="sequence" aria-labelledby="sequence-heading">
+      <div class="section-head"><span class="step-number">01</span><h2 id="sequence-heading">A climb becomes a sequence</h2></div>
+      <p>Each hold in a climb has a role: <span class="role-tag start"><i></i>start</span> <span class="role-tag hand"><i></i>hand</span> <span class="role-tag finish"><i></i>finish</span> <span class="role-tag foot"><i></i>foot</span>. A token is one hold in one role, so the vocabulary is 476 holds × 4 roles, plus <code>PAD BOS EOS SEP</code>: 1,908 tokens. The holds you give the model go before <code>SEP</code>. The model predicts everything after it, in a fixed order: starts, then hands, finishes, and feet, each from bottom to top and then left to right.</p>
+      <figure class="figure figure-wide">
+        <div class="figure-scroll">
+          <svg class="diagram" id="sequence-figure" viewBox="0 0 860 236" role="img" aria-labelledby="sequence-title sequence-desc">
+            <title id="sequence-title">Training sequence layout</title>
+            <desc id="sequence-desc">BOS, then the given holds (two starts and a foot), then SEP, then the remaining holds (two hands, a finish and a foot), then EOS. Positions restart at SEP. Only the tokens after SEP, and EOS, are scored by the loss.</desc>
+            <g class="d-label"><text x="14" y="30">position</text><text x="14" y="58">segment</text></g>
+            <g id="sequence-tokens"></g>
+            <g class="d-note"><text x="14" y="208">Canonical order inside each block: start → hand → finish → foot, each bottom to top, then left to right.</text><text x="14" y="225">Positions restart at SEP, so the positions after it don’t depend on how many holds were given.</text></g>
+          </svg>
+        </div>
+        <p class="scroll-hint">Scroll sideways to see the whole figure.</p>
+        <figcaption>Figure 1. One training example. The model learns p(rest | given holds, grade, angle) directly, so completing your picks needs no special decoding.</figcaption>
+      </figure>
+
+      <h3>What gets given during training</h3>
+      <p>Every epoch, each training climb gets a new given set drawn from a mixture. One model can then generate from nothing, from start holds plus some feet, or from any set of picks.</p>
+      <figure class="figure" id="mixture-figure">
+        <div class="chart" id="mixture-chart" role="img" aria-label="Given-set mixture: 30% nothing, 45% all starts plus random feet, 25% random subset of holds"></div>
+        <div class="mixture-cards" id="mixture-cards"></div>
+        <figcaption>Figure 2. The given-set mixture (<code>train.p_scratch</code>, <code>p_starts</code>, <code>p_random</code>). Separately, half of the rows in each batch have their grade replaced by “no grade”, so the same model also works when you don’t give a grade.</figcaption>
+      </figure>
+
+      <h3>Which climbs are used</h3>
+      <div class="ledger" role="table" aria-label="Dataset filtering">
+        <div role="row"><span role="cell">Climb–angle rows in the dataset</span><strong role="cell">339,659</strong></div>
+        <div role="row" class="minus"><span role="cell">Multi-frame climbs</span><strong role="cell">−1,370</strong></div>
+        <div role="row" class="minus"><span role="cell">No V grade</span><strong role="cell">−27</strong></div>
+        <div role="row" class="minus"><span role="cell">0 or more than 2 starts / finishes</span><strong role="cell">−56</strong></div>
+        <div role="row" class="minus"><span role="cell">More than 40 holds</span><strong role="cell">−10</strong></div>
+        <div role="row" class="minus"><span role="cell">Training rows whose exact hold set is also in validation or test</span><strong role="cell">−816</strong></div>
+        <div role="row" class="total"><span role="cell">Train · validation · test (split by climb UUID, same as the baseline)</span><strong role="cell">303,547 · 16,936 · 16,897</strong></div>
+      </div>
+    </section>
+
+    <section class="how-section" id="architecture" aria-labelledby="architecture-heading">
+      <div class="section-head"><span class="step-number">02</span><h2 id="architecture-heading">Architecture</h2></div>
+      <p>The model is a causal decoder-only transformer. Two design choices matter most. Hold embeddings know where a hold is on the wall. The output layer reuses the same embedding table, so a hold’s position on the wall shapes how it is read and how it is predicted.</p>
+      <figure class="figure figure-wide">
+        <div class="figure-scroll">
+          <svg class="diagram" viewBox="0 0 860 830" role="img" aria-labelledby="arch-title arch-desc">
+            <title id="arch-title">Model architecture</title>
+            <desc id="arch-desc">Tokens are embedded as hold ID embedding plus a geometry MLP of hold features plus a role embedding. Position, segment, and a condition MLP of grade and angle are added. Six pre-LayerNorm decoder blocks with causal self-attention and a GELU feed-forward layer follow. A final LayerNorm, then logits from the same token table plus a bias, then the decoding-rule mask and sampling.</desc>
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" class="d-arrowhead"/></marker>
+            </defs>
+
+            <!-- Inputs -->
+            <g class="d-input">
+              <rect x="20" y="16" width="470" height="44" rx="9"/>
+              <text x="36" y="36" class="d-title">Tokens</text>
+              <text x="36" y="52" class="d-sub">BOS · given holds · SEP · rest so far (up to 42)</text>
+              <rect x="560" y="16" width="280" height="44" rx="9"/>
+              <text x="576" y="36" class="d-title">Conditions</text>
+              <text x="576" y="52" class="d-sub">V grade (or none) · angle / 90</text>
+            </g>
+
+            <!-- Token table -->
+            <g class="d-box d-table">
+              <rect x="20" y="84" width="470" height="196" rx="12"/>
+              <text x="36" y="108" class="d-title">Token table T</text>
+              <text x="474" y="108" text-anchor="end" class="d-sub">1,908 × 192</text>
+            </g>
+            <g class="d-part">
+              <rect x="36" y="122" width="134" height="76" rx="8"/>
+              <text x="48" y="144" class="d-title">Hold ID</text><text x="48" y="161" class="d-sub">embedding</text><text x="48" y="186" class="d-dim">476 × 192</text>
+              <rect x="196" y="122" width="134" height="76" rx="8"/>
+              <text x="208" y="144" class="d-title">Geometry MLP</text><text x="208" y="161" class="d-sub">28 → 192 → 192</text><text x="208" y="186" class="d-dim">GELU</text>
+              <rect x="356" y="122" width="118" height="76" rx="8"/>
+              <text x="368" y="144" class="d-title">Role</text><text x="368" y="161" class="d-sub">embedding</text><text x="368" y="186" class="d-dim">4 × 192</text>
+            </g>
+            <g class="d-op"><circle cx="183" cy="160" r="9"/><path d="M178 160h10M183 155v10"/><circle cx="343" cy="160" r="9"/><path d="M338 160h10M343 155v10"/></g>
+            <g class="d-note">
+              <text x="36" y="226">Geometry features per hold: x, y, kickboard flag, screw-on-set flag,</text>
+              <text x="36" y="243">and sin / cos of 2ᵏπx, 2ᵏπy for k = 0…5.</text>
+              <text x="36" y="266">Special tokens PAD, BOS, EOS, SEP have their own 4 × 192 rows.</text>
+            </g>
+
+            <!-- Position / segment / condition -->
+            <g class="d-box">
+              <rect x="560" y="84" width="280" height="88" rx="12"/>
+              <text x="576" y="108" class="d-title">Condition MLP</text>
+              <text x="576" y="128" class="d-sub">grade / 16, angle / 90, with sin / cos</text>
+              <text x="576" y="144" class="d-sub">at 2ᵏπ, k = 0…3, + a no-grade flag</text>
+              <text x="576" y="162" class="d-dim">19 → 192 → 192 · added at every position</text>
+              <rect x="560" y="192" width="280" height="88" rx="12"/>
+              <text x="576" y="216" class="d-title">Position + segment</text>
+              <text x="576" y="236" class="d-sub">learned positions, restarting at SEP</text>
+              <text x="576" y="252" class="d-sub">segment: given (0) or rest (1)</text>
+              <text x="576" y="270" class="d-dim">42 × 192 and 2 × 192</text>
+            </g>
+            <path class="d-line" d="M700 60v22" marker-end="url(#arrow)"/>
+            <path class="d-line" d="M255 60v22" marker-end="url(#arrow)"/>
+
+            <!-- Sum -->
+            <path class="d-line" d="M255 280v42h160" marker-end="url(#arrow)"/>
+            <path class="d-line" d="M560 128h-35v194h-80" marker-end="url(#arrow)"/>
+            <path class="d-line" d="M560 236h-35"/>
+            <g class="d-op"><circle cx="430" cy="322" r="13"/><path d="M423 322h14M430 315v14"/></g>
+            <text x="446" y="346" class="d-dim">sum, then dropout 0.1</text>
+
+            <!-- Blocks -->
+            <g class="d-box d-stack">
+              <rect x="186" y="378" width="488" height="232" rx="12" class="d-shadow"/>
+              <rect x="180" y="372" width="488" height="232" rx="12" class="d-shadow"/>
+              <rect x="174" y="366" width="488" height="232" rx="12"/>
+              <text x="216" y="390" class="d-title">Decoder block</text>
+              <text x="646" y="390" text-anchor="end" class="d-badge">× 6</text>
+            </g>
+            <path class="d-line" d="M430 335v11h-232v66" marker-end="url(#arrow)"/>
+            <g class="d-part">
+              <rect x="216" y="404" width="90" height="40" rx="7"/><text x="261" y="429" text-anchor="middle" class="d-sub">LayerNorm</text>
+              <rect x="324" y="404" width="240" height="40" rx="7"/><text x="444" y="422" text-anchor="middle" class="d-title">Causal self-attention</text><text x="444" y="437" text-anchor="middle" class="d-dim">6 heads × 32 · dropout 0.1</text>
+              <rect x="216" y="494" width="90" height="40" rx="7"/><text x="261" y="519" text-anchor="middle" class="d-sub">LayerNorm</text>
+              <rect x="324" y="494" width="240" height="40" rx="7"/><text x="444" y="512" text-anchor="middle" class="d-title">Feed-forward</text><text x="444" y="527" text-anchor="middle" class="d-dim">192 → 768 → 192 · GELU · dropout</text>
+            </g>
+            <path class="d-line" d="M198 412v12h16" marker-end="url(#arrow)"/>
+            <path class="d-line" d="M306 424h16" marker-end="url(#arrow)"/>
+            <path class="d-line" d="M564 424h24" marker-end="url(#arrow)"/>
+            <path class="d-residual" d="M198 412v-12h402v12" marker-end="url(#arrow)"/>
+            <text x="596" y="394" text-anchor="end" class="d-dim">residual</text>
+            <path class="d-line" d="M600 434v40h-402v40h16" marker-end="url(#arrow)"/>
+            <path class="d-line" d="M306 514h16" marker-end="url(#arrow)"/>
+            <path class="d-line" d="M564 514h24" marker-end="url(#arrow)"/>
+            <path class="d-residual" d="M198 514v36h402v-24" marker-end="url(#arrow)"/>
+            <text x="596" y="566" text-anchor="end" class="d-dim">residual</text>
+            <g class="d-op"><circle cx="600" cy="424" r="10"/><path d="M594 424h12M600 418v12"/><circle cx="600" cy="514" r="10"/><path d="M594 514h12M600 508v12"/></g>
+            <text x="216" y="588" class="d-note-text">Pre-LayerNorm, with a residual connection around each sublayer.</text>
+
+            <!-- Output -->
+            <path class="d-line" d="M610 514h30v110h-210v12" marker-end="url(#arrow)"/>
+            <g class="d-part">
+              <rect x="330" y="638" width="200" height="34" rx="7"/><text x="430" y="660" text-anchor="middle" class="d-sub">Final LayerNorm → h</text>
+            </g>
+            <path class="d-line" d="M430 672v14" marker-end="url(#arrow)"/>
+            <g class="d-box d-table">
+              <rect x="250" y="688" width="360" height="52" rx="12"/>
+              <text x="430" y="710" text-anchor="middle" class="d-title">Logits = h · Tᵀ + bias</text>
+              <text x="430" y="728" text-anchor="middle" class="d-dim">one score per token, 1,908</text>
+            </g>
+            <path class="d-tied" d="M250 714H40V284" marker-end="url(#arrow)"/>
+            <text x="48" y="704" class="d-tied-text">same table T (tied weights)</text>
+            <path class="d-line" d="M430 740v14" marker-end="url(#arrow)"/>
+            <g class="d-box d-rules">
+              <rect x="250" y="756" width="360" height="56" rx="12"/>
+              <text x="430" y="778" text-anchor="middle" class="d-title">Decoding-rule mask → softmax → sample</text>
+              <text x="430" y="797" text-anchor="middle" class="d-dim">the same mask is applied in the training loss</text>
+            </g>
+            <path class="d-line" d="M610 784h66" marker-end="url(#arrow)"/>
+            <text x="684" y="780" class="d-title">next hold</text>
+            <text x="684" y="796" class="d-dim">fed back until EOS</text>
+          </svg>
+        </div>
+        <p class="scroll-hint">Scroll sideways to see the whole figure.</p>
+        <figcaption>Figure 3. The served model, <code>null_rule_16</code>: 2,856,372 parameters. Inference runs in your browser with ONNX Runtime Web, one forward pass per hold.</figcaption>
+      </figure>
+      <div class="why-grid">
+        <div><h3>Geometry in the embedding</h3><p>The baseline learned 1,904 unrelated hold-and-role vectors. Here, nearby holds start out similar, and holds that are rarely used still get a sensible vector.</p></div>
+        <div><h3>Tied output weights</h3><p>The scores for the next hold use the same table that embeds holds, plus a per-token bias. Predicting a hold and reading it share one representation.</p></div>
+        <div><h3>Conditions everywhere</h3><p>The grade and angle pass through sinusoidal features and an MLP, then get added to every position, so their effect can be nonlinear. The baseline used a single linear layer.</p></div>
+      </div>
+    </section>
+
+    <section class="how-section" id="training" aria-labelledby="training-heading">
+      <div class="section-head"><span class="step-number">03</span><h2 id="training-heading">Training protocol</h2></div>
+      <div class="protocol">
+        <dl class="protocol-list" id="protocol-list"></dl>
+        <figure class="figure protocol-chart">
+          <h3 class="chart-title">Learning rate</h3>
+          <p class="chart-sub">3% linear warmup, then cosine decay to 5% of the peak</p>
+          <div class="chart" id="lr-chart"></div>
+          <details class="chart-table"><summary>Show the numbers</summary><div id="lr-table"></div></details>
+        </figure>
+      </div>
+      <figure class="figure">
+        <h3 class="chart-title">Validation loss by epoch</h3>
+        <p class="chart-sub">Nats per climb with the decoding rules applied, averaged over the three ways of giving holds and over seeds 42, 43, 44. Lower is better. Dots mark each run’s best epoch, on the 3-seed mean.</p>
+        <div class="legend" id="curves-legend"></div>
+        <div class="chart" id="curves-chart"></div>
+        <details class="chart-table"><summary>Show the numbers</summary><div id="curves-table"></div></details>
+        <figcaption>Figure 4. A run stops early when validation fails to improve for 2 epochs, and the best epoch is kept. A curve ends at the last epoch every seed reached. The 16-epoch runs kept improving until epochs 12–15.</figcaption>
+      </figure>
+    </section>
+
+    <section class="how-section" id="decisions" aria-labelledby="decisions-heading">
+      <div class="section-head"><span class="step-number">04</span><h2 id="decisions-heading">Decisions and the experiments behind them</h2></div>
+      <p>Each change started from the same model, the large model trained 8 epochs with half its grades nulled. Every change was trained on three seeds and chosen on validation. Test numbers were checked afterwards.</p>
+      <figure class="figure">
+        <h3 class="chart-title">One change at a time</h3>
+        <p class="chart-sub">Mean nats per climb with rules applied, mean ± 1 sd over 3 seeds. Lower is better.</p>
+        <div class="legend" id="ablation-legend"></div>
+        <div class="chart" id="ablation-chart"></div>
+        <details class="chart-table"><summary>Show the numbers</summary><div id="ablation-table"></div></details>
+        <figcaption>Figure 5. Rule loss (training with illegal tokens masked) and 16 epochs each helped, and they helped more together. A bigger model only helped at 8 epochs. Weighting climbs by ascent count hurt.</figcaption>
+      </figure>
+      <div class="two-col">
+        <figure class="figure">
+          <h3 class="chart-title">Does the model need a grade?</h3>
+          <p class="chart-sub">Test nats per climb for the large model, 8 epochs, mean of 3 seeds</p>
+          <div id="null-table"></div>
+          <figcaption>Figure 6. Nulling half the grades costs almost nothing when a grade is given, and the same model nearly matches one trained only without grades. Knowing the grade is worth about 0.5 nats per climb.</figcaption>
+        </figure>
+        <div class="decision-list">
+          <h3>Other choices</h3>
+          <ul>
+            <li><strong>Mixture of given sets.</strong> 30 / 45 / 25 covers the three ways people use the page. The <code>starts</code> mode always gives every start hold, so given starts mean “these are all the starts.”</li>
+            <li><strong>Leakage removal.</strong> 1,033 hold sets appear under several UUIDs. Training copies of held-out hold sets are dropped.</li>
+            <li><strong>Selection metric.</strong> The mean nats per climb across scratch, starts, and starts + every other foot. It can be compared with the baseline, unlike per-token loss.</li>
+            <li><strong>No ascent weighting.</strong> 42% of climbs have a single ascent, but weighting by log ascents made every mode worse.</li>
+            <li><strong>Deterministic training.</strong> <code>torch.use_deterministic_algorithms</code>, with a fixed split seed of 42 for all runs.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="how-section" id="decoding" aria-labelledby="decoding-heading">
+      <div class="section-head"><span class="step-number">05</span><h2 id="decoding-heading">Decoding rules</h2></div>
+      <p>At each step, a mask removes only continuations that no training climb has:</p>
+      <ul class="rule-list">
+        <li>breaking the canonical order, or repeating a hold</li>
+        <li>more than 2 starts or 2 finishes</li>
+        <li>a foot before a finish has been placed</li>
+        <li>ending before there is at least one start and one finish</li>
+        <li>more than 40 holds</li>
+      </ul>
+      <p>The served model was also trained with this mask (<code>train.rule_loss</code>), so its loss only ranks legal tokens. It relies on the mask: with the rules off, its samples are meaningless. The no-rules row below comes from the earlier large model, trained without the mask.</p>
+      <figure class="figure">
+        <h3 class="chart-title">Structurally valid samples</h3>
+        <p class="chart-sub">Share of test samples with no repeated hold, 1–2 starts and finishes, starts below finishes, and at least one foot. Mean of 3 seeds.</p>
+        <div class="legend" id="validity-legend"></div>
+        <div class="chart" id="validity-chart"></div>
+        <details class="chart-table"><summary>Show the numbers</summary><div id="validity-table"></div></details>
+        <figcaption>Figure 7. The baseline sorted holds by ID and couldn’t take start holds as a prefix. Its workaround decoder kept adding start holds. Real climbs aren’t 100% valid either: some have no feet.</figcaption>
+      </figure>
+    </section>
+
+    <section class="how-section" id="results" aria-labelledby="results-heading">
+      <div class="section-head"><span class="step-number">06</span><h2 id="results-heading">What it learned</h2></div>
+      <div class="two-col">
+        <figure class="figure">
+          <h3 class="chart-title">Holds per climb by grade</h3>
+          <p class="chart-sub">Mean holds per test climb or sample, with the grade given. About 50 samples per grade, mean of 3 seeds.</p>
+          <div class="legend" id="grade-legend"></div>
+          <div class="chart" id="grade-chart"></div>
+          <details class="chart-table"><summary>Show the numbers</summary><div id="grade-table"></div></details>
+          <figcaption>Figure 8. Harder climbs use fewer holds, and the model follows that trend. Its climbs are slightly shorter than real ones at every grade.</figcaption>
+        </figure>
+        <figure class="figure">
+          <h3 class="chart-title">Grading climbs it never generated</h3>
+          <p class="chart-sub">Test mean squared error predicting V grade from holds and angle (grade variance 6.66). Lower is better.</p>
+          <div class="legend" id="grading-legend"></div>
+          <div class="chart" id="grading-chart"></div>
+          <details class="chart-table"><summary>Show the numbers</summary><div id="grading-table"></div></details>
+          <figcaption>Figure 9. The generator, frozen and read with no grade, gives better grading features than a bag of holds. The Bayes grader uses no trained head: it scores the climb under each grade.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="how-section caveats" id="caveats" aria-labelledby="caveats-heading">
+      <div class="section-head"><span class="step-number">!</span><h2 id="caveats-heading">Caveats</h2></div>
+      <ul>
+        <li><strong>Nobody has climbed these.</strong> The checks are structural, plus summary statistics such as hold count, feet, finish height, and the largest gap between hand holds.</li>
+        <li><strong>The rules guarantee validity.</strong> With rules on, validity mostly measures the mask. The no-rules number for a model trained without the mask is the fairer measure of what a model learned.</li>
+        <li><strong>Grade fidelity is weak.</strong> About 50 samples per grade, and the V2 → V11 trend in hold count is noisy. The gain in likelihood is solid; matching the requested grade is not established.</li>
+        <li><strong>One start is out of distribution for the starts mode.</strong> In that mode, training always gave every start hold. The random-subset mode partly covers giving just one.</li>
+      </ul>
+      <p class="source-note">Numbers come from <code>results/</code> in the repository and are exported by <code>experiments/export_training_page.py</code>. The baseline is the original <code>kilter/</code> transformer: 154k parameters, holds sorted by ID.</p>
+    </section>
+
+    <footer class="page-footer"><span>A playground for climbing experiments.</span><a href="./">← Back to setting a climb</a></footer>
+  </main>
+  <div class="chart-tooltip" id="chart-tooltip" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

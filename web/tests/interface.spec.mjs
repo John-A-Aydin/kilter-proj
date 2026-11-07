@@ -322,3 +322,25 @@ test('the experiments tab renders the write-up and interactive charts, and links
   await expect(page.locator('#model-status-text')).toHaveText('Model ready', { timeout: 60000 });
   expect(errors).toEqual([]);
 });
+
+test('how it works page draws the figures and charts from the exported results', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.getByRole('link', { name: 'How it works' }).first().click();
+  await expect(page).toHaveURL(/how\.html$/);
+  await expect(page.locator('body')).toHaveAttribute('data-charts-ready', 'true');
+  await expect(page.locator('#sequence-tokens .tok')).toHaveCount(10);
+  for (const id of ['mixture-chart', 'lr-chart', 'curves-chart', 'ablation-chart', 'validity-chart', 'grade-chart', 'grading-chart']) {
+    await expect(page.locator(`#${id} svg`)).toHaveCount(1);
+  }
+  await expect(page.locator('#ablation-chart .c-row')).toHaveCount(7);
+  await expect(page.locator('#stat-nll')).toHaveText(/^\d+\.\d\d$/);
+  await page.locator('#ablation-chart .c-row').last().hover();
+  await expect(page.locator('#chart-tooltip')).toBeVisible();
+  await expect(page.locator('#chart-tooltip')).toContainText('rule loss, 16 epochs');
+  await page.locator('#curves-chart svg').focus();
+  await expect(page.locator('#chart-tooltip')).toContainText('Epoch');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});

@@ -38,6 +38,23 @@ Model weights and metadata are exported without optimizer state. The export also
 writes `climbs.json` and `climbs.bin` (about 12 MB, 6 MB gzipped): every real climb in
 the dataset, with its name, holds, and grade and ascent count at each angle.
 
+## How it works page
+
+`how.html` explains the model for visitors: the sequence format, an architecture
+diagram, the training protocol and learning-rate schedule, validation curves, the
+one-change-at-a-time experiments, decoding-rule validity, holds by grade, and the
+grading task. Its numbers come from `public/training.json`, which is generated from
+`results/`. After rerunning experiments, regenerate it from the repository root and
+rebuild:
+
+```bash
+.venv/bin/python experiments/export_training_page.py
+cd web && npm run build
+```
+
+The charts are drawn by `src/how.mjs` with no chart library. Each chart has a
+"Show the numbers" table.
+
 ## Completion behavior
 
 The model was trained on `BOS <given holds> SEP <remaining holds> EOS`. During
