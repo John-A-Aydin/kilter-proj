@@ -29,6 +29,9 @@ class ModelConfig:
     coordinate_frequencies: int = 6
     # Adds an input that marks a grade as null. Needed when train.p_null_grade is above 0.
     null_grade: bool = False
+    # Path to data/hold_labels.csv: adds each hold's labeled type and grip directions to its
+    # features (kilter/hold_labels.py). Empty leaves them out.
+    hold_labels: str = ""
 
 
 @dataclass
@@ -103,6 +106,8 @@ class Config:
             raise ValueError("p_scratch, p_starts, and p_random must be nonnegative and sum to 1")
         if not 0 <= t.p_null_grade <= 1 or (t.p_null_grade > 0 and not m.null_grade):
             raise ValueError("p_null_grade must be in [0,1] and above 0 only with model.null_grade")
+        if not isinstance(m.hold_labels, str):
+            raise ValueError("model.hold_labels must be a path or empty")
         if min(t.max_train_batches, t.max_eval_batches) < 0:
             raise ValueError("Batch limits must be nonnegative")
         if not all(isinstance(v, bool) for v in (d.include_computed_grades, d.remove_split_leakage, m.null_grade, t.rule_loss)):

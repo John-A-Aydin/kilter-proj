@@ -81,7 +81,7 @@ are compared here. Mean nats per climb over seeds 42, 43 and 44, with rules appl
 | `null_16_epochs` | 37.37 | 44.83 | 37.66 | 29.26 | 37.25 | 94.1% |
 | `null_rule_loss` | 37.36 | 44.75 | 37.54 | 29.24 | 37.18 | 95.3% |
 | `null_rule_16_d256` | 37.30 | 44.77 | 37.58 | 29.16 | 37.17 | 95.9% |
-| `null_rule_16` | 37.14 | 44.57 | 37.43 | 29.01 | 37.01 | 94.0% |
+| `null_rule_16` | 37.14 | 44.58 | 37.43 | 29.01 | 37.01 | 94.0% |
 
 `null_rule_16` was chosen on validation, and the website serves its best validation
 seed, 43. It scores 0.46 nats better than `climb_v2_null_grade` on test, but about 2
@@ -90,6 +90,34 @@ improving between epochs 12 and 15, so more epochs alone are unlikely to help mu
 `null_rule_16_d256` stopped early at 11 or 12 epochs, with its best at 9 or 10. It
 fits worse than the smaller model, so the extra size stops helping once training is
 long enough.
+
+### Hand-labeled hold features
+
+Every hold was labeled by hand in the website's hold labeler
+([`data/hold_labels.csv`](../data/hold_labels.csv)): its type and every direction it
+can be pulled on. `null_rule_16_labels` is `null_rule_16` with those labels added to
+each hold's features (`model.hold_labels = "data/hold_labels.csv"`), and nothing else
+changed. Only the `type`, `grip` and `on_kickboard` columns are read. Type becomes a
+one-hot over 7 types and grip a multi-hot over 16 compass directions, so a hold's
+features grow from 28 to 51 columns. `on_kickboard` was already a feature, so it is
+only checked against the vocabulary. All 476 holds have both a type and a grip: 197
+edges, 170 foot chips, 80 jugs, 20 pinches and 9 slopers, and 423 holds pull one way.
+
+Mean over seeds 42, 43 and 44, with rules applied:
+
+| Model | Validation mean | Test scratch | Test starts | Test starts + feet | Test mean | Rules-on valid (test) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `null_rule_16` | 37.14 | 44.58 | 37.43 | 29.01 | 37.01 | 94.0% |
+| `null_rule_16_labels` | 37.12 | 44.56 | 37.43 | 29.00 | 37.00 | 93.4% |
+
+The labels make no measurable difference. Test mean improves by 0.01 nats per climb.
+Seed for seed, the gain is 0.00 to 0.03, smaller than the spread between seeds (standard
+deviation 0.02 to 0.04). Validity is 0.6 points lower, and its sign changes from seed
+to seed. Best epochs are the same, 12 to 15. A likely reason is that every hold
+already has its own learned embedding, trained on about 300,000 climb rows, so anything
+fixed about a hold, such as its type or grip, can already be learned from how it is used.
+Labels like these would matter more for holds with few climbs, or for a board
+the model has not seen. The website still serves `null_rule_16`.
 
 ## Hold representations
 

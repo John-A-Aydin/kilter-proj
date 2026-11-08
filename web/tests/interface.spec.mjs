@@ -357,8 +357,12 @@ test('the hold labeler labels holds by keyboard and compass, keeps them across r
   const first = await page.locator('#hold-title').textContent();
   await page.keyboard.press('1');
   await page.keyboard.press('x');
+  // A typed hold with no grip direction is outlined in red until one is picked.
+  await expect(page.locator('#svg-board path.label-hold.no-grip')).toHaveCount(1);
+  await expect(page.locator('#legend')).toContainText('No grip direction 1');
   // Up then rotate twice is 45 degrees; a click on the compass adds 270.
   await page.keyboard.press('ArrowUp');
+  await expect(page.locator('#svg-board path.label-hold.no-grip')).toHaveCount(0);
   await page.keyboard.press(']');
   await page.keyboard.press(']');
   await page.locator('#svg-compass path[data-direction="270"]').click();

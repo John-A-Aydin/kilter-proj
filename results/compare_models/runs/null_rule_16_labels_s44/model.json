@@ -1,0 +1,13 @@
+{
+  "coordinate_frequencies": 6,
+  "d_model": 192,
+  "dropout": 0.1,
+  "ff_multiplier": 4,
+  "hold_labels": "data/hold_labels.csv",
+  "max_len": 42,
+  "n_heads": 6,
+  "n_layers": 6,
+  "null_grade": true,
+  "parameters": 2860788,
+  "vocab_size": 1908
+}

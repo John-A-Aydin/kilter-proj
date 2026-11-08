@@ -1,0 +1,12 @@
+{
+  "coordinate_frequencies": 6,
+  "d_model": 128,
+  "dropout": 0.1,
+  "ff_multiplier": 4,
+  "max_len": 42,
+  "n_heads": 4,
+  "n_layers": 4,
+  "null_grade": false,
+  "parameters": 902004,
+  "vocab_size": 1908
+}

@@ -1,0 +1,2 @@
+{"split": "validation", "checkpoint": "runs/20261030T004007463275Z_ar_transformer/best.pt", "loss": 3.7261940332794894, "perplexity": 41.520780351728575, "token_accuracy": 0.16881286769632445, "tokens": 231339, "rows": 16946, "partial": false}
+{"split": "test", "checkpoint": "runs/20261030T004007463275Z_ar_transformer/best.pt", "loss": 3.748249277956517, "perplexity": 42.44670453062757, "token_accuracy": 0.1709098623992241, "tokens": 230958, "rows": 16926, "partial": false}

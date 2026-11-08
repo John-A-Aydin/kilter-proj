@@ -1,7 +1,7 @@
 import { addBoardArt, loadBoardConfig } from './board.mjs';
 import { BOARD_WIDTH, BOARD_HEIGHT, outlinePath } from './board-config.mjs';
 import { CARDINALS, DIRECTIONS, DIRECTION_STEP, FIELDS, FIELD_NAMES, directionLabel, fromCsv, hasLabel, holdOrder,
-  isComplete, migrateLabel, rotateGrip, toCsv, toggleDirection } from './labels.mjs';
+  isComplete, migrateLabel, missingGrip, rotateGrip, toCsv, toggleDirection } from './labels.mjs';
 
 const $ = id => document.getElementById(id);
 const NS = 'http://www.w3.org/2000/svg';
@@ -89,6 +89,7 @@ function paintHold(id) {
   path.style.setProperty('--type-color', color || 'transparent');
   path.classList.toggle('typed', Boolean(color));
   path.classList.toggle('partial', Boolean(label?.type) && !isComplete(label));
+  path.classList.toggle('no-grip', $('show-labels').checked && missingGrip(label));
   path.setAttribute('aria-label', `Hold ${id}, ${holds.get(id).name}${label?.type ? `, ${label.type}` : ', unlabeled'}`);
 }
 
@@ -143,7 +144,15 @@ function renderProgress() {
     item.firstChild.style.background = option.color;
     item.lastChild.textContent = `${option.label} ${counts[option.value]}`;
     return item;
-  }));
+  }), noGripLegend());
+}
+
+function noGripLegend() {
+  const item = document.createElement('span');
+  item.className = 'no-grip-key';
+  item.innerHTML = '<i class="swatch"></i><span></span>';
+  item.lastChild.textContent = `No grip direction ${Object.values(labels).filter(missingGrip).length}`;
+  return item;
 }
 
 function buildFields() {

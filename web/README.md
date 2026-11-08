@@ -127,7 +127,8 @@ side, 180° an undercling, and 270° its left side.
 | Delete | Clear the hold |
 
 Enter skips holds that are already fully labeled, which can be turned off. Clicking a
-hold on the overview board jumps to it. The close-up crops Boardsesh's artwork,
+hold on the overview board jumps to it. A typed hold with no grip direction yet
+(other than unsure) gets a red dotted outline, and the legend counts them. The close-up crops Boardsesh's artwork,
 which shows each hold's shape but not its texture, so label from the real board
 when that isn't enough.
 

@@ -17,6 +17,7 @@ from torch.utils.data import DataLoader, Sampler
 
 from .config import Config, ModelConfig, write_json
 from .data import EVAL_MODES, PAD, Board, ClimbDataset, Collator, load_arrays, prepare
+from .hold_labels import label_features, read_hold_labels
 from .model import NULL_GRADE, ClimbTransformer, parameter_count, weighted_token_loss
 from .sampling import LegalTokens
 
@@ -56,10 +57,19 @@ class LengthBucketSampler(Sampler):
             yield batches[i]
 
 
-def build_model(model_config, metadata, data_config):
+def build_model(model_config, metadata, data_config, hold_labels=None):
+    """``hold_labels`` is what read_hold_labels returned; required when model.hold_labels is set."""
     board = Board.from_json(metadata["board"])
-    return ClimbTransformer(model_config, board.features(model_config.coordinate_frequencies),
-                            data_config.max_holds + 2), board
+    features = board.features(model_config.coordinate_frequencies)
+    if model_config.hold_labels:
+        if hold_labels is None:
+            raise ValueError("model.hold_labels is set but no labels were given")
+        features = np.concatenate([features, label_features(hold_labels, board)], axis=1)
+    return ClimbTransformer(model_config, features, data_config.max_holds + 2), board
+
+
+def run_hold_labels(run_dir):
+    return json.loads((Path(run_dir) / "hold_labels.json").read_text())
 
 
 def eval_loader(arrays, split, mode, batch_size):
@@ -138,7 +148,12 @@ def train(config, resume=None):
     device = setup(config.train)
     cache_dir, metadata = prepare(config.data)
     arrays = load_arrays(cache_dir)
-    model, board = build_model(config.model, metadata, config.data)
+    hold_labels = None
+    if config.model.hold_labels:
+        # A resumed run keeps the labels it started with.
+        hold_labels = (run_hold_labels(Path(resume).resolve().parent) if resume else
+                       read_hold_labels(config.model.hold_labels, Board.from_json(metadata["board"])))
+    model, board = build_model(config.model, metadata, config.data, hold_labels)
     model.to(device)
     legal = LegalTokens(board, config.data.max_holds, device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.train.learning_rate,
@@ -186,11 +201,19 @@ def train(config, resume=None):
             kept = [line for line in metrics_path.read_text().splitlines() if json.loads(line)["epoch"] <= start_epoch]
             metrics_path.write_text("\n".join(kept) + ("\n" if kept else ""))
     else:
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-        run_dir = Path(config.output_dir) / f"{timestamp}_{config.name}"
-        run_dir.mkdir(parents=True)
+        # Runs started in parallel can share a timestamp, so take the next free one.
+        while True:
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+            run_dir = Path(config.output_dir) / f"{timestamp}_{config.name}"
+            try:
+                run_dir.mkdir(parents=True)
+                break
+            except FileExistsError:
+                continue
         write_json(run_dir / "config.json", config.to_dict())
         write_json(run_dir / "dataset.json", {**metadata, "cache_directory": str(cache_dir.resolve())})
+        if hold_labels:
+            write_json(run_dir / "hold_labels.json", hold_labels)
         write_json(run_dir / "model.json", {**asdict(config.model), "parameters": parameter_count(model),
                                            "max_len": model.max_len, "vocab_size": model.vocab_size})
         write_json(run_dir / "environment.json", {
@@ -278,7 +301,9 @@ def load_run(checkpoint, device="cpu"):
     state = torch.load(checkpoint, map_location="cpu", weights_only=False)
     config = Config.from_dict(state["config"])
     metadata = json.loads((checkpoint.parent / "dataset.json").read_text())
-    model, board = build_model(ModelConfig(**state["config"]["model"]), metadata, config.data)
+    model_config = ModelConfig(**state["config"]["model"])
+    labels = run_hold_labels(checkpoint.parent) if model_config.hold_labels else None
+    model, board = build_model(model_config, metadata, config.data, labels)
     model.load_state_dict(state["model"])
     model.to(device).eval()
     return model, board, config, metadata

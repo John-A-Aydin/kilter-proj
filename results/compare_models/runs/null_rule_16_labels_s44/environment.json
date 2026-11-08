@@ -1,0 +1,10 @@
+{
+  "device": "cuda",
+  "git_commit": "58d6a64a11723266bc11bfa104dc4e5a1ca1836d",
+  "git_status": "M data/hold_labels.csv\n M experiments/compare_models.py\n M kilter/config.py\n M kilter/experiment.py\n M tests/test_climb.py\n M web/README.md\n M web/src/label-app.mjs\n M web/src/labels.mjs\n M web/src/style.css\n M web/tests/interface.spec.mjs\n M web/tests/labels.test.mjs\n?? data/hold_labels.csv.bak\n?? kilter/hold_labels.py",
+  "numpy": "2.5.4",
+  "platform": "Linux-7.0.0-42-generic-x86_64-with-glibc2.39",
+  "python": "3.12.7",
+  "started_at": "20261108T041700730486Z",
+  "torch": "2.15.0+cu132"
+}

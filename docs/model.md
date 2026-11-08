@@ -60,7 +60,12 @@ Change it with `train.p_scratch`, `train.p_starts`, and `train.p_random`.
 Pre-LayerNorm causal decoder: GELU feed-forward of width `4 × d_model`, dropout 0.1,
 learned positions, and PyTorch scaled dot-product attention. Each hold's features
 are x, y, a kickboard flag, a screw-on-set flag, and 6 Fourier frequencies of x and
-y. The vocabulary has 4 special tokens (`PAD BOS EOS SEP`) plus 476 holds × 4 roles,
+y. With `model.hold_labels = "data/hold_labels.csv"`, each hold also gets its
+hand-labeled type (one-hot over 7 types) and grip directions (multi-hot over 16
+compass points), read by [kilter/hold_labels.py](../kilter/hold_labels.py). Only the
+`type`, `grip` and `on_kickboard` columns are read, and `on_kickboard` is only checked
+against the vocabulary's kickboard flag. The run saves the labels it trained with as
+`hold_labels.json`. The vocabulary has 4 special tokens (`PAD BOS EOS SEP`) plus 476 holds × 4 roles,
 1,908 in total.
 
 | Run | Width | Layers | Heads | Parameters |

@@ -107,6 +107,18 @@
     "best.pt": "f50d2d9b326dd5a8161b003f8e2d3057ae83ddeaa59f74f5035ff5dd9b3f045f",
     "run": "runs/20261030T191209838865Z_null_rule_16_d256"
   },
+  "null_rule_16_labels_s42": {
+    "best.pt": "8574f46e52d6b7389f9eedcacf761db479b1313e36431e7b46afc9a9248bb9e5",
+    "run": "runs/20261108T041700730720Z_null_rule_16_labels"
+  },
+  "null_rule_16_labels_s43": {
+    "best.pt": "7a5b0ef51c26f14eb1356582269d7f00b99fcb78100a4d57a7ee3172f0121324",
+    "run": "runs/20261108T041715211966Z_null_rule_16_labels"
+  },
+  "null_rule_16_labels_s44": {
+    "best.pt": "49380736da7286240ba3b9e391792f718d0eeca24a0183e84b002bdda27f07e6",
+    "run": "runs/20261108T041700730486Z_null_rule_16_labels"
+  },
   "null_rule_16_s42": {
     "best.pt": "a7994e9b428c812ecc19c3e07d44f0ad2ac0766fd1032f4059e9f87612d007ef",
     "run": "runs/20261030T183726219416Z_null_rule_16"

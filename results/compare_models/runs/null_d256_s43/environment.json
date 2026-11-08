@@ -1,0 +1,10 @@
+{
+  "device": "cuda",
+  "git_commit": "2dd426186e53c6f94c91d53f823e4a81217b94b5",
+  "git_status": "M HANDOFF.md\n M README.md\n M data/README.md\n M data/validate.py\n M kilter_v2/__main__.py\n M kilter_v2/config.py\n M kilter_v2/configs/default.toml\n M kilter_v2/experiment.py\n M kilter_v2/export_web.py\n M kilter_v2/model.py\n M kilter_v2/quality.py\n M kilter_v2/sampling.py\n M kilter_v2/tests/test_v2.py\n M web/README.md\n M web/index.html\n M web/src/app.mjs\n M web/src/board.mjs\n M web/src/style.css\n M web/tests/interface.spec.mjs\n?? experiments/run_seeds.py\n?? kilter_v2/README.md\n?? kilter_v2/configs/null_grade.toml\n?? results/\n?? web/src/similar.mjs\n?? web/tests/similar.test.mjs",
+  "numpy": "2.5.4",
+  "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.39",
+  "python": "3.12.7",
+  "started_at": "20261030T171223440440Z",
+  "torch": "2.15.0+cu132"
+}

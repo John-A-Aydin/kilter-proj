@@ -10,6 +10,7 @@ from kilter.config import Config, DataConfig, ModelConfig, TrainConfig, load_con
 from kilter.data import (BOS, EOS, FINISH, FOOT, HAND, PAD, SEP, START, Board, ClimbDataset, Collator,
                             build_example, climb_problem, given_mask, load_arrays, prepare, split_for_uuid)
 from kilter.experiment import evaluate, load_run, train
+from kilter.hold_labels import FEATURE_NAMES, label_features, read_hold_labels
 from kilter.model import NULL_GRADE, ClimbTransformer, condition_features, weighted_token_loss
 from kilter.sampling import LegalTokens, allowed_tokens, climb_checks, generate, validate_given
 
@@ -332,6 +333,58 @@ class LifecycleTests(unittest.TestCase):
             sample = generate(model, board, None, 40, generator=torch.Generator().manual_seed(1),
                               max_holds=loaded.data.max_holds)
             self.assertIsNone(sample["v_grade"])
+
+            labels_path = root / "hold_labels.csv"
+            write_labels(labels_path)
+            config.model.hold_labels = str(labels_path)
+            run = train(config)
+            self.assertEqual(json.loads((run / "hold_labels.json").read_text())["typed"], 5)
+            # The run keeps the labels it trained with, whatever happens to the CSV later.
+            labels_path.write_text("hold_token\n")
+            model, board, loaded, _ = load_run(run / "best.pt")
+            self.assertEqual(model.hold_features.shape[1], board.features(2).shape[1] + len(FEATURE_NAMES))
+            self.assertTrue(np.isfinite(evaluate(model, arrays, 1, "cpu")["scratch"]["nll_per_climb"]))
+
+
+def write_labels(path, rows=ROWS, kickboard=None):
+    # Hold 15 is left unlabeled; hold 10 grips at 0 and 90 degrees.
+    lines = ["hold_token,hole_name,hold_x,hold_y,set_id,on_kickboard,type,size,grip,notes,updated_at"]
+    for r in rows:
+        kick = r["kickboard"] if kickboard is None else kickboard
+        label = {10: "jug,large,0;90", 15: ",,"}.get(r["id"], "edge,small,180")
+        lines.append(f"{r['id']},x,{r['x']},{r['y']},{r['set']},{kick},{label},,")
+    path.write_text("\n".join(lines) + "\n")
+
+
+class HoldLabelTests(unittest.TestCase):
+    def test_type_and_grip_become_one_hot_and_multi_hot_columns(self):
+        board = Board(ROWS)
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "labels.csv"
+            write_labels(path)
+            labels = read_hold_labels(path, board)
+        self.assertEqual(labels["columns_used"], ["type", "grip", "on_kickboard"])
+        features = label_features(labels, board)
+        self.assertEqual(features.shape, (6, 23))
+        names = dict(zip(FEATURE_NAMES, features[board.dense[10]]))
+        self.assertEqual([k for k, v in names.items() if v], ["type_jug", "grip_0", "grip_90"])
+        self.assertEqual(features[board.dense[15]].sum(), 0)
+        self.assertEqual(features[board.dense[11], FEATURE_NAMES.index("grip_180")], 1)
+
+    def test_rejects_labels_that_disagree_with_the_board(self):
+        board = Board(ROWS)
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "labels.csv"
+            write_labels(path, kickboard=1)
+            with self.assertRaisesRegex(ValueError, "on_kickboard"):
+                read_hold_labels(path, board)
+            write_labels(path, rows=ROWS[:5])
+            with self.assertRaisesRegex(ValueError, "no row"):
+                read_hold_labels(path, board)
+            write_labels(path)
+            path.write_text(path.read_text().replace("0;90", "0;45.5"))
+            with self.assertRaisesRegex(ValueError, "grip direction"):
+                read_hold_labels(path, board)
 
 
 if __name__ == "__main__":

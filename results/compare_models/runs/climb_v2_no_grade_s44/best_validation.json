@@ -1,0 +1,27 @@
+{
+  "checkpoint": "runs/20261030T161503414624Z_climb_v2_no_grade/best.pt",
+  "scratch": {
+    "loss_per_token": 3.3815196457578254,
+    "nll_per_climb": 46.01330579380185,
+    "nll_rules": 45.70420411424813,
+    "rows": 16936,
+    "token_accuracy": 0.20778640330132392
+  },
+  "selection_nll": 38.29144089136738,
+  "selection_nll_rules": 38.00864769706312,
+  "split": "validation",
+  "starts": {
+    "loss_per_token": 3.2615357181276736,
+    "nll_per_climb": 38.65004561203068,
+    "nll_rules": 38.378793347934874,
+    "rows": 16936,
+    "token_accuracy": 0.21745824530633395
+  },
+  "starts_feet": {
+    "loss_per_token": 3.2128513889898653,
+    "nll_per_climb": 30.210971268269606,
+    "nll_rules": 29.942945629006353,
+    "rows": 16936,
+    "token_accuracy": 0.2430675909878683
+  }
+}

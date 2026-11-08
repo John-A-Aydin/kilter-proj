@@ -66,6 +66,11 @@ export function isComplete(label) {
   return label.type === 'unsure' || Boolean(label.size && label.grip?.length);
 }
 
+// A typed hold still waiting for its grip directions. Unsure holds need none.
+export function missingGrip(label) {
+  return Boolean(label?.type) && label.type !== 'unsure' && !label.grip?.length;
+}
+
 export function hasLabel(label) {
   return Boolean(label && (FIELD_NAMES.some(name => label[name]) || label.grip?.length || label.notes));
 }
