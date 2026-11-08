@@ -5,6 +5,7 @@ import { KilterBluetooth, climbSignature, validateLedMap } from './bluetooth.mjs
 import { PATTERNS, showFrame } from './lightshow.mjs';
 import { KEYS, newGame, snakeFrame, snakeGrid, step, turn } from './snake.mjs';
 import { closestClimb, gradeNear, loadCatalogue } from './similar.mjs';
+import { parseClimbFile } from './climb-file.mjs';
 
 const $ = id => document.getElementById(id);
 const COLORS = BOARD_COLORS;
@@ -57,6 +58,7 @@ function setBusy(value) {
   });
   $('clear').disabled = value || selected.size === 0;
   $('generate').disabled = value || !ready || !board;
+  $('import-climb').disabled = value || !board;
   $('generate-label').textContent = value ? 'Growing your climb…' : ready && board ? 'Complete climb' : 'Loading model…';
   $('stop').hidden = !value;
   $('board-scroll').classList.toggle('busy', value);
@@ -500,6 +502,50 @@ $('export').onclick = () => {
   anchor.href = url; anchor.download = `kilter-V${output.v_grade}-${output.angle}deg-${output.seed}.json`;
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+// Shows a downloaded climb as if it had just been generated: its picks stay locked, the
+// controls take its grade and angle, and the closest real climb is looked up.
+async function importClimb(file) {
+  let climb;
+  try {
+    climb = parseClimbFile(JSON.parse(await file.text()), manifest);
+  } catch (error) {
+    showError(`Could not import ${file.name}: ${error instanceof SyntaxError ? 'it is not valid JSON.' : error.message}`);
+    return;
+  }
+  resetResult();
+  selected.clear();
+  for (const { id, role } of climb.selected) selected.set(id, role);
+  generated = climb.holds;
+  if (climb.grade !== null) $('grade').value = climb.grade;
+  if (climb.angle !== null) {
+    $('angle').value = climb.angle;
+    $('angle-value').textContent = `${climb.angle}°`;
+    $('angle-note').hidden = climb.angle <= 70;
+  }
+  if (climb.seed !== null) $('seed').value = climb.seed;
+  if (climb.temperature !== null) {
+    $('temperature').value = climb.temperature;
+    $('temperature-value').textContent = climb.temperature.toFixed(2);
+  }
+  activeRequest = { grade: Number($('grade').value), angle: Number($('angle').value),
+    temperature: Number($('temperature').value), seed: Number($('seed').value), selected: climb.selected };
+  lastResult = { endedWithEos: climb.endedWithEos, imported: file.name };
+  updateSelections();
+  updateBoard();
+  $('result-actions').hidden = false;
+  const otherModel = climb.checkpoint && climb.checkpoint !== manifest.checkpoint_sha256 ? ' · made by a different model' : '';
+  $('generation-status').textContent = `Imported ${climb.name ? `“${climb.name}”` : file.name} · ${plural(climb.holds.length, 'hold')}`
+    + ` · V${activeRequest.grade} / ${activeRequest.angle}°${otherModel}`;
+  if ($('ble-auto').checked && ble?.connected) sendToBoard();
+  showMatch();
+}
+$('import-climb').onclick = () => $('import-climb-file').click();
+$('import-climb-file').onchange = event => {
+  const [file] = event.target.files;
+  event.target.value = '';
+  if (file && !busy && manifest && tab === 'climb') importClimb(file);
 };
 
 worker.onmessage = ({ data }) => {

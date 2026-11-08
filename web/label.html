@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Go through every Kilter Original hold and label its type, size, and grip side.">
+  <meta name="theme-color" content="#f4f3ed">
+  <title>Hold Labeler</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2328312a'/%3E%3Cpath d='M16 46 29 16l7 18 7-10 8 22' fill='none' stroke='%23c6e887' stroke-width='5' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./src/style.css">
+  <script type="module" src="./src/label-app.mjs"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="Kilter Climb Lab home"><span class="brand-mark">↗</span> Kilter <span>Climb Lab</span></a>
+    <nav class="site-nav" aria-label="Site"><a href="./">Climb tool</a><a href="./how.html">How it works</a><a href="./experiments.html">Experiments</a><a href="./label.html" aria-current="page">Hold labels</a></nav>
+    <div class="model-status" id="save-status" role="status"><span class="status-dot"></span><span id="save-status-text">Loading holds…</span></div>
+  </header>
+  <main class="labeler">
+    <div class="intro"><div><p class="eyebrow">HOLD LABELS</p><h1>Label every hold.</h1><p class="subtitle">Pick a type, a size, and every direction you can pull on. Labels save in this browser as you go. Export the CSV to <code>data/hold_labels.csv</code> when you're done.</p></div><span class="board-label">KILTER ORIGINAL<br><strong>476 holds</strong></span></div>
+    <div class="workspace">
+      <section class="board-panel" aria-label="Board overview">
+        <div class="board-toolbar"><span><span class="tiny-dot"></span> BOARD · CLICK A HOLD TO JUMP TO IT</span><label class="toolbar-check"><input type="checkbox" id="show-labels" checked> Show labels</label></div>
+        <div class="board-scroll"><svg id="svg-board" xmlns="http://www.w3.org/2000/svg" role="group" aria-label="Kilter Original holds"></svg></div>
+        <div class="board-footer label-legend" id="legend"></div>
+      </section>
+      <aside class="controls" aria-label="Labeling">
+        <section class="control-card hold-card">
+          <div class="hold-nav">
+            <button id="prev" aria-label="Previous hold" title="Previous (Shift+Enter)">←</button>
+            <div><h2 id="hold-title">Hold</h2><p id="hold-meta"></p></div>
+            <button id="next" aria-label="Next hold" title="Next (Enter)">→</button>
+          </div>
+          <div class="zoom-view" id="zoom-view"><svg id="svg-zoom" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Close-up of the current hold"></svg><svg id="svg-compass" class="compass" xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 2 2" role="group" aria-label="Grip directions"></svg></div>
+          <p class="zoom-note">The dashed line traces the hold. Click the ring to mark each side you can pull on. Label from the real board when the artwork isn't enough.</p>
+        </section>
+        <section class="control-card" id="fields">
+          <div class="field field-grip" id="grip-field" role="group" aria-labelledby="grip-heading">
+            <h3 id="grip-heading">Grip directions</h3>
+            <p class="grip-summary" id="grip-summary" aria-live="polite">None yet</p>
+            <div class="field-options"><button class="option-button" id="grip-all"><span>All round</span><kbd>A</kbd></button><button class="option-button" id="grip-clear"><span>Clear grip</span></button></div>
+            <p class="field-hint">Degrees clockwise from the top of the hold: 0° is a normal hold, 180° an undercling. <kbd>↑ → ↓ ←</kbd> toggle those four, <kbd>[</kbd> <kbd>]</kbd> rotate the selection by 22.5°.</p>
+          </div>
+        </section>
+        <section class="control-card">
+          <label class="notes-label" for="notes">Notes <span>optional</span></label>
+          <textarea id="notes" rows="2" placeholder="e.g. good thumb catch on the left"></textarea>
+          <div class="label-actions"><button id="clear-label" class="text-button">Clear this hold (Del)</button><button id="next-unlabeled" class="text-button">Next unlabeled (U)</button></div>
+        </section>
+        <section class="control-card">
+          <div class="progress-heading"><strong id="progress-count">0 / 476</strong><span>labeled</span></div>
+          <div class="progress-bar"><i id="progress-fill"></i></div>
+          <div class="checks">
+            <label class="checkbox-label"><input type="checkbox" id="skip-labeled" checked> Skip labeled holds when moving on</label>
+          </div>
+          <div class="ble-actions file-actions"><button id="export" class="ble-send">Export CSV</button><button id="import" class="ble-connect">Import CSV</button></div>
+          <input type="file" id="import-file" accept=".csv,text/csv" hidden>
+          <p class="error" id="error" role="alert" hidden></p>
+          <details class="advanced"><summary>Keyboard shortcuts</summary><dl class="shortcuts" id="shortcuts"></dl></details>
+        </section>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>

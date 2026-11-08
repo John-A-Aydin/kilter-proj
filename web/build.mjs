@@ -13,7 +13,7 @@ await mkdir(path.join(root, 'dist/vendor/ort'), { recursive: true });
 // Ship the compiled Bluetooth modules, not their TypeScript sources.
 await cp(path.join(root, 'public'), path.join(root, 'dist'), { recursive: true, filter: source => !source.endsWith('.ts') });
 await cp(path.join(root, 'src'), path.join(root, 'dist/src'), { recursive: true });
-for (const page of ['index.html', 'how.html']) await cp(path.join(root, page), path.join(root, 'dist', page));
+for (const page of ['index.html', 'how.html', 'label.html']) await cp(path.join(root, page), path.join(root, 'dist', page));
 await buildExperimentsPage(path.join(root, 'dist/experiments.html'));
 for (const name of ['ort.wasm.min.mjs', 'ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm']) {
   await cp(path.join(root, 'node_modules/onnxruntime-web/dist', name), path.join(root, 'dist/vendor/ort', name));

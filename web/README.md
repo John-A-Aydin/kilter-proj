@@ -78,6 +78,15 @@ grade, angle, normalized angle, seed, temperature, EOS status, and checkpoint
 identity. Stopping generation preserves your selected holds and labels the
 result as incomplete in its export.
 
+**Import a climb JSON** opens a climb saved with **Export JSON**, or a single row
+of `data/training/climbs.jsonl`. The board shows its holds, with the export's picks
+locked (solid) and the rest dashed, and the grade and angle controls take the
+climb's values; an export also restores its seed and temperature. The closest
+real climb is looked up as after a generation, so **Keep these holds**, **Export
+JSON**, and **Light up the wall** all work on it. A file with holds that are not on
+the board, an unknown role, a repeated hold, or more than one frame is refused, and
+the board is left unchanged. The parser is `src/climb-file.mjs`.
+
 ## Closest real climb
 
 After each generation, a second board below the first shows the most similar real
@@ -91,6 +100,48 @@ generated climb whose hold set already exists. The lookup runs in the browser wi
 an inverted index from hold to climbs, built once from `climbs.bin`
 (`src/similar.mjs`). The JSON export includes the match as `closest_real_climb`.
 The page refuses a catalogue from a different dataset than the model.
+
+## Hold labels
+
+`/label.html` goes through all 476 holds, top row first and the kickboard last, to
+label each one by hand for the hold-representation probes. Each hold gets a
+**type** (jug, edge/crimp, sloper, pinch, pocket, foot chip, or unsure), a **size**,
+and its **grip directions**: every side of the hold you can pull on. A hold marked
+unsure needs nothing else. Notes are optional.
+
+Grip directions are picked on a 16-point compass, one wedge every 22.5°, drawn
+around the hold's close-up. Select as many as apply. Angles are degrees clockwise
+from the top of the hold as you face the wall: 0° is a normal hold, 90° its right
+side, 180° an undercling, and 270° its left side.
+
+| Keys | Action |
+| --- | --- |
+| 1–7 | Type |
+| Z X C | Size |
+| ↑ → ↓ ← | Toggle grip at 0°, 90°, 180°, 270° |
+| [ ] | Rotate the selected grip directions by 22.5° (↑ ] ] gives 45°) |
+| A | Grip all round, or clear it |
+| Enter / Shift+Enter | Next / previous hold |
+| U | Next unlabeled hold |
+| N, then Esc | Write a note |
+| Delete | Clear the hold |
+
+Enter skips holds that are already fully labeled, which can be turned off. Clicking a
+hold on the overview board jumps to it. The close-up crops Boardsesh's artwork,
+which shows each hold's shape but not its texture, so label from the real board
+when that isn't enough.
+
+Labels save to this browser's local storage as you go, but nowhere else. **Export
+CSV** writes `hold_labels.csv` with a row for every hold: `hold_token`, `hole_name`,
+`hold_x`, `hold_y`, `set_id`, `on_kickboard`, `type`, `size`, `grip`, `notes`, and
+`updated_at`, blank where a hold is unlabeled. `grip` lists the directions in
+degrees separated by semicolons, such as `45;270`. Save the file as
+`data/hold_labels.csv`. It joins onto `data/training/hold_vocabulary.csv` by
+`hold_token`. **Import CSV** loads an export back, for example on another
+computer, and refuses holds that are not on this board or values outside the
+schema. The schema is in `src/labels.mjs`. Labels saved before the compass, with
+a grip of top, left, right, bottom, or all, are converted to directions on load
+and on import.
 
 ## Lighting the climb on a board
 

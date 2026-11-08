@@ -42,7 +42,7 @@ test('axis ticks are round and cover the data', () => {
 test('the built experiments page links every relative path to GitHub', async () => {
   const page = await readFile(new URL('../dist/experiments.html', import.meta.url), 'utf8');
   const hrefs = [...page.matchAll(/href="([^"]+)"/g)].map(m => m[1]);
-  const local = hrefs.filter(h => !/^(https:|#|data:|\.\/(|experiments\.html|how\.html|src\/style\.css)$)/.test(h));
+  const local = hrefs.filter(h => !/^(https:|#|data:|\.\/(|experiments\.html|how\.html|label\.html|src\/style\.css)$)/.test(h));
   assert.deepEqual(local, []);
   assert.doesNotMatch(page, /<!-- (TOC|EXPERIMENTS|CHART DATA) -->|\{\{REPOSITORY\}\}/);
 });

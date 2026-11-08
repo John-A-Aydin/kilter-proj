@@ -13,7 +13,7 @@
 <body>
   <header class="topbar">
     <a class="brand" href="./" aria-label="Kilter Climb Lab home"><span class="brand-mark">↗</span> Kilter <span>Climb Lab</span></a>
-    <nav class="site-nav" aria-label="Site"><a href="./" aria-current="page">Climb tool</a><a href="./how.html">How it works</a><a href="./experiments.html">Experiments</a></nav>
+    <nav class="site-nav" aria-label="Site"><a href="./" aria-current="page">Climb tool</a><a href="./how.html">How it works</a><a href="./experiments.html">Experiments</a><a href="./label.html">Hold labels</a></nav>
     <div class="model-status" id="model-status" role="status"><span class="status-dot"></span><span id="model-status-text">Loading model…</span></div>
   </header>
   <main>
@@ -78,6 +78,8 @@
           <button class="stop-button" id="stop" hidden>Stop generation</button>
           <p id="generation-status" role="status" aria-live="polite">Your selected holds stay in every completed climb.</p>
           <div class="result-actions" id="result-actions" hidden><button id="keep-generated">Keep these holds</button><button id="export">Export JSON ↓</button></div>
+          <button class="stop-button import-button" id="import-climb" disabled>Import a climb JSON ↑</button>
+          <input type="file" id="import-climb-file" accept=".json,.jsonl,application/json" hidden>
           <p class="error" id="error" role="alert" hidden></p>
         </section>
         </div>

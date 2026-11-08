@@ -4,18 +4,14 @@ import { ROLE_NAMES } from './decoding.mjs';
 const NS = 'http://www.w3.org/2000/svg';
 const ASSETS = new URL('../vendor/boardsesh/', import.meta.url);
 
-// Image layering and placement projection follow Boardsesh's BoardRenderer and
-// BoardLitupHolds. Traced paths give each hold an accurate, keyboard-accessible
-// hit area; the actual Boardsesh WASM renderer supplies the Aura overlay.
-// A non-interactive board is display-only: its holds take no clicks or focus.
-export async function createBoard(svg, manifest, onHoldClick, onError, { interactive = true, idPrefix = 'hold-' } = {}) {
+export async function loadBoardConfig(manifest) {
   const response = await fetch(new URL('kilter-original-12x12.json', ASSETS));
   if (!response.ok) throw new Error('Could not load the Kilter hold outlines.');
-  const config = buildBoardConfig(manifest, await response.json());
-  svg.replaceChildren();
-  svg.setAttribute('viewBox', `0 0 ${BOARD_WIDTH} ${BOARD_HEIGHT}`);
-  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-  svg.dataset.renderer = 'boardsesh-aura';
+  return buildBoardConfig(manifest, await response.json());
+}
+
+// The bolt-on and screw-on image layers, in board coordinates.
+export function addBoardArt(svg) {
   for (const filename of ['45-1.webp', '46-1.webp']) {
     const image = document.createElementNS(NS, 'image');
     image.setAttribute('href', new URL(filename, ASSETS));
@@ -25,6 +21,19 @@ export async function createBoard(svg, manifest, onHoldClick, onError, { interac
     image.classList.add('board-art');
     svg.append(image);
   }
+}
+
+// Image layering and placement projection follow Boardsesh's BoardRenderer and
+// BoardLitupHolds. Traced paths give each hold an accurate, keyboard-accessible
+// hit area; the actual Boardsesh WASM renderer supplies the Aura overlay.
+// A non-interactive board is display-only: its holds take no clicks or focus.
+export async function createBoard(svg, manifest, onHoldClick, onError, { interactive = true, idPrefix = 'hold-' } = {}) {
+  const config = await loadBoardConfig(manifest);
+  svg.replaceChildren();
+  svg.setAttribute('viewBox', `0 0 ${BOARD_WIDTH} ${BOARD_HEIGHT}`);
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  svg.dataset.renderer = 'boardsesh-aura';
+  addBoardArt(svg);
   const overlay = document.createElementNS(NS, 'image');
   overlay.id = 'boardsesh-aura';
   overlay.setAttribute('width', BOARD_WIDTH);

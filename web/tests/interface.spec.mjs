@@ -344,3 +344,115 @@ test('how it works page draws the figures and charts from the exported results',
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(errors).toEqual([]);
 });
+
+test('the hold labeler labels holds by keyboard and compass, keeps them across reloads, and exports a CSV', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.getByRole('navigation', { name: 'Site' }).getByRole('link', { name: 'Hold labels' }).click();
+  await expect(page).toHaveURL(/label\.html$/);
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await expect(page.locator('#svg-board path.label-hold')).toHaveCount(476);
+  await expect(page.locator('#svg-compass path.wedge')).toHaveCount(16);
+  const first = await page.locator('#hold-title').textContent();
+  await page.keyboard.press('1');
+  await page.keyboard.press('x');
+  // Up then rotate twice is 45 degrees; a click on the compass adds 270.
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press(']');
+  await page.keyboard.press(']');
+  await page.locator('#svg-compass path[data-direction="270"]').click();
+  await expect(page.locator('#grip-summary')).toHaveText('45°, 270° (left)');
+  await expect(page.locator('#svg-compass path.wedge.on')).toHaveCount(2);
+  // Several directions are allowed, so the hold stays put until Enter.
+  await expect(page.locator('#hold-title')).toHaveText(first);
+  await expect(page.locator('#progress-count')).toHaveText('1 / 476');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#hold-title')).not.toHaveText(first);
+  await expect(page.locator('#svg-compass path.wedge.on')).toHaveCount(0);
+  await page.keyboard.press('7');
+  await expect(page.locator('#progress-count')).toHaveText('2 / 476');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('n');
+  await page.keyboard.type('crimpy, "sharp" edge');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('4');
+  await page.keyboard.press('a');
+  await expect(page.locator('#grip-summary')).toHaveText('All round');
+  await expect(page.getByRole('button', { name: /Pinch/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#svg-board path.label-hold.partial')).toHaveCount(1);
+
+  await page.reload();
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await expect(page.locator('#progress-count')).toHaveText('2 / 476');
+  await expect(page.locator('#notes')).toHaveValue('crimpy, "sharp" edge');
+  await expect(page.locator('#svg-compass path.wedge.on')).toHaveCount(16);
+  const id = (await page.locator('#hold-title').textContent()).replace('Hold ', '');
+  await page.keyboard.press('Shift+Enter');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#hold-title')).toHaveText(`Hold ${id}`);
+
+  const downloaded = page.waitForEvent('download');
+  await page.locator('#export').click();
+  const download = await downloaded;
+  expect(download.suggestedFilename()).toBe('hold_labels.csv');
+  const csv = await readFile(await download.path(), 'utf8');
+  expect(csv.trim().split('\n').length).toBe(477);
+  expect(csv).toContain(`${first.replace('Hold ', '')},`);
+  expect(csv).toContain(',jug,medium,45;270,');
+  expect(csv).toContain('"crimpy, ""sharp"" edge"');
+  expect(csv.split('\n')[0]).toBe('hold_token,hole_name,hold_x,hold_y,set_id,on_kickboard,type,size,grip,notes,updated_at');
+
+  await page.locator('#clear-label').click();
+  await expect(page.locator('#svg-board path.label-hold.partial')).toHaveCount(0);
+  page.once('dialog', dialog => dialog.accept());
+  await page.locator('#import-file').setInputFiles({ name: 'hold_labels.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+  await expect(page.locator('#save-status-text')).toHaveText('Imported 3 labeled holds');
+  await expect(page.locator('#notes')).toHaveValue('crimpy, "sharp" edge');
+  await expect(page.locator('#grip-summary')).toHaveText('All round');
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  expect(errors).toEqual([]);
+});
+
+test('imports an exported climb or a dataset row, restoring its holds, picks, grade, and angle', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await ready(page);
+  const pick = manifest.holds[200].id;
+  await page.locator('#svg-climb #hold-' + pick).click();
+  await page.locator('#grade').selectOption('6');
+  await page.locator('#angle').evaluate(input => { input.value = 25; input.dispatchEvent(new Event('input')); });
+  await page.locator('#generate').click();
+  await expect(page.locator('#generation-status')).toContainText('Complete ·', { timeout: 30000 });
+  const shown = async () => page.locator('#svg-climb path.hold[stroke]:not([stroke="transparent"])')
+    .evaluateAll(paths => paths.map(path => `${path.id}:${path.getAttribute('stroke')}:${path.getAttribute('stroke-dasharray')}`));
+  const before = await shown();
+  const downloaded = page.waitForEvent('download');
+  await page.locator('#export').click();
+  const exported = await readFile(await (await downloaded).path(), 'utf8');
+
+  await page.locator('#clear').click();
+  await page.locator('#grade').selectOption('2');
+  await page.locator('#angle').evaluate(input => { input.value = 60; input.dispatchEvent(new Event('input')); });
+  await page.locator('#import-climb-file').setInputFiles({ name: 'mine.json', mimeType: 'application/json', buffer: Buffer.from(exported) });
+  await expect(page.locator('#generation-status')).toContainText('Imported mine.json');
+  expect(await shown()).toEqual(before);
+  await expect(page.locator('#selected-count')).toHaveText('1');
+  await expect(page.locator('#grade')).toHaveValue('6');
+  await expect(page.locator('#angle-value')).toHaveText('25°');
+  await expect(page.locator('#match-panel')).toBeVisible();
+  await expect(page.locator('#result-actions')).toBeVisible();
+
+  const row = { climb_uuid: 'X', angle: 40, grade_hueco: 'V5', name: 'Imported row',
+    frames: [[{ hold_use_type: 2, hold_token: manifest.holds[300].id }, { hold_use_type: 3, hold_token: manifest.holds[400].id }]] };
+  await page.locator('#import-climb-file').setInputFiles({ name: 'row.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(row)) });
+  await expect(page.locator('#generation-status')).toHaveText('Imported “Imported row” · 2 holds · V5 / 40°');
+  await expect(page.locator('#selected-count')).toHaveText('0');
+  expect((await shown()).length).toBe(2);
+
+  await page.locator('#import-climb-file').setInputFiles({ name: 'broken.json', mimeType: 'application/json', buffer: Buffer.from('{oops') });
+  await expect(page.locator('#error')).toHaveText('Could not import broken.json: it is not valid JSON.');
+  expect((await shown()).length).toBe(2);
+  expect(errors).toEqual([]);
+});
