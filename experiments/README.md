@@ -10,6 +10,7 @@ repository root.
 | --- | --- | --- |
 | [`compare_models.py`](compare_models.py) | How do the baseline and each model variant compare over three seeds? | [`results/compare_models/`](../results/compare_models/) |
 | [`hold_embeddings.py`](hold_embeddings.py) | What does the chosen model learn about holds in each role? | [`results/hold_embeddings/`](../results/hold_embeddings/) |
+| [`tag_conditioning.py`](tag_conditioning.py) | Does conditioning on style tags from climb names and descriptions help the model, and does turning a tag on change what it sets? | [`results/tag_conditioning/`](../results/tag_conditioning/) |
 | [`hold_label_probes.py`](hold_label_probes.py) | Do the chosen model's hold representations already encode the hand-labeled hold types and grip directions? | [`results/hold_label_probes/`](../results/hold_label_probes/) |
 | [`grade_climbs.py`](grade_climbs.py) | Does the model help predict a climb's grade? | [`results/grade_climbs/`](../results/grade_climbs/) |
 
@@ -296,6 +297,155 @@ The script writes `summary.json` (every score for every seed, with per-type reca
 and confusion matrices) and `holds.csv` (each hold's labels, usage counts, the
 projection, and the held-out predictions of seed 43) to
 [`results/hold_label_probes/`](../results/hold_label_probes/).
+
+## Style tags from climb names and descriptions
+
+```bash
+.venv/bin/python data/export_climb_tags.py      # tags every climb
+.venv/bin/python experiments/compare_models.py  # trains null_rule_16_tags
+.venv/bin/python experiments/tag_conditioning.py
+```
+
+Setters often say how a climb moves in its name or description: "big dyno", "pinchy",
+"drop knee to finish". This experiment reads 26 style tags from that text, gives them
+to the model next to grade and angle, and asks two questions. Do the tags make real
+climbs more predictable? And does turning a tag on change what the model sets the way
+real climbs with that tag differ?
+
+### The tags
+
+[`kilter/climb_tags.py`](../kilter/climb_tags.py) marks a tag when one of its terms
+appears as a whole word in the climb's name or setter description and is not negated.
+The Kilter data has no style tags of its own, so the text is the only source.
+
+- Ambiguous words (power, swing, bump, cross, shoulder, finger) count only in
+  descriptions, since names are often puns ("Power Nap", "Swing State").
+- A negator (no, not, without, don't, never, sin, sans, kein…) among the 3 words before
+  a term cancels it, unless a rule word such as "match" or "feet" sits in between
+  ("no matching, just jump" still counts as dynamic). A negated dynamic term ("no
+  dyno", "no jumping") marks the climb `static` instead.
+- Known idioms never count: "pinch of salt", "Achilles heel", "Tension Board",
+  "lemon squeezy", "power of".
+- `crimp` includes fingery climbs. "Hard for short people" marks a climb `reachy`.
+
+[`data/export_climb_tags.py`](../data/export_climb_tags.py) writes every climb's tags
+to `data/training/climb_tags.csv.gz`, and the text behind each tag to
+[`results/climb_tags/`](../results/climb_tags/). 17,686 of the 207,175 climbs (8.5%)
+mention at least one tag. A tag means the setter mentioned the style; a climb without
+it may still have it.
+
+The audit column is 15 random matches per tag read by hand, counting the ones that
+really describe the climb. It was done before the last round of idiom fixes, so it is
+a floor.
+
+| Tag | Climbs | From description | Audit | What counts |
+| --- | ---: | ---: | ---: | --- |
+| `dynamic` | 3,535 | 30% | 15/15 | dyno, dynamic, jump, lunge, deadpoint, pogo, double clutch; in descriptions also dino, throw, jeté, salto |
+| `campus` | 3,527 | 47% | 15/15 | campus, footless, no feet |
+| `pinch` | 2,266 | 20% | 15/15 | pinch, pinchy, pinches; pince, pinza, Zange in descriptions; not "pinch of salt" |
+| `crimp` | 1,432 | 28% | 14/15 | crimp, crimpy, edgy, fingery; edges, fingers, réglette, regleta in descriptions |
+| `reachy` | 1,345 | 45% | 13/15 | reach, reachy, wingspan, morpho, big moves, tall people, "hard for short people" |
+| `jug` | 1,005 | 26% | 13/15 | jug, jugs, juggy; bac, Henkel in descriptions |
+| `traverse` | 709 | 22% | 15/15 | traverse, traversing, traversé |
+| `body_tension` | 609 | 28% | 12/15 | tension, body tension; not "Tension Board" |
+| `crossover` | 488 | 63% | 15/15 | crossover, cross-through, cross to/into; bare "cross" in descriptions |
+| `heel_hook` | 481 | 32% | 12/15 | heel, heel hook; talon, talón in descriptions; not "Achilles heel" |
+| `undercling` | 420 | 37% | 15/15 | undercling, undies; inversé, Untergriff in descriptions |
+| `endurance` | 415 | 35% | 13/15 | endurance, power endurance, 4x4, resistance, stamina; pump in descriptions |
+| `short_friendly` | 408 | 41% | 12/15 | shorties, short people, short kings, short friendly, "for the short" |
+| `gaston` | 395 | 26% | 12/15 | gaston |
+| `cut_loose` | 292 | 56% | 15/15 | cut loose, cut feet, barn door; swing in descriptions |
+| `compression` | 278 | 14% | 11/15 | compression, compy, compress, squeeze; not "lemon squeezy" |
+| `static` | 262 | 39% | 13/15 | static, or a negated dynamic term such as "no dyno" |
+| `drop_knee` | 247 | 40% | 15/15 | drop knee, dropknee, knee drop, egyptian |
+| `shouldery` | 211 | 90% | 12/15 | shouldery; shoulder(s) in descriptions |
+| `toe_hook` | 208 | 52% | 15/15 | toe hook, toehook, toe cam, bicycle |
+| `powerful` | 182 | 100% | 14/15 | power, powerful, in descriptions only; not "power endurance" |
+| `coordination` | 165 | 34% | 15/15 | coordination, coordo, paddle, run and jump, parkour, comp style, double clutch |
+| `technical` | 163 | 58% | 13/15 | technical, techy, body position, smear; balance in descriptions |
+| `lock_off` | 160 | 34% | 15/15 | lock off, lockoff, locky |
+| `high_feet` | 160 | 44% | 15/15 | high feet, high foot, high step, rockover |
+| `bump` | 103 | 100% | 13/15 | bump, in descriptions only |
+
+### How the model uses them
+
+Each climb's tags become a vector of 26 zeros and ones, appended to the grade and angle
+features. The model's condition network (linear, GELU, linear) turns grade, angle, the
+null-grade flag and the tags into one vector added to every token, so the tags can
+change every step of generation. A climb with no tags gets all zeros, the same input
+as "tags off". `null_rule_16_tags` is `null_rule_16` with
+`model.climb_tags = "data/training/climb_tags.csv.gz"` and nothing else changed,
+trained on seeds 42, 43 and 44 by `compare_models.py`.
+
+### Tags make real climbs more predictable
+
+Nats per held-out test climb, generated from nothing with the decoding rules and its
+real grade, mean of three seeds. "All off" scores the same model with every tag set to
+zero. "Samples valid" is the share of climbs sampled with all tags off that pass the
+validity checks.
+
+| Model | Tags given | Tagged climbs (1,484) | Untagged (15,413) | All (16,897) | Samples valid |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `null_rule_16` | none | 42.68 | 44.76 | 44.58 | 94.0% |
+| `null_rule_16_tags` | true tags | 41.69 | 44.72 | 44.46 | 96.3% |
+| `null_rule_16_tags` | all off | 43.03 | 44.72 | 44.57 |  |
+
+On the 1,484 test climbs that have a tag, giving the model their tags saves 1.34 nats
+per climb, and the tagged model beats `null_rule_16` by 0.99. On untagged climbs the
+two are about equal (44.72 against 44.76). With every tag turned off, tagged climbs score worse than under
+`null_rule_16` (43.03 against 42.68), because the model has learned that no tags means
+a typical untagged climb. Its samples are also slightly more often valid.
+
+The gain depends on the tag. Campus (3.8 nats), traverse (2.4) and pinch (1.5) help
+most. Tags with fewer than 20 test climbs give noisy numbers, including the negative
+ones for `cut_loose` and `static`.
+
+<!-- chart: tags-gain -->
+
+### Turning a tag on changes what the model sets
+
+For each tag, 200 grade and angle pairs are drawn from real climbs with the tag. At
+each pair the model samples one climb with only that tag on and one with every tag off,
+so the two sets differ only in the tag. This is repeated on all three seeds. The
+generated climbs are then measured two ways.
+
+1. **A tag recognizer.** One logistic regression per tag on the bag of a climb's
+   (hold, role) tokens, trained on the 186,039 training climbs with each tag's examples
+   up-weighted to balance them. On the 10,344 test climbs it finds campus (ROC AUC
+   0.93), pinch (0.91), traverse (0.90) and undercling (0.87) well. It cannot find
+   static, bump, high feet, technical or body tension (AUC 0.43 to 0.53): those
+   describe how a climb is done, which the holds alone do not show.
+2. **Plain statistics.** Holds, feet, hand holds, the mean and longest move between
+   hand holds ordered by height, the width and height the hand holds span (cm, from the
+   board's 12 ft width), and the share of hand holds you labeled pinch, jug, edge or
+   sloper, or whose grip points down (undercling) or sideways (sidepull). Each is
+   compared with how real climbs with the tag differ from real climbs without it in the
+   same grade and angle cell, in standard deviations of the statistic.
+
+<!-- chart: tags-steering -->
+
+Tags the holds can show steer strongly. Turning on `campus` cuts feet from 3.9 to 0.3
+per climb, `traverse` widens the hand holds from 141 to 238 cm, and `pinch` raises the
+pinch share of hand holds from 6% to 41%. Across all 26 tags and 13 statistics, the
+generated changes follow the real differences with a correlation of 0.83.
+
+<!-- chart: tags-scatter -->
+
+### Limits
+
+- Tags are sparse. A missing tag does not mean the climb lacks the style, so "all tags
+  off" means "a typical untagged climb", not "no dynamic moves".
+- Some effects are weaker than in real climbs. Real endurance climbs are 1.7 standard
+  deviations longer, but turning the tag on adds only 0.2. The undercling share rises
+  about half as much as in real climbs.
+- Movement tags such as static, bump, high feet, technical and body tension cannot be
+  checked from holds alone. The model may follow them, but neither test can tell.
+- Turning a tag on costs a little validity: 93.1% of samples pass the checks with one
+  tag on, against 97.0% with all tags off.
+- The tags come from free text with simple rules, so each carries some noise.
+
+`summary.json` in [`results/tag_conditioning/`](../results/tag_conditioning/) has every
+number for every seed, and `examples.json` has generated climbs for a few tags.
 
 ## Grading as a downstream task
 

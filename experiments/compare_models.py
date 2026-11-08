@@ -45,11 +45,18 @@ MODELS = {
     # The chosen model with each hold's hand-labeled type and grip directions as features.
     "null_rule_16_labels": (CLIMB, [*NULL, "--set", "name=null_rule_16_labels", "--set", "train.rule_loss=true",
                                  "--set", "train.epochs=16", "--set", "model.hold_labels=data/hold_labels.csv"]),
+    # The chosen model conditioned on style tags read from climb names and descriptions, without and
+    # with the hand-labeled hold features.
+    "null_rule_16_tags": (CLIMB, [*NULL, "--set", "name=null_rule_16_tags", "--set", "train.rule_loss=true",
+                               "--set", "train.epochs=16", "--set", "model.climb_tags=data/training/climb_tags.csv.gz"]),
+    "null_rule_16_tags_labels": (CLIMB, [*NULL, "--set", "name=null_rule_16_tags_labels", "--set", "train.rule_loss=true",
+                                      "--set", "train.epochs=16", "--set", "model.climb_tags=data/training/climb_tags.csv.gz",
+                                      "--set", "model.hold_labels=data/hold_labels.csv"]),
 }
 SPLITS = ("validation", "test")
 RUN_FILES = ("config.json", "dataset.json", "environment.json", "metrics.jsonl", "model.json", "summary.json",
              "best_validation.json", "best_test.json", "quality_validation.json", "quality_test.json",
-             "hold_labels.json")
+             "hold_labels.json", "climb_tags.json")
 LIKELIHOOD_MODES = ("scratch", "starts", "starts_feet")
 SAMPLE_METHODS = ("real", "v2_scratch", "v2_scratch_unconstrained", "v2_given_starts_feet",
                   "v2_scratch_null_grade", "baseline_scratch", "baseline_barrier_given_starts_feet")

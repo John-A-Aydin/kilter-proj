@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { PROBE_FIGURES, REPOSITORY, chartData, parseCsv, probeData, renderMarkdown, repositoryLink } from '../experiments-page.mjs';
+import { PROBE_FIGURES, REPOSITORY, TAG_FIGURES, chartData, parseCsv, probeData, renderMarkdown, repositoryLink, tagData } from '../experiments-page.mjs';
 import { niceTicks } from '../src/experiments.mjs';
 import { angleError, shareWithin } from '../src/probes.mjs';
 
@@ -27,7 +27,7 @@ test('every chart the experiments README places exists, with finite values for e
   for (const name of placed) {
     const chart = charts[name];
     assert.ok(chart, name);
-    if (chart.kind === 'probe') continue;
+    if (chart.kind) continue;
     assert.ok(chart.series.length >= 2 && chart.series.length <= 4, `${name} uses the four validated colors at most`);
     for (const series of chart.series) {
       assert.equal(series.values.length, chart.x.length);
@@ -46,7 +46,7 @@ test('the built experiments page links every relative path to GitHub', async () 
   const hrefs = [...page.matchAll(/href="([^"]+)"/g)].map(m => m[1]);
   const local = hrefs.filter(h => !/^(https:|#|data:|\.\/(|experiments\.html|how\.html|label\.html|src\/style\.css|src\/probes\.css)$)/.test(h));
   assert.deepEqual(local, []);
-  assert.doesNotMatch(page, /<!-- (TOC|EXPERIMENTS|CHART DATA|PROBE DATA) -->|\{\{REPOSITORY\}\}/);
+  assert.doesNotMatch(page, /<!-- (TOC|EXPERIMENTS|CHART DATA|PROBE DATA|TAG DATA) -->|\{\{REPOSITORY\}\}/);
 });
 
 test('CSV rows parse the same with Windows line endings, as Python writes them', () => {
@@ -82,4 +82,24 @@ test('grip angles wrap around the circle', () => {
   assert.equal(angleError(0, 180), 180);
   assert.equal(angleError(90, 90), 0);
   assert.equal(shareWithin([0, 10, 50, 90], 45), 0.5);
+});
+
+test('the README places every style-tag figure, and the tag data covers all 26 tags', async () => {
+  const readme = await readFile(new URL('../../experiments/README.md', import.meta.url), 'utf8');
+  for (const view of TAG_FIGURES) assert.match(readme, new RegExp(`<!-- chart: tags-${view} -->`));
+  const data = await tagData();
+  assert.equal(data.tags.length, 26);
+  assert.deepEqual(data.seeds, [42, 43, 44]);
+  for (const tag of data.tags) {
+    const s = data.steering[tag];
+    assert.ok(s.off >= 0 && s.off <= 1 && s.on >= 0 && s.on <= 1, tag);
+    assert.equal(s.shiftSeeds.length, 3);
+    assert.equal(s.statDiff.length, data.stats.length);
+    assert.ok(data.auc[tag] > 0 && data.auc[tag] < 1, tag);
+  }
+  for (const block of Object.values(data.likelihood)) {
+    assert.equal(block.seeds.length, 3);
+    assert.ok(block.rows >= 10);
+  }
+  assert.ok(data.correlation > -1 && data.correlation < 1);
 });

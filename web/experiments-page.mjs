@@ -95,6 +95,8 @@ export async function chartData(root = repo) {
     },
     // Hold-label probe figures, drawn by src/probes.mjs from probeData() below.
     ...Object.fromEntries(PROBE_FIGURES.map(view => [`probe-${view}`, { kind: 'probe', view }])),
+    // Style-tag figures, drawn by src/tag-figures.mjs from tagData() below.
+    ...Object.fromEntries(TAG_FIGURES.map(view => [`tags-${view}`, { kind: 'tags', view }])),
     'grading-error': {
       title: 'Grade prediction error by true grade',
       subtitle: 'Test MSE in grades², mean of three seeds; V13 and above have under 20 climbs and are left out',
@@ -105,6 +107,35 @@ export async function chartData(root = repo) {
 }
 
 export const PROBE_FIGURES = ['scores', 'boards', 'confusion', 'projection', 'grip'];
+export const TAG_FIGURES = ['gain', 'steering', 'scatter'];
+const TAG_MODEL = 'null_rule_16_tags';
+
+// What the style-tag figures need from results/tag_conditioning/summary.json, for null_rule_16_tags:
+// each tag's likelihood gain per seed, recognizer AUC, steering, and the generated and real
+// statistic differences.
+export async function tagData(root = repo) {
+  const summary = JSON.parse(await readFile(path.join(root, 'results/tag_conditioning/summary.json'), 'utf8'));
+  const finite = (value, what) => {
+    if (!Number.isFinite(value)) throw new Error(`tag_conditioning summary: ${what} is not a number`);
+    return value;
+  };
+  const likelihood = {};
+  for (const [tag, block] of Object.entries(summary.likelihood.per_tag)) {
+    const off = block[`${TAG_MODEL}:tags_off`].values, on = block[`${TAG_MODEL}:with_tags`].values;
+    likelihood[tag] = { rows: block.rows, seeds: off.map((v, i) => finite(v - on[i], `${tag} gain`)) };
+  }
+  const steering = summary.steering[TAG_MODEL];
+  return {
+    tags: summary.tags, seeds: summary.seeds, samples: summary.samples, stats: summary.stats, likelihood,
+    auc: Object.fromEntries(summary.tags.map(tag => [tag, finite(summary.recognizer.auc[tag], `${tag} AUC`)])),
+    steering: Object.fromEntries(summary.tags.map((tag, t) => {
+      const s = steering.per_tag[tag];
+      return [tag, { off: s.probability_off, on: s.probability_on, shiftSeeds: s.target_logit_shift_by_seed, statDiff: s.stat_difference }];
+    })),
+    realDiff: summary.real_stat_difference,
+    correlation: finite(steering.stat_correlation_with_real, 'correlation'),
+  };
+}
 const PROBE_REPRESENTATIONS = ['position', 'usage', 'hold_vector', 'context'];
 
 // One record per hold for the probe figures: its outline on the board, labels, training uses,
@@ -163,6 +194,7 @@ export async function buildExperimentsPage(output, root = repo) {
   const serialized = Object.fromEntries(Object.entries(charts).map(([name, { xLabel, ...chart }]) =>
     [name, chart.kind ? chart : { ...chart, xLabels: chart.x.map(xLabel) }]));
   const usesProbes = /data-chart="probe-/.test(html);
+  const usesTags = /data-chart="tags-/.test(html);
   const toc = headings.filter(h => h.depth === 2)
     .map(h => `<li><a href="#${h.id}">${h.html}</a></li>`).join('');
   const template = await readFile(path.join(web, 'experiments.html'), 'utf8');
@@ -170,6 +202,7 @@ export async function buildExperimentsPage(output, root = repo) {
     .replace('<!-- EXPERIMENTS -->', html)
     .replace('<!-- CHART DATA -->', escapeJson(serialized))
     .replace('<!-- PROBE DATA -->', usesProbes ? escapeJson(await probeData(root)) : 'null')
+    .replace('<!-- TAG DATA -->', usesTags ? escapeJson(await tagData(root)) : 'null')
     .replaceAll('{{REPOSITORY}}', REPOSITORY);
   await writeFile(output, page);
 }

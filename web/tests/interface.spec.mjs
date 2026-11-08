@@ -310,7 +310,7 @@ test('the experiments tab renders the write-up and interactive charts, and links
   await expect(page).toHaveURL(/experiments\.html$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Experiments');
   await expect(page.locator('#model-comparison')).toBeVisible();
-  await expect(page.locator('figure[data-chart]:not([data-chart^="probe-"]) svg')).toHaveCount(2);
+  await expect(page.locator('figure[data-chart]:not([data-chart^="probe-"]):not([data-chart^="tags-"]) svg')).toHaveCount(2);
   const chart = page.locator('figure[data-chart="holds-by-grade"]');
   await chart.locator('svg').focus();
   await page.keyboard.press('ArrowRight');
@@ -349,6 +349,25 @@ test('the hold-label probe figures draw both boards, switch probes and views, an
   await expect(boards.locator('.probe-table tbody tr')).toHaveCount(476);
   for (const view of ['scores', 'projection', 'grip']) await expect(page.locator(`figure[data-chart="probe-${view}"] svg`).first()).toBeVisible();
   await expect(page.locator('figure[data-chart="probe-confusion"] .probe-matrix')).toHaveCount(3);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  expect(errors).toEqual([]);
+});
+
+test('the style-tag figures draw every tag, read out on hover, and list their data', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/experiments.html');
+  await expect(page.locator('body')).toHaveAttribute('data-tags-ready', 'true');
+  await expect(page.locator('#style-tags-from-climb-names-and-descriptions')).toBeVisible();
+  for (const view of ['gain', 'steering', 'scatter']) await expect(page.locator(`figure[data-chart="tags-${view}"] svg`)).toHaveCount(1);
+  const steering = page.locator('figure[data-chart="tags-steering"]');
+  await expect(steering.locator('.probe-row-label')).toHaveCount(26);
+  await steering.locator('svg rect[fill="transparent"]').first().hover();
+  await expect(page.locator('.probe-tip')).toContainText('Probability, tag on');
+  await steering.locator('summary', { hasText: 'Data table' }).click();
+  await expect(steering.locator('tbody tr')).toHaveCount(26);
+  await expect(page.locator('figure[data-chart="tags-scatter"] figcaption')).toContainText('r = 0.');
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   expect(errors).toEqual([]);

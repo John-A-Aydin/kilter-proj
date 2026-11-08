@@ -117,11 +117,20 @@ function lineChart(figure, spec) {
 const source = globalThis.document?.getElementById('chart-data');
 if (source) {
   const charts = JSON.parse(source.textContent);
-  const probes = [];
+  const probes = [], tags = [];
   for (const figure of document.querySelectorAll('figure[data-chart]')) {
     const spec = charts[figure.dataset.chart];
     if (spec?.kind === 'probe') probes.push([figure, spec.view]);
+    else if (spec?.kind === 'tags') tags.push([figure, spec.view]);
     else if (spec) lineChart(figure, spec);
+  }
+  // The style-tag figures have their own data block and module.
+  if (tags.length) {
+    const data = JSON.parse(document.getElementById('tag-data').textContent);
+    import('./tag-figures.mjs').then(({ renderTagFigure }) => {
+      for (const [figure, view] of tags) renderTagFigure(figure, view, data);
+      document.body.dataset.tagsReady = 'true';
+    });
   }
   // The hold-label probe figures share one data block and their own module.
   if (probes.length) {

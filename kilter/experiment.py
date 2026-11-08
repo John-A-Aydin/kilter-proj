@@ -17,6 +17,7 @@ from torch.utils.data import DataLoader, Sampler
 
 from .config import Config, ModelConfig, write_json
 from .data import EVAL_MODES, PAD, Board, ClimbDataset, Collator, load_arrays, prepare
+from .climb_tags import TAGS, attach_tags, file_sha256
 from .hold_labels import label_features, read_hold_labels
 from .model import NULL_GRADE, ClimbTransformer, parameter_count, weighted_token_loss
 from .sampling import LegalTokens
@@ -70,6 +71,22 @@ def build_model(model_config, metadata, data_config, hold_labels=None):
 
 def run_hold_labels(run_dir):
     return json.loads((Path(run_dir) / "hold_labels.json").read_text())
+
+
+def load_dataset(config, run_dir=None):
+    """Prepared arrays for ``config``, with style tags appended to the conditions when the model uses them.
+
+    With ``run_dir``, the tag file must be the one that run trained with.
+    """
+    cache_dir, metadata = prepare(config.data)
+    arrays = load_arrays(cache_dir)
+    if config.model.climb_tags:
+        if run_dir is not None:
+            saved = json.loads((Path(run_dir) / "climb_tags.json").read_text())
+            if saved["sha256"] != file_sha256(config.model.climb_tags):
+                raise ValueError(f"{config.model.climb_tags} changed since {run_dir} trained")
+        arrays = attach_tags(arrays, config.model.climb_tags)
+    return cache_dir, metadata, arrays
 
 
 def eval_loader(arrays, split, mode, batch_size):
@@ -146,8 +163,7 @@ def snapshot_source(run_dir):
 
 def train(config, resume=None):
     device = setup(config.train)
-    cache_dir, metadata = prepare(config.data)
-    arrays = load_arrays(cache_dir)
+    cache_dir, metadata, arrays = load_dataset(config, Path(resume).resolve().parent if resume else None)
     hold_labels = None
     if config.model.hold_labels:
         # A resumed run keeps the labels it started with.
@@ -214,6 +230,12 @@ def train(config, resume=None):
         write_json(run_dir / "dataset.json", {**metadata, "cache_directory": str(cache_dir.resolve())})
         if hold_labels:
             write_json(run_dir / "hold_labels.json", hold_labels)
+        if config.model.climb_tags:
+            tagged = arrays["conditions"][:, 2:]
+            write_json(run_dir / "climb_tags.json", {
+                "source": config.model.climb_tags, "sha256": file_sha256(config.model.climb_tags), "tags": TAGS,
+                "rows_per_tag": {tag: int(tagged[:, i].sum()) for i, tag in enumerate(TAGS)},
+                "rows_with_any_tag": int((tagged.sum(1) > 0).sum()), "rows": int(len(tagged))})
         write_json(run_dir / "model.json", {**asdict(config.model), "parameters": parameter_count(model),
                                            "max_len": model.max_len, "vocab_size": model.vocab_size})
         write_json(run_dir / "environment.json", {
@@ -312,11 +334,11 @@ def load_run(checkpoint, device="cpu"):
 def evaluate_run(checkpoint, split="test", device="cpu"):
     model, board, config, metadata = load_run(checkpoint, device)
     torch.set_num_threads(config.train.threads)
-    cache_dir, current = prepare(config.data)
+    _, current, arrays = load_dataset(config, Path(checkpoint).parent)
     if current["fingerprint"] != metadata["fingerprint"]:
         raise ValueError("Dataset changed since training")
     result = {"split": split, "checkpoint": str(checkpoint),
-              **evaluate_grades(model, load_arrays(cache_dir), {"validation": 1, "test": 2}[split], device,
+              **evaluate_grades(model, arrays, {"validation": 1, "test": 2}[split], device,
                                 config.train.p_null_grade,
                                 legal=LegalTokens(board, config.data.max_holds, device))}
     write_json(Path(checkpoint).parent / f"{Path(checkpoint).stem}_{split}.json", result)

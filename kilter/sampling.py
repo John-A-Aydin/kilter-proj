@@ -3,6 +3,7 @@ import numpy as np
 import torch
 
 from .data import BOS, EOS, FINISH, FOOT, MAX_FINISHES, MAX_STARTS, PAD, SEP, START, Board
+from .climb_tags import TAGS
 from .model import NULL_GRADE
 
 
@@ -84,10 +85,11 @@ class LegalTokens:
 
 @torch.no_grad()
 def generate(model, board, grade, angle, given=(), temperature=1.0, top_k=0, generator=None,
-             constrained=True, max_holds=40):
+             constrained=True, max_holds=40, tags=()):
     """Sample the remaining holds. ``given`` is [(hold_id, role)]; returns holds, given first.
 
-    ``grade=None`` samples with a null grade, for models trained with one.
+    ``grade=None`` samples with a null grade, for models trained with one. ``tags`` names style
+    tags to condition on, for models trained with them; the rest are off.
     """
     if (grade is None and not model.config.null_grade) or (grade is not None and grade < 0):
         raise ValueError("Invalid grade: null needs a model trained with null grades")
@@ -96,7 +98,8 @@ def generate(model, board, grade, angle, given=(), temperature=1.0, top_k=0, gen
     max_holds = min(max_holds, model.max_len - 2)
     given_tokens = validate_given(board, given, max_holds)
     device = next(model.parameters()).device
-    conditions = torch.tensor([[NULL_GRADE if grade is None else grade, angle / 90.0]], device=device)
+    conditions = torch.tensor([[NULL_GRADE if grade is None else grade, angle / 90.0,
+                                *condition_tags(model, tags)]], device=device)
     tokens = [BOS, *given_tokens, SEP]
     used = {board.split(t)[0] for t in given_tokens}
     roles = [board.split(t)[1] for t in given_tokens]
@@ -130,6 +133,43 @@ def generate(model, board, grade, angle, given=(), temperature=1.0, top_k=0, gen
              + [{**h, "given": False} for h in board.decode(generated)])
     return {"v_grade": grade, "angle": angle, "normalized_angle": angle / 90.0,
             "ended_with_eos": ended, "holds": holds}
+
+
+def condition_tags(model, tags):
+    """The multi-hot tag columns for ``model``: none for a model trained without tags."""
+    if not getattr(getattr(model, "config", None), "climb_tags", ""):
+        if tags:
+            raise ValueError("This model was trained without style tags")
+        return []
+    unknown = set(tags) - set(TAGS)
+    if unknown:
+        raise ValueError(f"Unknown style tags: {sorted(unknown)}")
+    return [float(tag in tags) for tag in TAGS]
+
+
+@torch.no_grad()
+def generate_batch(model, board, conditions, generator=None, temperature=1.0, max_holds=40):
+    """Sample one climb from nothing for each row of ``conditions`` at once, with the decoding rules.
+
+    ``conditions`` is a (rows, columns) tensor as the model takes it. Returns token lists.
+    """
+    device = conditions.device
+    legal = LegalTokens(board, max_holds, device)
+    rows = len(conditions)
+    tokens = torch.tensor([[BOS, SEP]] * rows, device=device)
+    done = torch.zeros(rows, dtype=torch.bool, device=device)
+    for _ in range(max_holds + 1):
+        logits = model(tokens, conditions)[:, -1].float() / temperature
+        logits = logits.masked_fill(~legal(tokens)[:, -1], -float("inf"))
+        probabilities = logits.softmax(-1)
+        probabilities[done] = 0.0
+        probabilities[done, PAD] = 1.0
+        token = torch.multinomial(probabilities, 1, generator=generator)
+        tokens = torch.cat([tokens, token], dim=1)
+        done |= token[:, 0] == EOS
+        if done.all():
+            break
+    return [[int(t) for t in row[2:] if t >= 4] for row in tokens.tolist()]
 
 
 def climb_checks(holds, y_of):

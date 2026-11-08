@@ -258,6 +258,12 @@ A missing or non-numeric value in `holds.csv` fails the build. The boards show s
 43's held-out predictions for each probe, with an **Every hold** table under them.
 Rerun `experiments/hold_label_probes.py` after relabeling holds, then rebuild.
 
+The style-tag figures (`tags-gain`, `tags-steering` and `tags-scatter`) work the same
+way: `src/tag-figures.mjs` draws them with the probe figures' helpers and styles, from
+`tagData()`, which keeps only what they need from
+`results/tag_conditioning/summary.json` and embeds it as `#tag-data`. Rerun
+`experiments/tag_conditioning.py` after retagging climbs or retraining, then rebuild.
+
 ## Hosting
 
 [`.github/workflows/pages.yml`](../.github/workflows/pages.yml) runs `npm ci` and

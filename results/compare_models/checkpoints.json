@@ -131,6 +131,30 @@
     "best.pt": "90bd3d29f298e6d3c8de879ade8abc2ca01bd02b6c123cd37e09a1634bd7be6d",
     "run": "runs/20261030T183726211581Z_null_rule_16"
   },
+  "null_rule_16_tags_labels_s42": {
+    "best.pt": "6c84c27389928bb35edf33aff93b2f8dcafddb51691ace75fa6352fb2e59c482",
+    "run": "runs/20261108T170531890098Z_null_rule_16_tags_labels"
+  },
+  "null_rule_16_tags_labels_s43": {
+    "best.pt": "8200e239c4ccf97c45f3eaf68786c57860821fc3535d5367b157af236699245f",
+    "run": "runs/20261108T170531890097Z_null_rule_16_tags_labels"
+  },
+  "null_rule_16_tags_labels_s44": {
+    "best.pt": "909c46da4d719efb399f82842c02415cdc0b6ae08f4caa6b6458a3f0bc371e05",
+    "run": "runs/20261108T170531886177Z_null_rule_16_tags_labels"
+  },
+  "null_rule_16_tags_s42": {
+    "best.pt": "5831d0c69f4f63d616b0f84764de909c7ddefa8aa10b379bcf38589f6ee70e3e",
+    "run": "runs/20261108T170531886697Z_null_rule_16_tags"
+  },
+  "null_rule_16_tags_s43": {
+    "best.pt": "b2284ec8ee19d32c6db303636b0c0af9d5758a8d1b102248b92cdf2e26b550c5",
+    "run": "runs/20261108T170531890842Z_null_rule_16_tags"
+  },
+  "null_rule_16_tags_s44": {
+    "best.pt": "fb6c666a8e1766ad4e0c5136422f74f21b9283a0325774054b92e79790da6dad",
+    "run": "runs/20261108T170531888341Z_null_rule_16_tags"
+  },
   "null_rule_loss_s42": {
     "best.pt": "c15f3c6260725f3c80b257930c98125af86f2cd8fee2259ca4da90b6bedc3e11",
     "run": "runs/20261030T174616506154Z_null_rule_loss"

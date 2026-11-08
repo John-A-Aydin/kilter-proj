@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from .climb_tags import TAGS
 from .data import PAD, SEP
 
 MAX_GRADE = 16.0
@@ -35,18 +36,25 @@ class Block(nn.Module):
 
 
 def condition_features(conditions, null_grade=False):
-    """[V grade, angle/90] -> normalized values with sinusoidal features, so their effect can be nonlinear.
+    """[V grade, angle/90, tags...] -> normalized values with sinusoidal features, so their effect can be nonlinear.
 
     With ``null_grade``, null rows get zeros in the grade columns and a 1 in one extra column.
+    Any columns after the first two (a climb's multi-hot style tags) are passed through last.
     """
+    tags = conditions[:, 2:]
     values = torch.stack([conditions[:, 0] / MAX_GRADE, conditions[:, 1]], dim=1)
     scaled = values.unsqueeze(-1) * (torch.pi * 2.0 ** torch.arange(4, device=values.device))
     features = torch.cat([values, scaled.sin().flatten(1), scaled.cos().flatten(1)], dim=1)
-    if not null_grade:
-        return features
-    null = conditions[:, :1] == NULL_GRADE
-    features[:, GRADE_FEATURES] = features[:, GRADE_FEATURES].masked_fill(null, 0.0)
-    return torch.cat([features, null.to(features.dtype)], dim=1)
+    if null_grade:
+        null = conditions[:, :1] == NULL_GRADE
+        features[:, GRADE_FEATURES] = features[:, GRADE_FEATURES].masked_fill(null, 0.0)
+        features = torch.cat([features, null.to(features.dtype)], dim=1)
+    return torch.cat([features, tags.to(features.dtype)], dim=1) if tags.shape[1] else features
+
+
+def condition_width(config):
+    """Columns condition_features returns: 18, one more for null grades, plus one per style tag."""
+    return 18 + bool(config.null_grade) + (len(TAGS) if getattr(config, "climb_tags", "") else 0)
 
 
 class ClimbTransformer(nn.Module):
@@ -66,7 +74,7 @@ class ClimbTransformer(nn.Module):
         self.geometry = nn.Sequential(nn.Linear(self.hold_features.shape[1], d), nn.GELU(), nn.Linear(d, d))
         self.position = nn.Embedding(max_len, d)
         self.segment = nn.Embedding(2, d)
-        self.condition = nn.Sequential(nn.Linear(19 if config.null_grade else 18, d), nn.GELU(), nn.Linear(d, d))
+        self.condition = nn.Sequential(nn.Linear(condition_width(config), d), nn.GELU(), nn.Linear(d, d))
         self.dropout = nn.Dropout(config.dropout)
         self.blocks = nn.ModuleList([Block(config) for _ in range(config.n_layers)])
         self.norm = nn.LayerNorm(d)

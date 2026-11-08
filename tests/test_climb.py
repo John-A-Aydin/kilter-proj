@@ -10,9 +10,10 @@ from kilter.config import Config, DataConfig, ModelConfig, TrainConfig, load_con
 from kilter.data import (BOS, EOS, FINISH, FOOT, HAND, PAD, SEP, START, Board, ClimbDataset, Collator,
                             build_example, climb_problem, given_mask, load_arrays, prepare, split_for_uuid)
 from kilter.experiment import evaluate, load_run, train
+from kilter.climb_tags import TAGS, extract
 from kilter.hold_labels import FEATURE_NAMES, label_features, read_hold_labels
 from kilter.model import NULL_GRADE, ClimbTransformer, condition_features, weighted_token_loss
-from kilter.sampling import LegalTokens, allowed_tokens, climb_checks, generate, validate_given
+from kilter.sampling import LegalTokens, allowed_tokens, climb_checks, generate, generate_batch, validate_given
 
 # Six holds on a 2x3 grid: ids 10..15, y rising with id.
 ROWS = [{"id": 10 + i, "x": (i % 2) / 2, "y": (i // 2) / 3, "kickboard": int(i < 2), "set": 1 + 19 * (i % 2)}
@@ -345,6 +346,38 @@ class LifecycleTests(unittest.TestCase):
             self.assertEqual(model.hold_features.shape[1], board.features(2).shape[1] + len(FEATURE_NAMES))
             self.assertTrue(np.isfinite(evaluate(model, arrays, 1, "cpu")["scratch"]["nll_per_climb"]))
 
+            # Style tags: every climb gets a row; the model takes them after grade and angle.
+            import gzip
+            tags_path = root / "climb_tags.csv.gz"
+            uuids = sorted({r["climb_uuid"] for r in rows})
+            with gzip.open(tags_path, "wt") as out:
+                out.write(",".join(["climb_uuid", *TAGS]) + "\n")
+                for uuid in uuids:
+                    out.write(",".join([uuid, *("1" if (tag == "campus") == (int(uuid) % 2 == 0 if uuid.isdigit() else False)
+                                                 and tag in ("campus", "pinch") else "0" for tag in TAGS)]) + "\n")
+            config.model.hold_labels = ""
+            config.model.climb_tags = str(tags_path)
+            run = train(config)
+            saved = json.loads((run / "climb_tags.json").read_text())
+            self.assertEqual(saved["tags"], TAGS)
+            self.assertGreater(saved["rows_per_tag"]["campus"], 0)
+            model, board, loaded, _ = load_run(run / "best.pt")
+            from kilter.experiment import load_dataset
+            tagged = load_dataset(loaded, run)[2]
+            self.assertEqual(tagged["conditions"].shape[1], 2 + len(TAGS))
+            self.assertTrue(np.isfinite(evaluate(model, tagged, 1, "cpu")["scratch"]["nll_per_climb"]))
+            sample = generate(model, board, None, 40, generator=torch.Generator().manual_seed(1), max_holds=8, tags=["campus"])
+            self.assertTrue(sample["holds"])
+            with self.assertRaises(ValueError):
+                generate(model, board, None, 40, max_holds=8, tags=["not_a_tag"])
+            conditions = torch.tensor([[-1.0, 40 / 90, *[1.0 if t == "campus" else 0.0 for t in TAGS]]] * 5)
+            for climb in generate_batch(model, board, conditions, torch.Generator().manual_seed(2), max_holds=8):
+                checks, _ = climb_checks(board.decode(climb), {h: 0.1 * i for i, h in enumerate(board.holds)})
+                self.assertTrue(checks["no_repeated_hold"] and checks["starts_1_2"] and checks["finishes_1_2"])
+            tags_path.write_bytes(b"changed")
+            with self.assertRaises(ValueError):
+                load_dataset(loaded, run)
+
 
 def write_labels(path, rows=ROWS, kickboard=None):
     # Hold 15 is left unlabeled; hold 10 grips at 0 and 90 degrees.
@@ -354,6 +387,35 @@ def write_labels(path, rows=ROWS, kickboard=None):
         label = {10: "jug,large,0;90", 15: ",,"}.get(r["id"], "edge,small,180")
         lines.append(f"{r['id']},x,{r['x']},{r['y']},{r['set']},{kick},{label},,")
     path.write_text("\n".join(lines) + "\n")
+
+
+class ClimbTagTests(unittest.TestCase):
+    def test_terms_tag_and_negation_or_idioms_do_not(self):
+        cases = [
+            ((None, "Pinchy start into a big dyno"), {"pinch", "dynamic"}),
+            ((None, "No dyno. Static only"), {"static"}),
+            ((None, "no jumping allowed"), {"static"}),
+            ((None, "No matching just jump for it"), {"dynamic"}),
+            (("No legs paddle dyno", None), {"dynamic", "coordination"}),
+            ((None, "No heel hooks"), set()),
+            ((None, "kickboard off, campus not required"), set()),
+            (("Head over Heels", None), set()),
+            (("Pinch of salt", None), set()),
+            ((None, "tension board replica"), set()),
+            ((None, "For short people"), {"short_friendly"}),
+            ((None, "WARNING will be hard for short people"), {"reachy"}),
+            ((None, "fingery crimps"), {"crimp"}),
+            (("Power Nap", "power endurance circuit"), {"endurance"}),
+            ((None, "drop knee, then toe hook the arete, lots of underclings and a gaston"),
+             {"drop_knee", "toe_hook", "undercling", "gaston"}),
+        ]
+        for (name, description), expected in cases:
+            self.assertEqual(set(extract(name, description)), expected, (name, description))
+
+    def test_ambiguous_terms_only_count_in_the_description(self):
+        self.assertEqual(set(extract("Power Ranger", None)), set())
+        self.assertEqual(set(extract(None, "very powerful")), {"powerful"})
+        self.assertEqual(set(extract("Swing State", None)), set())
 
 
 class HoldLabelTests(unittest.TestCase):

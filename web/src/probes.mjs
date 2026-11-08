@@ -24,14 +24,14 @@ export const degrees = value => `${value.toFixed(1)}°`;
 export const angleError = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
 export const shareWithin = (errors, limit) => errors.filter(e => e <= limit).length / errors.length;
 
-function svg(name, attributes = {}, parent) {
+export function svg(name, attributes = {}, parent) {
   const node = document.createElementNS(SVG, name);
   for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
   parent?.append(node);
   return node;
 }
 
-function html(name, attributes = {}, text) {
+export function html(name, attributes = {}, text) {
   const node = document.createElement(name);
   for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
   if (text !== undefined) node.textContent = text;
@@ -43,7 +43,7 @@ function tip() {
   tipNode ??= document.body.appendChild(html('div', { class: 'probe-tip', hidden: '' }));
   return tipNode;
 }
-function showTip(event, content) {
+export function showTip(event, content) {
   const node = tip();
   node.innerHTML = content;
   node.hidden = false;
@@ -54,18 +54,18 @@ function showTip(event, content) {
   node.style.left = `${Math.max(8, x)}px`;
   node.style.top = `${Math.max(8, y)}px`;
 }
-const hideTip = () => { if (tipNode) tipNode.hidden = true; };
-const tipRow = (label, value, swatch) =>
+export const hideTip = () => { if (tipNode) tipNode.hidden = true; };
+export const tipRow = (label, value, swatch) =>
   `<span>${swatch ? `<i style="background:${swatch}"></i>` : ''}${label}<b>${value}</b></span>`;
 
-function caption(figure, title, subtitle) {
+export function caption(figure, title, subtitle) {
   const node = html('figcaption');
   node.append(html('strong', {}, title), html('span', {}, subtitle));
   figure.append(node);
 }
 
 // Redraw when the container width changes, so text keeps its size on any screen.
-function responsive(container, draw) {
+export function responsive(container, draw) {
   let width = 0;
   const run = () => {
     const next = Math.max(260, Math.floor(container.clientWidth));
@@ -92,7 +92,7 @@ function segmented(label, options, current, onChange) {
   return wrap;
 }
 
-function legendKey(text, swatchClass, color) {
+export function legendKey(text, swatchClass, color) {
   const key = html('span', { class: 'probe-key' });
   const swatch = html('i', { class: swatchClass || '' });
   if (color && swatchClass === 'line') swatch.style.borderTopColor = color;

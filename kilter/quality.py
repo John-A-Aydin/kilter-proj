@@ -19,7 +19,7 @@ import torch
 
 from .config import write_json
 from .data import BOS, EOS, PAD, START, given_mask, load_arrays, prepare
-from .experiment import evaluate_grades, load_run
+from .experiment import evaluate_grades, load_dataset, load_run
 from .sampling import climb_checks, generate
 
 GRADES = (2, 5, 8, 11)
@@ -103,7 +103,7 @@ def summarize(climbs, y_of, train_signatures, board):
 def quality_report(checkpoint, baseline=None, split="validation", samples=20, output=None, seed=7):
     torch.set_num_threads(2)
     model, board, config, metadata = load_run(checkpoint)
-    arrays = load_arrays(prepare(config.data)[0])
+    arrays = load_dataset(config, Path(checkpoint).parent)[2]
     split_id = {"validation": 1, "test": 2}[split]
     y_of = {h["id"]: h["y"] for h in metadata["board"]}
     train_signatures = set(arrays["signatures"][(arrays["splits"] == 0) | (arrays["splits"] == 255)])

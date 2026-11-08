@@ -1,0 +1,253 @@
+{
+  "angles": [
+    20,
+    40,
+    50
+  ],
+  "baseline": null,
+  "checkpoint": "runs/20261108T170531890097Z_null_rule_16_tags_labels/best.pt",
+  "grades": [
+    2,
+    5,
+    8,
+    11
+  ],
+  "likelihood": {
+    "v2": {
+      "null_grade": {
+        "scratch": {
+          "loss_per_token": 5.789049811128922,
+          "nll_per_climb": 78.40758682167896,
+          "rows": 16897,
+          "token_accuracy": 0.0816062572371152
+        },
+        "selection_nll": 64.98766759362327,
+        "starts": {
+          "loss_per_token": 5.8573388740644985,
+          "nll_per_climb": 69.00442289223845,
+          "rows": 16897,
+          "token_accuracy": 0.08044770196070551
+        },
+        "starts_feet": {
+          "loss_per_token": 5.091241143702681,
+          "nll_per_climb": 47.550993066952415,
+          "rows": 16897,
+          "token_accuracy": 0.11786026588262132
+        }
+      },
+      "scratch": {
+        "loss_per_token": 5.7465099896532665,
+        "nll_per_climb": 77.8314223638574,
+        "rows": 16897,
+        "token_accuracy": 0.08553450875008194
+      },
+      "selection_nll": 64.58062262839026,
+      "starts": {
+        "loss_per_token": 5.8324867110960685,
+        "nll_per_climb": 68.71164332115136,
+        "rows": 16897,
+        "token_accuracy": 0.08630520292774577
+      },
+      "starts_feet": {
+        "loss_per_token": 5.0535323911448815,
+        "nll_per_climb": 47.198802200162056,
+        "rows": 16897,
+        "token_accuracy": 0.1241905027437363
+      }
+    }
+  },
+  "samples": {
+    "real": {
+      "by_grade": {
+        "11": {
+          "feet": 3.8378378378378377,
+          "finish_height": 0.9639639661118791,
+          "holds": 11.391891891891891,
+          "largest_hand_gap": 0.2304227309855255
+        },
+        "2": {
+          "feet": 5.108843537414966,
+          "finish_height": 0.929356361733002,
+          "holds": 13.571428571428571,
+          "largest_hand_gap": 0.17006802807251611
+        },
+        "5": {
+          "feet": 4.44,
+          "finish_height": 0.9528205150365829,
+          "holds": 12.46,
+          "largest_hand_gap": 0.19384615778923034
+        },
+        "8": {
+          "feet": 3.3513513513513513,
+          "finish_height": 0.9614229637223322,
+          "holds": 10.756756756756756,
+          "largest_hand_gap": 0.2157542179967906
+        }
+      },
+      "count": 482,
+      "distinct": 0.975103734439834,
+      "finishes_1_2": 1.0,
+      "has_feet": 0.966804979253112,
+      "holds_drop_V2_to_V11": 2.17953667953668,
+      "no_repeated_hold": 1.0,
+      "novel": 0.9854771784232366,
+      "start_below_finish": 0.991701244813278,
+      "starts_1_2": 1.0,
+      "valid": 0.9605809128630706
+    },
+    "v2_given_starts_feet": {
+      "by_grade": {
+        "11": {
+          "feet": 3.3783783783783785,
+          "finish_height": 0.9611919631023664,
+          "holds": 10.837837837837839,
+          "largest_hand_gap": 0.23354123580596736
+        },
+        "2": {
+          "feet": 5.006802721088436,
+          "finish_height": 0.9373800831587136,
+          "holds": 13.408163265306122,
+          "largest_hand_gap": 0.16867259707377882
+        },
+        "5": {
+          "feet": 4.12,
+          "finish_height": 0.9528205150365829,
+          "holds": 12.013333333333334,
+          "largest_hand_gap": 0.19692307916780313
+        },
+        "8": {
+          "feet": 3.225225225225225,
+          "finish_height": 0.9542619567196649,
+          "holds": 10.603603603603604,
+          "largest_hand_gap": 0.20766920978958542
+        }
+      },
+      "count": 482,
+      "distinct": 1.0,
+      "finishes_1_2": 1.0,
+      "has_feet": 0.991701244813278,
+      "holds_drop_V2_to_V11": 2.5703254274682834,
+      "no_repeated_hold": 1.0,
+      "novel": 1.0,
+      "start_below_finish": 0.9937759336099585,
+      "starts_1_2": 1.0,
+      "valid": 0.9854771784232366
+    },
+    "v2_scratch": {
+      "by_grade": {
+        "11": {
+          "feet": 3.027027027027027,
+          "finish_height": 0.958419960495588,
+          "holds": 10.337837837837839,
+          "largest_hand_gap": 0.2335412388516439
+        },
+        "2": {
+          "feet": 4.612244897959184,
+          "finish_height": 0.9202860674890531,
+          "holds": 12.816326530612244,
+          "largest_hand_gap": 0.1658817387762524
+        },
+        "5": {
+          "feet": 3.3266666666666667,
+          "finish_height": 0.9615384638309479,
+          "holds": 11.0,
+          "largest_hand_gap": 0.20051282444347937
+        },
+        "8": {
+          "feet": 3.4684684684684686,
+          "finish_height": 0.9688149706737416,
+          "holds": 11.036036036036036,
+          "largest_hand_gap": 0.21483021773196556
+        }
+      },
+      "count": 482,
+      "distinct": 1.0,
+      "finishes_1_2": 1.0,
+      "has_feet": 0.9585062240663901,
+      "holds_drop_V2_to_V11": 2.4784886927744054,
+      "no_repeated_hold": 1.0,
+      "novel": 1.0,
+      "start_below_finish": 0.9937759336099585,
+      "starts_1_2": 1.0,
+      "valid": 0.9564315352697096
+    },
+    "v2_scratch_null_grade": {
+      "by_grade": {
+        "11": {
+          "feet": 3.972972972972973,
+          "finish_height": 0.956340958540504,
+          "holds": 11.594594594594595,
+          "largest_hand_gap": 0.20027720203270782
+        },
+        "2": {
+          "feet": 4.142857142857143,
+          "finish_height": 0.9279609312411068,
+          "holds": 12.122448979591837,
+          "largest_hand_gap": 0.19099947912808585
+        },
+        "5": {
+          "feet": 3.6466666666666665,
+          "finish_height": 0.9418803449471792,
+          "holds": 11.526666666666667,
+          "largest_hand_gap": 0.1883760745326678
+        },
+        "8": {
+          "feet": 3.9279279279279278,
+          "finish_height": 0.9410949440689774,
+          "holds": 11.846846846846846,
+          "largest_hand_gap": 0.18618618941924595
+        }
+      },
+      "count": 482,
+      "distinct": 1.0,
+      "finishes_1_2": 1.0,
+      "has_feet": 0.9647302904564315,
+      "holds_drop_V2_to_V11": 0.5278543849972426,
+      "no_repeated_hold": 1.0,
+      "novel": 1.0,
+      "start_below_finish": 0.9896265560165975,
+      "starts_1_2": 1.0,
+      "valid": 0.9543568464730291
+    },
+    "v2_scratch_unconstrained": {
+      "by_grade": {
+        "11": {
+          "feet": 1.2027027027027026,
+          "finish_height": 0.8712921107516569,
+          "holds": 37.67567567567568,
+          "largest_hand_gap": 0.14518364576773868
+        },
+        "2": {
+          "feet": 0.5782312925170068,
+          "finish_height": 0.851799582549875,
+          "holds": 39.57142857142857,
+          "largest_hand_gap": 0.14338043247203844
+        },
+        "5": {
+          "feet": 0.9866666666666667,
+          "finish_height": 0.8829972657727675,
+          "holds": 38.42,
+          "largest_hand_gap": 0.15145299151539804
+        },
+        "8": {
+          "feet": 1.2162162162162162,
+          "finish_height": 0.8928696921426956,
+          "holds": 35.828828828828826,
+          "largest_hand_gap": 0.14475524754009464
+        }
+      },
+      "count": 482,
+      "distinct": 1.0,
+      "finishes_1_2": 0.6161825726141079,
+      "has_feet": 0.5663900414937759,
+      "holds_drop_V2_to_V11": 1.8957528957528922,
+      "no_repeated_hold": 0.04149377593360996,
+      "novel": 1.0,
+      "start_below_finish": 0.4190871369294606,
+      "starts_1_2": 0.024896265560165973,
+      "valid": 0.002074688796680498
+    }
+  },
+  "samples_per_cell": 50,
+  "split": "test"
+}

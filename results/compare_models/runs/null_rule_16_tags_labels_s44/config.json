@@ -1,0 +1,50 @@
+{
+  "data": {
+    "cache_dir": "data/cache/climb",
+    "include_computed_grades": true,
+    "max_holds": 40,
+    "remove_split_leakage": true,
+    "source": "data/training/climbs.jsonl.gz",
+    "split_seed": 42,
+    "train_fraction": 0.9,
+    "validation_fraction": 0.05,
+    "vocabulary": "data/training/hold_vocabulary.csv"
+  },
+  "model": {
+    "climb_tags": "data/training/climb_tags.csv.gz",
+    "coordinate_frequencies": 6,
+    "d_model": 192,
+    "dropout": 0.1,
+    "ff_multiplier": 4,
+    "hold_labels": "data/hold_labels.csv",
+    "n_heads": 6,
+    "n_layers": 6,
+    "null_grade": true
+  },
+  "name": "null_rule_16_tags_labels",
+  "output_dir": "runs",
+  "train": {
+    "ascent_weighting": "none",
+    "batch_size": 256,
+    "beta1": 0.9,
+    "beta2": 0.98,
+    "device": "auto",
+    "epochs": 16,
+    "grad_clip": 1.0,
+    "learning_rate": 0.001,
+    "log_every": 100,
+    "max_eval_batches": 0,
+    "max_train_batches": 0,
+    "min_lr_ratio": 0.05,
+    "p_null_grade": 0.5,
+    "p_random": 0.25,
+    "p_scratch": 0.3,
+    "p_starts": 0.45,
+    "patience": 2,
+    "rule_loss": true,
+    "seed": 44,
+    "threads": 4,
+    "warmup_fraction": 0.03,
+    "weight_decay": 0.01
+  }
+}

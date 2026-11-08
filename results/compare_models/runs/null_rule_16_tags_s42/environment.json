@@ -1,0 +1,10 @@
+{
+  "device": "cuda",
+  "git_commit": "d089664ed9f6e50d0dd169e8211b94830d59bdbd",
+  "git_status": "M experiments/compare_models.py\n M kilter/config.py\n M kilter/experiment.py\n M kilter/model.py\n M kilter/quality.py\n M kilter/sampling.py\n M tests/test_climb.py\n?? data/export_climb_tags.py\n?? data/training/climb_tags.csv.gz\n?? kilter/climb_tags.py\n?? results/climb_tags/",
+  "numpy": "2.5.4",
+  "platform": "Linux-7.0.0-42-generic-x86_64-with-glibc2.39",
+  "python": "3.12.7",
+  "started_at": "20261108T170531886697Z",
+  "torch": "2.15.0+cu132"
+}
