@@ -4,6 +4,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Marked } from 'marked';
+import { BOARD_HEIGHT, BOARD_WIDTH, outlinePath } from './src/board-config.mjs';
 
 const web = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.dirname(web);
@@ -46,8 +47,9 @@ export function renderMarkdown(markdown) {
   return { html, headings };
 }
 
+// Python's csv module ends lines with \r\n, so both endings are accepted.
 export function parseCsv(text) {
-  const [header, ...lines] = text.trim().split('\n');
+  const [header, ...lines] = text.trim().split(/\r?\n/);
   if (text.includes('"')) throw new Error('Quoted CSV fields are not supported');
   const keys = header.split(',');
   return lines.map(line => Object.fromEntries(line.split(',').map((value, i) => [keys[i], value])));
@@ -91,12 +93,60 @@ export async function chartData(root = repo) {
       xLabel: grade => `V${grade}`, digits: 1, zero: false,
       ...byGrade(samples, holdsSeries, 'holds'),
     },
+    // Hold-label probe figures, drawn by src/probes.mjs from probeData() below.
+    ...Object.fromEntries(PROBE_FIGURES.map(view => [`probe-${view}`, { kind: 'probe', view }])),
     'grading-error': {
       title: 'Grade prediction error by true grade',
       subtitle: 'Test MSE in grades², mean of three seeds; V13 and above have under 20 climbs and are left out',
       xLabel: grade => `V${grade}`, digits: 2, zero: true,
       ...byGrade(grading, gradingSeries, 'mse'),
     },
+  };
+}
+
+export const PROBE_FIGURES = ['scores', 'boards', 'confusion', 'projection', 'grip'];
+const PROBE_REPRESENTATIONS = ['position', 'usage', 'hold_vector', 'context'];
+
+// One record per hold for the probe figures: its outline on the board, labels, training uses,
+// position in the hold-vector projection, and each probe's held-out prediction (seed 43).
+// The outline is the Boardsesh artwork the climb tool draws, placed with the same scale.
+export async function probeData(root = repo) {
+  const results = path.join(root, 'results/hold_label_probes');
+  const summary = JSON.parse(await readFile(path.join(results, 'summary.json'), 'utf8'));
+  const rows = parseCsv(await readFile(path.join(results, 'holds.csv'), 'utf8'));
+  const { outlines } = JSON.parse(await readFile(path.join(web, 'public/vendor/boardsesh/kilter-original-12x12.json'), 'utf8'));
+  const r = BOARD_WIDTH / 144 * 4;
+  const number = (row, key) => {
+    const value = Number(row[key]);
+    if (row[key] === undefined || row[key] === '' || !Number.isFinite(value)) throw new Error(`holds.csv: ${key} is not a number for hold ${row.hold}`);
+    return value;
+  };
+  const holds = rows.map(row => {
+    const shape = { cx: Number(row.x) * BOARD_WIDTH, cy: (1 - Number(row.y)) * BOARD_HEIGHT, r, outline: outlines[row.hold] };
+    if (!shape.outline) throw new Error(`No outline for hold ${row.hold}`);
+    return {
+      id: Number(row.hold), d: outlinePath(shape).replace(/(\.\d)\d+/g, '$1'),
+      cx: Math.round(shape.cx * 10) / 10, cy: Math.round(shape.cy * 10) / 10,
+      type: row.type, grip: row.grip ? row.grip.split(';').map(Number) : [],
+      uses: ['hand', 'foot', 'start', 'finish'].map(role => number(row, `uses_${role}`)),
+      pc: [number(row, 'pc1'), number(row, 'pc2')],
+      // Only holds with exactly one labeled grip direction have a grip prediction.
+      pred: Object.fromEntries(PROBE_REPRESENTATIONS.map(name => [name, {
+        type: row[`${name}_type`], p: number(row, `${name}_type_probability`),
+        grip: row.grip && !row.grip.includes(';') ? number(row, `${name}_grip`) : null,
+      }])),
+    };
+  });
+  const plot = summary.by_seed[summary.plot_seed];
+  const seeds = summary.seeds.map(String);
+  return {
+    types: summary.types, handTypes: summary.hand_types, seeds: summary.seeds, plotSeed: summary.plot_seed,
+    repeats: summary.repeats, mean: summary.mean,
+    confusion: Object.fromEntries(PROBE_REPRESENTATIONS.map(name => [name, plot[name].type_confusion])),
+    handRecall: Object.fromEntries(summary.representations.map(name =>
+      [name, seeds.map(seed => summary.by_seed[seed][name].hand_type_recall)])),
+    constantDirection: plot.null.grip_constant_mean_direction,
+    holds,
   };
 }
 
@@ -111,13 +161,15 @@ export async function buildExperimentsPage(output, root = repo) {
     if (!charts[name]) throw new Error(`experiments/README.md places an unknown chart: ${name}`);
   }
   const serialized = Object.fromEntries(Object.entries(charts).map(([name, { xLabel, ...chart }]) =>
-    [name, { ...chart, xLabels: chart.x.map(xLabel) }]));
+    [name, chart.kind ? chart : { ...chart, xLabels: chart.x.map(xLabel) }]));
+  const usesProbes = /data-chart="probe-/.test(html);
   const toc = headings.filter(h => h.depth === 2)
     .map(h => `<li><a href="#${h.id}">${h.html}</a></li>`).join('');
   const template = await readFile(path.join(web, 'experiments.html'), 'utf8');
   const page = template.replace('<!-- TOC -->', `<ol>${toc}</ol>`)
     .replace('<!-- EXPERIMENTS -->', html)
     .replace('<!-- CHART DATA -->', escapeJson(serialized))
+    .replace('<!-- PROBE DATA -->', usesProbes ? escapeJson(await probeData(root)) : 'null')
     .replaceAll('{{REPOSITORY}}', REPOSITORY);
   await writeFile(output, page);
 }

@@ -91,12 +91,14 @@ the board is left unchanged. The parser is `src/climb-file.mjs`.
 
 After each generation, a second board below the first shows the most similar real
 climb among the 206,783 single-frame Kilter Original climbs in the dataset (all
-splits). Similarity is the hold overlap: shared physical holds divided by the holds
-in either climb, with roles ignored. Ties go to the climb with more holds in the
-same role, then the one with more ascents. Its shared holds are drawn solid and the
-rest dashed. The panel shows the climb's name, its grade at your angle (or at the
+splits). Feet are ignored: similarity is the overlap of hand holds (start, hand and
+finish), shared physical holds divided by the hand holds in either climb, with roles
+among them ignored. A hold that is a foot in either climb does not count as shared,
+and a climb of only feet is not compared. Ties go to the climb with more hand holds in
+the same role, then the one with more ascents. Its shared hand holds are drawn solid
+and the rest, feet included, dashed. The panel shows the climb's name, its grade at your angle (or at the
 nearest angle it was climbed at), and its grade at every angle. A badge marks a
-generated climb whose hold set already exists. The lookup runs in the browser with
+generated climb whose hand holds already exist in a real climb, saying when the feet match too. The lookup runs in the browser with
 an inverted index from hold to climbs, built once from `climbs.bin`
 (`src/similar.mjs`). The JSON export includes the match as `closest_real_climb`.
 The page refuses a catalogue from a different dataset than the model.
@@ -246,6 +248,15 @@ repository on GitHub. A `<!-- chart: name -->` line in that README places a line
 defined in `chartData()`, read from the committed CSVs in `results/`. Charts have a
 hover and arrow-key readout and a data table. Editing the README or the results and
 rebuilding updates the page; a chart name with no definition fails the build.
+
+The hold-label probe figures (`probe-scores`, `probe-boards`, `probe-confusion`,
+`probe-projection` and `probe-grip`) are placed the same way, but drawn by
+`src/probes.mjs` with `src/probes.css`. `probeData()` reads
+`results/hold_label_probes/summary.json` and `holds.csv`, adds each hold's outline
+from the Boardsesh artwork the climb tool draws, and embeds it once as `#probe-data`.
+A missing or non-numeric value in `holds.csv` fails the build. The boards show seed
+43's held-out predictions for each probe, with an **Every hold** table under them.
+Rerun `experiments/hold_label_probes.py` after relabeling holds, then rebuild.
 
 ## Hosting
 

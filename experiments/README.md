@@ -10,6 +10,7 @@ repository root.
 | --- | --- | --- |
 | [`compare_models.py`](compare_models.py) | How do the baseline and each model variant compare over three seeds? | [`results/compare_models/`](../results/compare_models/) |
 | [`hold_embeddings.py`](hold_embeddings.py) | What does the chosen model learn about holds in each role? | [`results/hold_embeddings/`](../results/hold_embeddings/) |
+| [`hold_label_probes.py`](hold_label_probes.py) | Do the chosen model's hold representations already encode the hand-labeled hold types and grip directions? | [`results/hold_label_probes/`](../results/hold_label_probes/) |
 | [`grade_climbs.py`](grade_climbs.py) | Does the model help predict a climb's grade? | [`results/grade_climbs/`](../results/grade_climbs/) |
 
 To add an experiment, add a script to `experiments/` with a docstring that says what it measures
@@ -117,7 +118,9 @@ to seed. Best epochs are the same, 12 to 15. A likely reason is that every hold
 already has its own learned embedding, trained on about 300,000 climb rows, so anything
 fixed about a hold, such as its type or grip, can already be learned from how it is used.
 Labels like these would matter more for holds with few climbs, or for a board
-the model has not seen. The website still serves `null_rule_16`.
+the model has not seen. The website still serves `null_rule_16`. The next section
+tests the explanation directly: [`null_rule_16`'s hold representations already
+encode most of the labels](#hold-labels-in-the-learned-representations).
 
 ## Hold representations
 
@@ -141,6 +144,158 @@ Role separation is not learned. What training adds is that a hold's representati
 comes to depend on its role, nearby holds grow similar, and foot use is stored in the
 hold vectors, mostly through the learned geometry network. The foot share comes from
 the training climbs, so this shows what the model stored, not that it generalizes.
+
+## Hold labels in the learned representations
+
+```bash
+.venv/bin/python experiments/hold_label_probes.py
+```
+
+Adding the hand labels as features did not improve `null_rule_16`
+([above](#hand-labeled-hold-features)). This experiment asks whether that is because
+the model already knows them. `null_rule_16` was trained on climbs only and never saw
+[`data/hold_labels.csv`](../data/hold_labels.csv). For each of its hold
+representations, a simple model called a *probe* is fit to predict the labels from
+the representation, and then scored on holds it was not fit on. If a probe beats
+chance and the controls below, the representation contains that label.
+
+The probes are deliberately linear and small, so a high score means the label can be
+read straight out of the representation, not computed by a powerful probe. All three
+seeds (42, 43 and 44) are probed, and every number is their mean.
+
+### What is predicted
+
+| Task | Holds | Target | Score |
+| --- | ---: | --- | --- |
+| Hand-hold type | 306 | edge, jug, pinch or sloper | balanced accuracy, chance 25% |
+| All five types | 476 | the four above or foot chip | balanced accuracy, chance 20% |
+| Grip direction | 423 | the one labeled direction, for holds with exactly one | mean angle between predicted and labeled direction |
+
+Balanced accuracy is the mean over types of the share of that type predicted
+correctly (its recall), so each type counts equally: the 9 slopers weigh as much as
+the 197 edges, and always guessing "edge" scores exactly chance. Hand-hold type is
+the main test. A foot chip is easy to find without learning anything, because 153 of
+the 170 are screw-on holds and the screw-on flag is one of the model's position inputs.
+
+The angle between two directions is `|((p − l + 180) mod 360) − 180|` degrees, so it
+runs from 0° (exact) to 180° (opposite). Pinches all have two or more labeled
+directions, so they are not in the grip task.
+
+### What is probed
+
+Each representation is one vector per hold. The first three are controls: they
+contain position or simple counts, but nothing the model learned.
+
+| Representation | Width | What it is |
+| --- | ---: | --- |
+| Position | 28 | The model's fixed input features for the hold: x, y, kickboard flag, screw-on flag, and sin/cos of x and y at 6 frequencies. |
+| Usage counts | 8 | How many training climbs use the hold as hand, foot, start and finish: `log(1 + count)` for each role, and each role's share of the hold's uses. |
+| Untrained model | 192 | The hold vector below, computed by the same network re-initialized to random weights, as at the start of training. It is a random function of position. |
+| Hold embedding | 192 | The learned per-hold vector, `hold_embedding[h]`. It has no position input, so anything it encodes was learned from the climbs. |
+| Hold vector | 192 | `hold_embedding[h] + geometry(position features of h)`, where `geometry` is the learned two-layer network (linear, GELU, linear). Every token for the hold is this vector plus a role vector, so this is the model's whole static picture of the hold. |
+| In-context state | 192 | The model's final hidden state (after the last layer norm) at each place the hold appears, over 60,000 training climbs read from scratch with their real grade. Each sequence position's mean state is subtracted first, since starts come first and feet last. The states are averaged per hold over all its roles. |
+
+### How the probes work
+
+1. **Prepare the features.** Each representation is centered. The 192-wide ones are
+   cut to their top 20 principal components (by singular value decomposition, which
+   uses no labels). Position and usage counts keep every column: a projection would
+   drop low-variance columns such as the screw-on flag. Every column is then scaled
+   to unit variance.
+2. **Type probe: multinomial logistic regression.** One weight vector per type and a
+   bias. The probabilities are `softmax(z · W + b)`, and the fit minimizes
+   cross-entropy plus an L2 penalty `λ · ‖W‖² / n`. Each type's examples are weighted
+   by `n / (types × count of that type)`, so rare types are not ignored. It is fit with
+   L-BFGS (up to 200 iterations, strong Wolfe line search) in double precision.
+3. **Grip probe: ridge regression onto a unit vector.** The labeled direction `θ` is
+   turned into `(cos θ, sin θ)`, so 350° and 10° are close. Ridge regression predicts
+   both numbers with the closed form `W = (ZᵀZ + λI)⁻¹ Zᵀ (Y − mean Y)`, and the
+   predicted direction is `atan2` of the two predictions.
+4. **Score on held-out holds: cross-validation.** The holds are split into 5 folds.
+   Each fold is predicted by a probe fit on the other 4. Type folds are stratified, so
+   every fold has the same mix of types. The whole 5-fold run is repeated 5 times with
+   new random folds, and the scores are averaged.
+5. **Choose the penalty without the test fold: nested cross-validation.** For every
+   outer fold, `λ` is picked from 0.01, 0.1, 1, 10 and 100 by a 4-fold
+   cross-validation on that fold's training holds only. The pick maximizes balanced
+   accuracy for type and minimizes mean angle error for grip. The held-out fold never
+   influences its own probe.
+6. **Nulls.** The hold-vector probe is refit 20 times per seed on labels shuffled
+   across holds, which shows what a probe scores when there is nothing to find. For
+   grip there is also a constant guess: always predict the labels' average direction.
+
+### Results
+
+Mean ± standard deviation over the three seeds:
+
+| Representation | Hand-hold type | All five types | Grip error | Grip within 45° |
+| --- | ---: | ---: | ---: | ---: |
+| Position | 24.2 ± 0.7% | 38.0 ± 1.5% | 42.9 ± 0.2° | 61.9% |
+| Usage counts | 52.0 ± 2.1% | 59.7 ± 1.0% | 39.7 ± 0.2° | 61.4% |
+| Untrained model | 22.8 ± 5.2% | 21.4 ± 2.5% | 43.1 ± 0.2° | 62.1% |
+| Hold embedding | 75.3 ± 1.1% | 72.3 ± 0.8% | 30.6 ± 0.6° | 78.2% |
+| Hold vector | 76.7 ± 0.8% | 81.5 ± 0.6% | 34.1 ± 0.8° | 72.5% |
+| In-context state | 50.0 ± 5.4% | 59.4 ± 5.6% | 33.9 ± 0.3° | 73.7% |
+| Chance | 25% | 20% | | |
+| Shuffled labels, mean (95th percentile) | 24.9% (30.8%) | 19.8% (25.4%) | 42.9° | |
+| Constant average direction | | | 41.1° | |
+
+<!-- chart: probe-scores -->
+
+**Type is encoded.** From position alone a probe cannot tell the hand-hold types apart
+(24%, chance is 25%), and the untrained network does no better. The learned hold
+embedding and hold vector reach 75% and 77%, far above the shuffled-label null. They
+also beat usage counts (52%), the strongest control. So the model stores more than
+how often each hold is used in each role, likely which holds are used together, at
+what grades and angles, and in what order.
+
+The hold embedding, which has no position input, does about as well as the full hold
+vector. The information sits in what each hold learned for itself, not in the
+geometry network. The in-context state is weaker and varies more between seeds: after
+the position average is removed, it mixes the hold with whatever surrounds it.
+
+On the boards below, each hold on the right is colored by the probe's prediction made
+while that hold was held out, for seed 43, the seed the website serves. Ringed holds
+are wrong. Switch to grip to compare labeled and predicted directions.
+
+<!-- chart: probe-boards -->
+
+Almost every pinch is recovered (98% recall), against 49% from usage counts. Edges and jugs
+are recovered 76% and 69% of the time and are mostly mistaken for each other. Slopers
+(64%) are the hardest for the model, though with 9 of them that number is noisy.
+Usage counts find slopers well (76%), probably because they are used in their own way.
+
+<!-- chart: probe-confusion -->
+
+The projection below is the hold vector's top two principal components, found
+without labels. The first one partly tracks how often a hold is used as a foot. In
+two dimensions the types overlap, so this view shows the shape of the space, while
+the probes, using 20 dimensions, are the test.
+
+<!-- chart: probe-projection -->
+
+**Grip direction is only partly encoded.** A third of the single-direction holds pull
+straight up, and always guessing the average direction is off by 41.1° on average. The
+hold embedding is off by 30.6°, against 39.7° for usage counts, so some of the
+direction is in there, much less clearly than type.
+
+<!-- chart: probe-grip -->
+
+### Caveats
+
+- The labels are one person's, made while looking at the board artwork. The model
+  never sees images, so whatever it knows about type came from the climbs.
+- A linear probe finds information that is linearly readable. A score near chance
+  does not prove the information is absent, only that it is not stored that simply.
+- Slopers (9) and pinches (20) are few, so their per-type scores move by several
+  points between seeds.
+- Usage counts and the model both come from the same training climbs, and the labels
+  were made after training. Nothing about the labels leaked into the model.
+
+The script writes `summary.json` (every score for every seed, with per-type recall
+and confusion matrices) and `holds.csv` (each hold's labels, usage counts, the
+projection, and the held-out predictions of seed 43) to
+[`results/hold_label_probes/`](../results/hold_label_probes/).
 
 ## Grading as a downstream task
 

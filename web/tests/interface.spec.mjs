@@ -310,7 +310,7 @@ test('the experiments tab renders the write-up and interactive charts, and links
   await expect(page).toHaveURL(/experiments\.html$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Experiments');
   await expect(page.locator('#model-comparison')).toBeVisible();
-  await expect(page.locator('figure[data-chart] svg')).toHaveCount(2);
+  await expect(page.locator('figure[data-chart]:not([data-chart^="probe-"]) svg')).toHaveCount(2);
   const chart = page.locator('figure[data-chart="holds-by-grade"]');
   await chart.locator('svg').focus();
   await page.keyboard.press('ArrowRight');
@@ -320,6 +320,37 @@ test('the experiments tab renders the write-up and interactive charts, and links
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   await page.getByRole('navigation', { name: 'Site' }).getByRole('link', { name: 'Climb tool' }).click();
   await expect(page.locator('#model-status-text')).toHaveText('Model ready', { timeout: 60000 });
+  expect(errors).toEqual([]);
+});
+
+test('the hold-label probe figures draw both boards, switch probes and views, and list every hold', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/experiments.html');
+  await expect(page.locator('body')).toHaveAttribute('data-probes-ready', 'true');
+  const boards = page.locator('figure[data-chart="probe-boards"]');
+  await expect(boards.locator('.probe-board svg')).toHaveCount(2);
+  await expect(boards.locator('path.probe-hold')).toHaveCount(952);
+  const note = boards.locator('.probe-board-head span').nth(1);
+  await expect(note).toHaveText(/^\d+ of 476 right$/);
+  const holdVector = await note.textContent();
+  await boards.getByRole('button', { name: 'Position', exact: true }).click();
+  await expect(note).not.toHaveText(holdVector);
+  await boards.getByRole('button', { name: 'Grip direction' }).click();
+  await expect(note).toHaveText(/^\d+ of 423 within 45°$/);
+  await expect(boards.locator('.probe-arrow').first()).toBeAttached();
+  await boards.getByRole('button', { name: 'Type', exact: true }).click();
+  const pinch = boards.getByRole('button', { name: /^Pinch \d+$/ });
+  await pinch.click();
+  await expect(pinch).toHaveAttribute('aria-pressed', 'true');
+  await boards.locator('path.probe-hold').first().hover();
+  await expect(page.locator('.probe-tip')).toContainText('Your label');
+  await boards.locator('summary', { hasText: 'Every hold' }).click();
+  await expect(boards.locator('.probe-table tbody tr')).toHaveCount(476);
+  for (const view of ['scores', 'projection', 'grip']) await expect(page.locator(`figure[data-chart="probe-${view}"] svg`).first()).toBeVisible();
+  await expect(page.locator('figure[data-chart="probe-confusion"] .probe-matrix')).toHaveCount(3);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   expect(errors).toEqual([]);
 });
 

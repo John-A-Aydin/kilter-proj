@@ -4,7 +4,7 @@ import { BOARD_COLORS } from './board-config.mjs';
 import { KilterBluetooth, climbSignature, validateLedMap } from './bluetooth.mjs';
 import { PATTERNS, showFrame } from './lightshow.mjs';
 import { KEYS, newGame, snakeFrame, snakeGrid, step, turn } from './snake.mjs';
-import { closestClimb, gradeNear, loadCatalogue } from './similar.mjs';
+import { FOOT, closestClimb, gradeNear, loadCatalogue } from './similar.mjs';
 import { parseClimbFile } from './climb-file.mjs';
 
 const $ = id => document.getElementById(id);
@@ -196,7 +196,7 @@ function setTab(name) {
   renderSnake();
 }
 
-const plural = (count, word) => `${count.toLocaleString()} ${word}${count === 1 ? '' : 's'}`;
+const plural = (count, word, many = `${word}s`) => `${count.toLocaleString()} ${count === 1 ? word : many}`;
 
 async function showMatch() {
   const version = ++matchVersion;
@@ -208,20 +208,29 @@ async function showMatch() {
   if (!holds.length) return;
   if (!catalogue) { $('match-status').textContent = 'Loading real climbs…'; return; }
   if (catalogue instanceof Error) { $('match-status').textContent = `Real climbs are unavailable: ${catalogue.message}`; return; }
+  if (holds.every(hold => hold.role === FOOT)) {
+    $('match-status').textContent = 'Feet are not compared. Add a start, hand, or finish hold to find the closest real climb.';
+    return;
+  }
   match = closestClimb(catalogue, holds);
-  if (!match) { $('match-status').textContent = 'No real climb uses any of these holds.'; return; }
+  if (!match) { $('match-status').textContent = 'No real climb uses any of these hand holds.'; return; }
   const angle = activeRequest.angle;
   const near = gradeNear(match.angles, angle);
   const exact = match.shared === match.yours && match.shared === match.size;
+  const key = hold => `${hold.id}:${hold.role}`;
+  const yourKeys = new Set(holds.map(key));
+  const identical = match.holds.length === holds.length && match.holds.every(hold => yourKeys.has(key(hold)));
   $('match-count').textContent = `of ${catalogue.count.toLocaleString()} climbs`;
   $('match-exact').hidden = !exact;
-  $('match-exact').textContent = match.sameRole === match.size ? 'Identical to a real climb' : 'Same holds as a real climb';
+  $('match-exact').textContent = identical ? 'Identical to a real climb'
+    : match.sameRole === match.size ? 'Same hand holds as a real climb' : 'Same hand holds, other roles';
   $('match-name').textContent = match.name || 'Untitled climb';
   $('match-grade').textContent = (near.angle === angle ? '' : `Not climbed at ${angle}°. `)
     + `V${near.grade} at ${near.angle}° · ${plural(near.ascents, 'ascent')}`;
   $('match-overlap').textContent = `${Math.round(match.overlap * 100)}%`;
-  $('match-shared').textContent = `${match.shared} of your ${plural(match.yours, 'hold')} ${match.shared === 1 ? 'is' : 'are'} in this climb, `
-    + `${match.sameRole} in the same role. It has ${plural(match.size, 'hold')}.`;
+  const feet = match.holds.length - match.size;
+  $('match-shared').textContent = `${match.shared} of your ${plural(match.yours, 'hand hold')} ${match.shared === 1 ? 'is' : 'are'} in this climb, `
+    + `${match.sameRole} in the same role. It has ${plural(match.size, 'hand hold')} and ${plural(feet, 'foot', 'feet')}. Feet are not compared.`;
   $('match-angles').replaceChildren(...match.angles.map(row => {
     const chip = document.createElement('span');
     chip.textContent = `${row.angle}° V${row.grade}`;
@@ -231,12 +240,12 @@ async function showMatch() {
   }));
   $('match-status').hidden = true;
   $('match-details').hidden = false;
-  const yours = new Set(holds.map(hold => hold.id));
+  const yours = new Set(holds.filter(hold => hold.role !== FOOT).map(hold => hold.id));
   try {
     matchBoard ??= createBoard($('svg-match'), manifest, null, showError, { interactive: false, idPrefix: 'match-hold-' });
     const board = await matchBoard;
     if (version !== matchVersion) return;
-    board.update(match.holds, new Map(match.holds.filter(hold => yours.has(hold.id)).map(hold => [hold.id, hold.role])));
+    board.update(match.holds, new Map(match.holds.filter(hold => hold.role !== FOOT && yours.has(hold.id)).map(hold => [hold.id, hold.role])));
   } catch (error) {
     matchBoard = null;
     showError(error.message);

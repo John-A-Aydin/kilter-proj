@@ -117,7 +117,18 @@ function lineChart(figure, spec) {
 const source = globalThis.document?.getElementById('chart-data');
 if (source) {
   const charts = JSON.parse(source.textContent);
+  const probes = [];
   for (const figure of document.querySelectorAll('figure[data-chart]')) {
-    if (charts[figure.dataset.chart]) lineChart(figure, charts[figure.dataset.chart]);
+    const spec = charts[figure.dataset.chart];
+    if (spec?.kind === 'probe') probes.push([figure, spec.view]);
+    else if (spec) lineChart(figure, spec);
+  }
+  // The hold-label probe figures share one data block and their own module.
+  if (probes.length) {
+    const data = JSON.parse(document.getElementById('probe-data').textContent);
+    import('./probes.mjs').then(({ renderProbeFigure }) => {
+      for (const [figure, view] of probes) renderProbeFigure(figure, view, data);
+      document.body.dataset.probesReady = 'true';
+    });
   }
 }

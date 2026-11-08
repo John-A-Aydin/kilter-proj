@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { climbHolds, closestClimb, gradeNear, loadCatalogue } from '../src/similar.mjs';
+import { FOOT, climbHolds, closestClimb, gradeNear, loadCatalogue } from '../src/similar.mjs';
 
 // Packs climbs the way kilter/export_web.py does: hold_id * 4 + role, widest arrays first.
 function pack(climbs) {
@@ -33,20 +33,36 @@ const catalogue = pack([
   { name: 'Far away', holds: [[1400, 2], [1500, 3]], angles: [at(40, 9, 1)] },
 ]);
 
-test('the closest climb has the most shared holds relative to both climbs', () => {
+test('the closest climb has the most shared hand holds relative to both climbs', () => {
   const match = closestClimb(catalogue, [{ id: 1100, role: 2 }, { id: 1200, role: 0 }, { id: 1250, role: 0 }, { id: 1300, role: 3 }]);
   assert.equal(match.name, 'Bigger');
   assert.equal(match.shared, 4);
-  assert.equal(match.overlap, 4 / 5);
+  // Bigger's foot is not counted in its size.
+  assert.equal(match.overlap, 1);
+  assert.equal(match.size, 4);
   assert.equal(match.sameRole, 4);
+  assert.equal(match.holds.length, 5);
   assert.deepEqual(match.angles, [at(30, 4, 5)]);
+});
+
+test('feet are ignored in both climbs', () => {
+  const hands = [{ id: 1100, role: 2 }, { id: 1200, role: 0 }, { id: 1300, role: 3 }];
+  // Your feet change nothing, even on a hold another climb uses as a hand hold.
+  const withFeet = closestClimb(catalogue, [...hands, { id: 1250, role: FOOT }, { id: 1050, role: FOOT }]);
+  assert.deepEqual({ ...withFeet, holds: null }, { ...closestClimb(catalogue, hands), holds: null });
+  assert.equal(withFeet.name, 'Popular');
+  assert.equal(withFeet.yours, 3);
+  // A hold that is a foot in the real climb is not shared with your hand hold.
+  const footThere = closestClimb(catalogue, [{ id: 1050, role: 0 }, { id: 1100, role: 2 }]);
+  assert.equal(footThere.shared, 1);
+  assert.equal(closestClimb(catalogue, [{ id: 1100, role: FOOT }, { id: 1200, role: FOOT }]), null);
 });
 
 test('ties go to more holds in the same role, then to the more-ascended climb', () => {
   const roles = closestClimb(catalogue, [{ id: 1100, role: 0 }, { id: 1200, role: 2 }, { id: 1300, role: 3 }]);
   assert.equal(roles.name, 'Same holds, other roles');
   assert.equal(roles.overlap, 1);
-  const popular = closestClimb(catalogue, [{ id: 1100, role: 1 }, { id: 1200, role: 1 }, { id: 1300, role: 1 }]);
+  const popular = closestClimb(catalogue, [{ id: 1100, role: 3 }, { id: 1200, role: 3 }, { id: 1300, role: 2 }]);
   assert.equal(popular.name, 'Popular');
   assert.equal(popular.sameRole, 0);
   // Lookups leave no counts behind.
@@ -79,7 +95,7 @@ test('the exported catalogue matches the model and finds each real climb as its 
     assert.ok(holds.every(hold => ids.has(hold.id)));
     const match = closestClimb(real, holds);
     assert.equal(match.overlap, 1);
-    assert.equal(match.sameRole, holds.length);
+    assert.equal(match.sameRole, holds.filter(hold => hold.role !== FOOT).length);
   }
   const ascents = climb => closestClimb(real, climbHolds(real, climb)).angles.reduce((total, row) => total + row.ascents, 0);
   assert.ok(ascents(0) >= ascents(1000));
