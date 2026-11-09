@@ -198,6 +198,11 @@ contain position or simple counts, but nothing the model learned.
 
 ### How the probes work
 
+[How the hold-type probes work](https://claude.ai/artifact/SYvidXFYzoMhqfXR6BkRdw) walks
+through the pipeline below in more depth, with a diagram of where each representation is
+read from the transformer, every tensor shape, and how the holds are split for fitting
+and scoring.
+
 1. **Prepare the features.** Each representation is centered. The 192-wide ones are
    cut to their top 20 principal components (by singular value decomposition, which
    uses no labels). Position and usage counts keep every column: a projection would
