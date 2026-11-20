@@ -114,6 +114,76 @@ function lineChart(figure, spec) {
   new ResizeObserver(() => { if (Math.abs(plot.clientWidth - geometry.width) > 1) draw(); }).observe(plot);
 }
 
+// Sequential blue ramp (light to dark = small to large), in seven steps chosen so the value
+// printed in a cell keeps at least 4.5:1 contrast: dark ink on the first four, white on the rest.
+export const MATRIX_STEPS = ['#cde2fb', '#9ec5f4', '#6da7ec', '#5598e7', '#256abf', '#184f95', '#0d366b'];
+const MATRIX_LIGHT_STEPS = 4;
+
+// The ramp step for `value` within [low, high].
+export function matrixStep(value, low, high) {
+  const share = high > low ? (value - low) / (high - low) : 0;
+  return Math.max(0, Math.min(MATRIX_STEPS.length - 1, Math.round(share * (MATRIX_STEPS.length - 1))));
+}
+
+// A heatmap table: one row per method, one column per (metric, subset). Each metric has its own
+// color scale, shared by its subsets so they can be compared directly.
+function matrixChart(figure, spec) {
+  figure.classList.add('chart-matrix');
+  figure.innerHTML = `<figcaption><strong>${spec.title}</strong><span>${spec.subtitle}</span></figcaption>`;
+  const scales = Object.fromEntries(spec.metrics.map(metric => {
+    const values = spec.rows.flatMap(row => spec.columns.filter(c => c.metric === metric.key).map(c => row.values[c.key].mean));
+    return [metric.key, [Math.min(...values), Math.max(...values)]];
+  }));
+  const keys = document.createElement('div');
+  keys.className = 'matrix-keys';
+  for (const metric of spec.metrics) {
+    const [low, high] = scales[metric.key];
+    keys.insertAdjacentHTML('beforeend', `<span class="matrix-key"><b>${metric.label}</b>${low.toFixed(spec.digits)}<span class="matrix-ramp">${
+      MATRIX_STEPS.map(color => `<i style="background:${color}"></i>`).join('')}</span>${high.toFixed(spec.digits)}</span>`);
+  }
+  figure.append(keys);
+  const scroll = document.createElement('div');
+  scroll.className = 'table-scroll';
+  const head = `<tr><th scope="col" rowspan="2" class="matrix-corner">Method</th>${spec.metrics.map(metric =>
+    `<th scope="colgroup" colspan="${spec.columns.filter(c => c.metric === metric.key).length}">${metric.label}</th>`).join('')}</tr>
+    <tr>${spec.columns.map(column => `<th scope="col" class="matrix-subset">${column.subsetLabel}</th>`).join('')}</tr>`;
+  const body = spec.rows.map(row => `<tr><th scope="row">${row.label}</th>${spec.columns.map(column => {
+    const { mean } = row.values[column.key];
+    const step = matrixStep(mean, ...scales[column.metric]);
+    return `<td tabindex="0" data-row="${row.key}" data-column="${column.key}" style="background:${MATRIX_STEPS[step]};color:${
+      step < MATRIX_LIGHT_STEPS ? 'var(--matrix-ink)' : '#ffffff'}">${mean.toFixed(spec.digits)}</td>`;
+  }).join('')}</tr>`).join('');
+  scroll.innerHTML = `<table class="matrix-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+  const tooltip = document.createElement('div');
+  tooltip.className = 'chart-tooltip';
+  tooltip.hidden = true;
+  const plot = document.createElement('div');
+  plot.className = 'matrix-plot';
+  plot.append(scroll, tooltip);
+  figure.append(plot);
+
+  const show = cell => {
+    const row = spec.rows.find(r => r.key === cell.dataset.row);
+    const column = spec.columns.find(c => c.key === cell.dataset.column);
+    const { mean, std } = row.values[column.key];
+    tooltip.innerHTML = `<strong>${row.label}</strong><span>${column.metricLabel}, ${column.subsetLabel.toLowerCase()}<b>${
+      mean.toFixed(spec.digits + 1)} ± ${std.toFixed(spec.digits + 1)}</b></span><span>Test rows<b>${column.rows.toLocaleString()}</b></span>`;
+    tooltip.hidden = false;
+    const box = plot.getBoundingClientRect(), target = cell.getBoundingClientRect();
+    const left = target.right - box.left + 8;
+    tooltip.style.left = `${Math.max(4, left + tooltip.offsetWidth > box.width ? target.left - box.left - tooltip.offsetWidth - 8 : left)}px`;
+    // Above the cell, so it never hides the rows being compared; below it only for the top rows.
+    const above = target.top - box.top - tooltip.offsetHeight - 6;
+    tooltip.style.top = `${above >= 0 ? above : target.bottom - box.top + 6}px`;
+  };
+  for (const cell of scroll.querySelectorAll('td')) {
+    cell.addEventListener('pointerenter', () => show(cell));
+    cell.addEventListener('focus', () => show(cell));
+    cell.addEventListener('pointerleave', () => { tooltip.hidden = true; });
+    cell.addEventListener('blur', () => { tooltip.hidden = true; });
+  }
+}
+
 const source = globalThis.document?.getElementById('chart-data');
 if (source) {
   const charts = JSON.parse(source.textContent);
@@ -122,6 +192,7 @@ if (source) {
     const spec = charts[figure.dataset.chart];
     if (spec?.kind === 'probe') probes.push([figure, spec.view]);
     else if (spec?.kind === 'tags') tags.push([figure, spec.view]);
+    else if (spec?.kind === 'matrix') matrixChart(figure, spec);
     else if (spec) lineChart(figure, spec);
   }
   // The style-tag figures have their own data block and module.

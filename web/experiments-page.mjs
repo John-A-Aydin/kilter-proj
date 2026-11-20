@@ -73,6 +73,43 @@ function byGrade(rows, series, field) {
   };
 }
 
+// Methods in the grading table and matrix, from the weakest baseline to the best model.
+export const GRADING_METHODS = [
+  ['mean_at_angle', 'Training mean at that angle'], ['bag_linear', 'Bag of holds, ridge'],
+  ['untrained_mlp', 'Untrained model, MLP head'], ['bag_mlp', 'Bag of holds, MLP head (main baseline)'],
+  ['model_linear', 'null_rule_16, ridge'], ['bayes', 'null_rule_16, Bayes over grades'], ['model_mlp', 'null_rule_16, MLP head'],
+];
+
+// Test MSE and RMSE of every grading method, on the whole test set and on climbs with more than
+// 5 ascents, from results/grade_climbs/summary.json.
+export async function gradingMatrix(root = repo) {
+  const summary = JSON.parse(await readFile(path.join(root, 'results/grade_climbs/summary.json'), 'utf8'));
+  const subsets = Object.entries(summary.subsets ?? {});
+  if (subsets.length !== 2) throw new Error('grade_climbs summary: expected the whole test set and one ascent subset');
+  const subsetLabel = (name, subset) => name === 'all' ? 'All test climbs' : `Over ${name.match(/\d+/)[0]} ascents`;
+  const metrics = [{ key: 'mse', label: 'MSE (grades²)' }, { key: 'rmse', label: 'RMSE (grades)' }];
+  const columns = metrics.flatMap(metric => subsets.map(([name, subset]) => ({
+    key: `${metric.key}${subset.suffix}`, metric: metric.key, metricLabel: metric.label.split(' ')[0],
+    subsetLabel: subsetLabel(name, subset), rows: subset.rows })));
+  const rows = GRADING_METHODS.map(([key, label]) => {
+    const method = summary.methods[key];
+    if (!method) throw new Error(`grade_climbs summary has no method ${key}`);
+    return { key, label, values: Object.fromEntries(columns.map(column => {
+      const value = method[column.key];
+      if (!Number.isFinite(value?.mean) || !Number.isFinite(value?.std)) throw new Error(`grade_climbs summary: ${key} ${column.key} is not a number`);
+      return [column.key, { mean: value.mean, std: value.std }];
+    })) };
+  });
+  const [, consensus] = subsets.find(([name]) => name !== 'all');
+  return {
+    kind: 'matrix', digits: 2, metrics, columns, rows,
+    title: 'Grade prediction error, by method, metric, and test subset',
+    subtitle: `Mean of three seeds. Darker is larger error; each metric has its own scale, shared by both subsets. `
+      + `All test climbs: ${summary.subsets.all.rows.toLocaleString()} rows. Over 5 ascents: ${consensus.rows.toLocaleString()} rows `
+      + `(${consensus.climbs.toLocaleString()} climbs), where the grade is agreed by more climbers.`,
+  };
+}
+
 export async function chartData(root = repo) {
   const read = file => readFile(path.join(root, 'results', file), 'utf8').then(parseCsv);
   const samples = (await read('compare_models/samples_by_grade.csv'))
@@ -97,6 +134,7 @@ export async function chartData(root = repo) {
     ...Object.fromEntries(PROBE_FIGURES.map(view => [`probe-${view}`, { kind: 'probe', view }])),
     // Style-tag figures, drawn by src/tag-figures.mjs from tagData() below.
     ...Object.fromEntries(TAG_FIGURES.map(view => [`tags-${view}`, { kind: 'tags', view }])),
+    'grading-matrix': await gradingMatrix(root),
     'grading-error': {
       title: 'Grade prediction error by true grade',
       subtitle: 'Test MSE in grades², mean of three seeds; V13 and above have under 20 climbs and are left out',

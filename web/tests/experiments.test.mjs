@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { PROBE_FIGURES, REPOSITORY, TAG_FIGURES, chartData, parseCsv, probeData, renderMarkdown, repositoryLink, tagData } from '../experiments-page.mjs';
-import { niceTicks } from '../src/experiments.mjs';
+import { GRADING_METHODS, PROBE_FIGURES, REPOSITORY, TAG_FIGURES, chartData, gradingMatrix, parseCsv, probeData, renderMarkdown, repositoryLink, tagData } from '../experiments-page.mjs';
+import { MATRIX_STEPS, matrixStep, niceTicks } from '../src/experiments.mjs';
 import { angleError, shareWithin } from '../src/probes.mjs';
 
 test('relative README links point at the repository on GitHub', () => {
@@ -102,4 +102,29 @@ test('the README places every style-tag figure, and the tag data covers all 26 t
     assert.ok(block.rows >= 10);
   }
   assert.ok(data.correlation > -1 && data.correlation < 1);
+});
+
+test('the grading matrix has MSE and RMSE for every method, on all test climbs and on those with over 5 ascents', async () => {
+  const matrix = await gradingMatrix();
+  assert.equal(matrix.kind, 'matrix');
+  assert.deepEqual(matrix.columns.map(c => c.key), ['mse', 'mse_more_than_5_ascents', 'rmse', 'rmse_more_than_5_ascents']);
+  assert.deepEqual(matrix.rows.map(r => r.key), GRADING_METHODS.map(([key]) => key));
+  const [all, consensus] = [matrix.columns[0].rows, matrix.columns[1].rows];
+  assert.ok(consensus > 0 && consensus < all);
+  for (const row of matrix.rows) {
+    for (const subset of ['', '_more_than_5_ascents']) {
+      const { mean: mse } = row.values[`mse${subset}`], { mean: rmse } = row.values[`rmse${subset}`];
+      // The RMSE is averaged over seeds, so its square is close to, not exactly, the mean MSE.
+      assert.ok(Math.abs(rmse ** 2 - mse) < 0.05 * mse, `${row.key}${subset}`);
+    }
+  }
+  const readme = await readFile(new URL('../../experiments/README.md', import.meta.url), 'utf8');
+  assert.match(readme, /<!-- chart: grading-matrix -->/);
+});
+
+test('matrix cells map values onto the ramp from lightest to darkest', () => {
+  assert.equal(matrixStep(1, 1, 5), 0);
+  assert.equal(matrixStep(5, 1, 5), MATRIX_STEPS.length - 1);
+  assert.equal(matrixStep(3, 1, 5), 3);
+  assert.equal(matrixStep(2, 2, 2), 0);
 });

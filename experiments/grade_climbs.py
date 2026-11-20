@@ -1,4 +1,4 @@
-"""Downstream task: predict a climb's V grade from its holds and angle, scored by MSE.
+"""Downstream task: predict a climb's V grade from its holds and angle, scored by MSE and RMSE.
 
 Trained model, against baselines that see the same climb and angle:
 
@@ -10,6 +10,11 @@ Trained model, against baselines that see the same climb and angle:
 
 Heads are a ridge regression ("linear") and a small MLP. The ridge penalty, MLP epoch and Bayes
 temperature are chosen on validation, and the test split is only read to report.
+
+Every score is reported on two test subsets (``SUBSETS``): every row, and rows whose climb has
+more than 5 ascents at that angle, where the grade is a consensus of several climbers. Scores
+with no suffix are the whole test set; ``_more_than_5_ascents`` marks the subset. RMSE is in
+grades, and its mean over seeds is the mean of each seed's RMSE.
 
     .venv/bin/python experiments/grade_climbs.py
 """
@@ -37,7 +42,9 @@ MODEL = "null_rule_16"
 SEEDS = (42, 43, 44)
 TRAIN, VALIDATION, TEST = 0, 1, 2
 GRADES = 17
-MIN_ASCENTS = 5
+# Rows of climbs with more than this many ascents at their angle form the consensus subset.
+ASCENTS_OVER = 5
+SUBSETS = {"all": "", f"more_than_{ASCENTS_OVER}_ascents": f"_more_than_{ASCENTS_OVER}_ascents"}
 PENALTIES = (1.0, 10.0, 100.0, 1000.0, 10000.0)
 TEMPERATURES = (1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0)
 BOOTSTRAPS = 2000
@@ -168,15 +175,20 @@ def posterior_mean(likelihood, prior, angles, temperature):
     return (posterior / posterior.sum(1, keepdims=True)) @ np.arange(GRADES)
 
 
+def subset_mask(name, ascents):
+    return np.ones(len(ascents), dtype=bool) if name == "all" else ascents > ASCENTS_OVER
+
+
 def score(predicted, truth, ascents):
-    consensus = ascents >= MIN_ASCENTS
-    mse = lambda keep: float(np.mean((predicted[keep] - truth[keep]) ** 2))
-    variance = lambda keep: float(np.var(truth[keep]))
-    everything = np.ones(len(truth), dtype=bool)
-    return {"mse": mse(everything), "rmse": mse(everything) ** 0.5, "r2": 1 - mse(everything) / variance(everything),
-            "within_one_grade": float(np.mean(np.abs(predicted - truth) <= 1)),
-            "bias": float(np.mean(predicted - truth)),
-            f"mse_{MIN_ASCENTS}_plus_ascents": mse(consensus), f"r2_{MIN_ASCENTS}_plus_ascents": 1 - mse(consensus) / variance(consensus)}
+    """MSE, RMSE, R², share within one grade, and bias, on each subset of the test rows."""
+    scores = {}
+    for name, suffix in SUBSETS.items():
+        keep = subset_mask(name, ascents)
+        error = predicted[keep] - truth[keep]
+        mse = float(np.mean(error ** 2))
+        scores |= {f"mse{suffix}": mse, f"rmse{suffix}": mse ** 0.5, f"r2{suffix}": 1 - mse / float(np.var(truth[keep])),
+                   f"within_one_grade{suffix}": float(np.mean(np.abs(error) <= 1)), f"bias{suffix}": float(np.mean(error))}
+    return scores
 
 
 def bootstrap_gap(first, second, truth, climbs, seed=0):
@@ -253,6 +265,11 @@ def main():
                            for i in range(len(SEEDS))] for name in ("model_mlp", "model_linear", "bayes", "untrained_mlp")}
     (args.output / "summary.json").write_text(json.dumps({
         "model": MODEL, "seeds": SEEDS, "test_rows": len(truth), "test_grade_variance": float(np.var(truth)),
+        "subsets": {name: {"rule": "every test row" if name == "all" else f"ascents at that angle > {ASCENTS_OVER}",
+                           "suffix": suffix, "rows": int(subset_mask(name, ascents).sum()),
+                           "climbs": len(set(climbs[subset_mask(name, ascents)])),
+                           "grade_variance": float(np.var(truth[subset_mask(name, ascents)]))}
+                    for name, suffix in SUBSETS.items()},
         "methods": summary, "per_seed": scores, "chosen_on_validation": choices,
         "mse_gap_to_bag_mlp_seed_averaged_predictions": gaps, "mse_gap_to_bag_mlp_per_seed": per_seed_gap}, indent=2) + "\n")
     with (args.output / "by_grade.csv").open("w", newline="") as file:

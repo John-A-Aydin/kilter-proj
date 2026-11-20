@@ -344,6 +344,13 @@ test('the experiments tab renders the write-up and interactive charts, and links
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Experiments');
   await expect(page.locator('#model-comparison')).toBeVisible();
   await expect(page.locator('figure[data-chart]:not([data-chart^="probe-"]):not([data-chart^="tags-"]) svg')).toHaveCount(2);
+  const matrix = page.locator('figure[data-chart="grading-matrix"]');
+  await expect(matrix.locator('tbody tr')).toHaveCount(7);
+  await expect(matrix.locator('tbody td')).toHaveCount(28);
+  await expect(matrix.locator('thead')).toContainText('Over 5 ascents');
+  await matrix.locator('tbody tr').last().locator('td').nth(3).hover();
+  await expect(matrix.locator('.chart-tooltip')).toContainText('null_rule_16, MLP head');
+  await expect(matrix.locator('.chart-tooltip')).toContainText('RMSE, over 5 ascents');
   const chart = page.locator('figure[data-chart="holds-by-grade"]');
   await chart.locator('svg').focus();
   await page.keyboard.press('ArrowRight');

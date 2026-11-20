@@ -515,18 +515,31 @@ number for every seed, and `examples.json` has generated climbs for a few tags.
 ```
 
 Predicts a climb's V grade from its holds and angle. The model is frozen and read with
-a null grade, so the label cannot leak in. Settings are chosen on validation. Test MSE
-over 16,897 rows, mean of three seeds (grade variance 6.66):
+a null grade, so the label cannot leak in. Settings are chosen on validation. Every
+method is scored on two test subsets: all 16,897 test rows (10,344 climbs, grade
+variance 6.66), and the 3,736 rows (2,275 climbs, grade variance 8.24) whose climb has
+**more than 5 ascents** at that angle, where the grade is agreed by more climbers. MSE
+is in grades² and RMSE in grades; both are means over three seeds (RMSE is the mean of
+each seed's RMSE).
 
-| Method | MSE | RMSE (grades) | Within 1 grade | MSE, 5+ ascents |
-| --- | ---: | ---: | ---: | ---: |
-| Training mean at that angle | 5.04 | 2.24 | 34.1% | 6.68 |
-| Bag of holds, ridge | 2.86 | 1.69 | 47.7% | 2.86 |
-| Untrained model, MLP head | 2.39 | 1.55 | 52.6% | 2.06 |
-| Bag of holds, MLP head (main baseline) | 2.03 | 1.42 | 57.3% | 1.61 |
-| `null_rule_16`, ridge | 1.85 | 1.36 | 58.9% | 1.54 |
-| `null_rule_16`, Bayes over grades, no head | 1.83 | 1.35 | 60.4% | 1.45 |
-| `null_rule_16`, MLP head | 1.70 | 1.30 | 62.4% | 1.32 |
+| Method | MSE, all | MSE, over 5 ascents | RMSE, all | RMSE, over 5 ascents | Within 1 grade, all |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Training mean at that angle | 5.04 | 6.78 | 2.24 | 2.60 | 34.1% |
+| Bag of holds, ridge | 2.86 | 2.85 | 1.69 | 1.69 | 47.7% |
+| Untrained model, MLP head | 2.39 | 2.02 | 1.55 | 1.42 | 52.6% |
+| Bag of holds, MLP head (main baseline) | 2.03 | 1.57 | 1.42 | 1.25 | 57.3% |
+| `null_rule_16`, ridge | 1.85 | 1.50 | 1.36 | 1.23 | 58.9% |
+| `null_rule_16`, Bayes over grades, no head | 1.83 | 1.41 | 1.35 | 1.19 | 60.4% |
+| `null_rule_16`, MLP head | 1.70 | 1.26 | 1.30 | 1.12 | 62.4% |
+
+<!-- chart: grading-matrix -->
+
+Every learned method does better on the climbs with more than 5 ascents, though their
+grades vary more. The training mean does worse there, because it can only guess the
+average. The order of the methods is the same on both subsets, and `null_rule_16` with
+an MLP head is best on both: 1.26 MSE (1.12 RMSE) against 1.57 (1.25) for the bag of
+holds. Earlier versions of this table used climbs with 5 or more ascents (4,324 rows);
+the numbers on all test climbs are unchanged.
 
 The Bayes grader uses p(climb | grade, angle) from the generative model with a prior
 per angle. Errors are largest at both ends of the scale, where labels are noisier or rarer.
