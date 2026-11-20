@@ -27,7 +27,7 @@
 .d-input rect{fill:#2b362b}.d-input .d-title{fill:#e3f1cb}.d-input .d-sub{fill:#b9c6ae}
 .d-box rect{fill:#fdfdf8;stroke:#c9d0bd;stroke-width:1.2}.d-table>rect{fill:#f1f5e8;stroke:#a9bb88}.d-rules>rect{fill:#fbf3e4;stroke:#dfc28c}.d-shadow{fill:#f3f4ec!important}.d-badge{font-size:14px;font-weight:700;fill:#5a7a2b}
 .d-part rect{fill:#fff;stroke:#d3d8c8;stroke-width:1}.d-op circle{fill:#fff;stroke:#7d8a6c;stroke-width:1.3}.d-op path{stroke:#55604f;stroke-width:1.6}
-.d-line{fill:none;stroke:#7d8a6c;stroke-width:1.4}.d-residual{fill:none;stroke:#9aae7a;stroke-width:1.4;stroke-dasharray:4 3}.d-tied{fill:none;stroke:var(--series-1);stroke-width:1.6;stroke-dasharray:6 4}.d-tied-text{font-size:11px;font-weight:600;fill:#1f5ea8}.d-arrowhead{fill:#7d8a6c}
+.d-line{fill:none;stroke:#7d8a6c;stroke-width:1.4}.d-residual{fill:none;stroke:#9aae7a;stroke-width:1.4;stroke-dasharray:4 3}.d-arrowhead{fill:#7d8a6c}
 .d-brace-path{fill:none;stroke:var(--axis);stroke-width:1.4}.d-brace-text{font-size:12px;fill:var(--ink-2)}
 .tok rect{stroke-width:1.2}.tok text{font-size:12px;font-weight:600;fill:var(--ink)}.tok .tok-sub{font-size:10px;font-weight:500;fill:var(--ink-3)}.tok.special rect{fill:#2b362b;stroke:#2b362b}.tok.special text{fill:#e3f1cb}.tok.given rect{fill:#eef0e7;stroke:#c9d0bd}.tok.rest rect{fill:#fff;stroke:#a9bb88}.tok-pos{font-size:11px;fill:var(--ink-3);font-variant-numeric:tabular-nums}.tok-seg{font-size:11px;fill:var(--ink-3)}.tok-loss{fill:#5a7a2b}
 

@@ -1,4 +1,4 @@
-import { cp, mkdir, rm, access } from 'node:fs/promises';
+import { cp, mkdir, rm, access, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildExperimentsPage } from './experiments-page.mjs';
@@ -8,7 +8,9 @@ await import('./vendor-bluetooth.mjs');
 await access(path.join(root, 'public/model/model.onnx')).catch(() => {
   throw new Error('Export a checkpoint first: uv run --frozen --extra web python -m kilter.export_web runs/<run>/best.pt');
 });
-await rm(path.join(root, 'dist'), { recursive: true, force: true });
+// Empty dist/ rather than deleting it, so a live-reload server watching it keeps working.
+await mkdir(path.join(root, 'dist'), { recursive: true });
+for (const entry of await readdir(path.join(root, 'dist'))) await rm(path.join(root, 'dist', entry), { recursive: true, force: true });
 await mkdir(path.join(root, 'dist/vendor/ort'), { recursive: true });
 // Ship the compiled Bluetooth modules, not their TypeScript sources.
 await cp(path.join(root, 'public'), path.join(root, 'dist'), { recursive: true, filter: source => !source.endsWith('.ts') });

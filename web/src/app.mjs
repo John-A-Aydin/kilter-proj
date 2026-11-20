@@ -59,7 +59,7 @@ function setBusy(value) {
   $('clear').disabled = value || selected.size === 0;
   $('generate').disabled = value || !ready || !board;
   $('import-climb').disabled = value || !board;
-  $('generate-label').textContent = value ? 'Growing your climb…' : ready && board ? 'Complete climb' : 'Loading model…';
+  $('generate-label').textContent = value ? 'Generating…' : ready && board ? 'Generate climb' : 'Loading model…';
   $('stop').hidden = !value;
   $('board-scroll').classList.toggle('busy', value);
   renderBoardLink();
@@ -117,7 +117,7 @@ function updateSelections() {
   if (!selected.size) {
     const empty = document.createElement('p');
     empty.className = 'empty-selection';
-    empty.textContent = 'Pick your start holds and maybe some feet. Or pick nothing and generate from scratch.';
+    empty.textContent = 'No holds picked. You can generate a climb from scratch.';
     container.append(empty);
   }
   for (const [id, role] of [...selected].sort((a, b) => a[0] - b[0])) {
@@ -145,7 +145,7 @@ function resetResult() {
   $('match-panel').hidden = true;
   $('result-actions').hidden = true;
   $('error').hidden = true;
-  $('generation-status').textContent = 'Your selected holds stay in every completed climb.';
+  $('generation-status').textContent = 'Holds you pick are always kept.';
 }
 
 function pickHold(event) {
@@ -353,7 +353,7 @@ async function runSnake(firstTurn) {
   const previous = snake;
   const run = snake = { game: newGame(snakeGrid(manifest.holds), values[0]), running: true, sending: null };
   if (firstTurn) turn(run.game, firstTurn);
-  $('snake-status').textContent = 'Go! Steer with W A S D.';
+  $('snake-status').textContent = 'Steer with W A S D or the arrow keys.';
   renderSnake();
   await previous?.sending?.catch(() => {});
   if (snake !== run) return;
@@ -482,7 +482,7 @@ $('generate').onclick = () => {
   setBusy(true);
   updateBoard();
   setStatus('Generating', 'running');
-  $('generation-status').textContent = selected.size ? 'The model is adding holds around your picks…' : 'The model is setting a climb from scratch…';
+  $('generation-status').textContent = selected.size ? 'Adding holds around your picks…' : 'Generating a climb from scratch…';
   worker.postMessage({ type: 'generate', id: ++activeId, request: activeRequest });
 };
 $('stop').onclick = () => { worker.postMessage({ type: 'cancel' }); $('stop').textContent = 'Stopping…'; };
@@ -566,7 +566,7 @@ worker.onmessage = ({ data }) => {
     generated = data.holds;
     updateBoard();
     const added = generated.filter(hold => !selected.has(hold.id)).length;
-    $('generation-status').textContent = `${added} ${added === 1 ? 'hold' : 'holds'} added · keeping your ${selected.size} picks`;
+    $('generation-status').textContent = `${added} ${added === 1 ? 'hold' : 'holds'} added`;
   } else if (data.type === 'done' && data.id === activeId) {
     generated = data.holds;
     lastResult = data;
@@ -577,7 +577,7 @@ worker.onmessage = ({ data }) => {
     $('result-actions').hidden = !allHolds().length;
     const added = generated.filter(hold => !selected.has(hold.id)).length;
     if ($('ble-auto').checked && ble?.connected && allHolds().length) sendToBoard();
-    $('generation-status').textContent = `${data.cancelled ? 'Stopped' : 'Complete'} · ${added} added · ${selected.size} picks preserved · V${activeRequest.grade} / ${activeRequest.angle}°`;
+    $('generation-status').textContent = `${data.cancelled ? 'Stopped' : 'Complete'} · ${added} added · ${selected.size} picked · V${activeRequest.grade} / ${activeRequest.angle}°`;
     showMatch();
   } else if (data.type === 'error') {
     if (data.id && data.id !== activeId) return;
@@ -605,7 +605,7 @@ fetch('./model/manifest.json').then(response => {
   return response.json();
 }).then(async value => {
   manifest = value;
-  $('model-info').textContent = `${manifest.name} · ${manifest.parameters.toLocaleString()} parameters. Trained on Kilter Original 12 × 12 climbs to complete a climb from nothing, from start holds plus some feet, or from any picks, conditioned on numeric V grade and angle / 90. All inference runs on your device.`;
+  $('model-info').textContent = `${manifest.name} · ${manifest.parameters.toLocaleString()} parameters. Trained on Kilter Original 12 × 12 climbs to complete a climb from any picked holds, given a V grade and wall angle. It runs entirely on your device.`;
   loadRealClimbs();
   await Promise.all([draw(manifest), setUpBluetooth(manifest)]);
 }).catch(error => { showError(error.message); });
