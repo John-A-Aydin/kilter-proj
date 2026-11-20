@@ -81,3 +81,20 @@ button.probe-key[aria-pressed=true]{border-color:var(--probe-ink-2);color:var(--
 .probe-tip i{width:8px;height:8px;border-radius:2px;display:inline-block;flex:none}
 .probe-tip em{font-style:normal;color:#71786f;font-size:11.5px}
 .probe-row-label.dim{fill:var(--probe-muted)}
+/* Predicted against true grade (src/grading-figure.mjs): the probe confusion matrices' green, on a
+   fixed scale; values are in the tooltip and the data table, not in the cells. */
+.grading-stats{margin:4px 0 8px;font-size:12.5px;color:var(--probe-ink-2);line-height:1.5}.grading-stats b{color:var(--probe-ink);font-weight:600;font-variant-numeric:tabular-nums}
+.grading-key{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin-bottom:10px;font-size:11.5px;color:var(--probe-muted)}
+.grading-ramp{display:inline-block;width:90px;height:8px;border-radius:4px;background:linear-gradient(90deg,color-mix(in oklab,var(--probe-learned) 8%,var(--probe-cell)),var(--probe-learned))}
+.grading-key-diagonal{display:inline-flex;align-items:center;gap:6px;margin-left:12px}.grading-key-diagonal i{width:10px;height:10px;border-radius:3px;box-shadow:inset 0 0 0 1.5px var(--probe-ink)}
+.grading-grid{display:grid;grid-template-columns:34px repeat(var(--grades),minmax(0,1fr)) 40px;gap:2px;font-size:10.5px;font-variant-numeric:tabular-nums;outline:none}
+.grading-grid:focus-visible{outline:2px solid var(--probe-ink);outline-offset:4px;border-radius:4px}
+.grading-corner{grid-column:1;font-size:9px;line-height:1.15;color:var(--probe-muted);align-self:end}
+.grading-col{color:var(--probe-muted);text-align:center;align-self:end;padding-bottom:2px;white-space:nowrap;overflow:hidden}
+.grading-row{display:flex;align-items:center;color:var(--probe-ink-2)}.grading-n{display:flex;align-items:center;justify-content:flex-end;color:var(--probe-muted)}
+.grading-row.sparse,.grading-n.sparse{opacity:.55}
+.grading-cell{aspect-ratio:1;min-height:12px;border-radius:3px;background:color-mix(in oklab,var(--probe-learned) var(--mix),var(--probe-cell))}
+.grading-cell.sparse{opacity:.4}
+.grading-cell.diagonal{box-shadow:inset 0 0 0 1.5px var(--probe-ink)}
+.grading-cell.active,.grading-cell:hover{box-shadow:inset 0 0 0 2px var(--probe-ink),0 0 0 1px #fdfdf8}
+@media (max-width:520px){.grading-grid{grid-template-columns:26px repeat(var(--grades),minmax(0,1fr)) 30px;gap:1px;font-size:9px}.grading-col{font-size:8.5px}.grading-v{display:none}.grading-cell{border-radius:2px}}

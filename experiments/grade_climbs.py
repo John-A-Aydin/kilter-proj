@@ -16,6 +16,10 @@ more than 5 ascents at that angle, where the grade is a consensus of several cli
 with no suffix are the whole test set; ``_more_than_5_ascents`` marks the subset. RMSE is in
 grades, and its mean over seeds is the mean of each seed's RMSE.
 
+Outputs in results/grade_climbs/: summary.json (every score), by_grade.csv (MSE by true grade),
+and confusion.json: for each method and subset, test rows counted by true grade (rows) and
+prediction rounded to the nearest grade within V0-V16 (columns), averaged over seeds.
+
     .venv/bin/python experiments/grade_climbs.py
 """
 import argparse
@@ -191,6 +195,14 @@ def score(predicted, truth, ascents):
     return scores
 
 
+def confusion(predicted, truth):
+    """Rows counted by true grade (rows) and rounded, clipped prediction (columns)."""
+    rounded = np.clip(np.rint(predicted), 0, GRADES - 1).astype(int)
+    matrix = np.zeros((GRADES, GRADES))
+    np.add.at(matrix, (truth.astype(int), rounded), 1)
+    return matrix
+
+
 def bootstrap_gap(first, second, truth, climbs, seed=0):
     """95% interval of MSE(first) - MSE(second), resampling climbs so a climb's angles stay together."""
     _, groups = np.unique(climbs, return_inverse=True)
@@ -272,6 +284,15 @@ def main():
                     for name, suffix in SUBSETS.items()},
         "methods": summary, "per_seed": scores, "chosen_on_validation": choices,
         "mse_gap_to_bag_mlp_seed_averaged_predictions": gaps, "mse_gap_to_bag_mlp_per_seed": per_seed_gap}, indent=2) + "\n")
+    (args.output / "confusion.json").write_text(json.dumps({
+        "grades": list(range(GRADES)),
+        "rule": "rows: true V grade; columns: prediction rounded to the nearest grade and clipped to V0-V16; "
+                "counts of test rows, averaged over seeds",
+        "subsets": {name: int(subset_mask(name, ascents).sum()) for name in SUBSETS},
+        "methods": {name: {subset: np.round(np.mean([confusion(v[subset_mask(subset, ascents)], truth[subset_mask(subset, ascents)])
+                                                     for v in values], axis=0), 4).tolist() for subset in SUBSETS}
+                    for name, values in predictions.items()},
+    }) + "\n")
     with (args.output / "by_grade.csv").open("w", newline="") as file:
         writer = csv.writer(file)
         writer.writerow(["method", "grade", "rows", "mse", "mean_predicted"])

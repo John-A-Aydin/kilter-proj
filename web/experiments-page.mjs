@@ -80,33 +80,39 @@ export const GRADING_METHODS = [
   ['model_linear', 'null_rule_16, ridge'], ['bayes', 'null_rule_16, Bayes over grades'], ['model_mlp', 'null_rule_16, MLP head'],
 ];
 
-// Test MSE and RMSE of every grading method, on the whole test set and on climbs with more than
-// 5 ascents, from results/grade_climbs/summary.json.
-export async function gradingMatrix(root = repo) {
-  const summary = JSON.parse(await readFile(path.join(root, 'results/grade_climbs/summary.json'), 'utf8'));
-  const subsets = Object.entries(summary.subsets ?? {});
-  if (subsets.length !== 2) throw new Error('grade_climbs summary: expected the whole test set and one ascent subset');
-  const subsetLabel = (name, subset) => name === 'all' ? 'All test climbs' : `Over ${name.match(/\d+/)[0]} ascents`;
-  const metrics = [{ key: 'mse', label: 'MSE (grades²)' }, { key: 'rmse', label: 'RMSE (grades)' }];
-  const columns = metrics.flatMap(metric => subsets.map(([name, subset]) => ({
-    key: `${metric.key}${subset.suffix}`, metric: metric.key, metricLabel: metric.label.split(' ')[0],
-    subsetLabel: subsetLabel(name, subset), rows: subset.rows })));
-  const rows = GRADING_METHODS.map(([key, label]) => {
-    const method = summary.methods[key];
-    if (!method) throw new Error(`grade_climbs summary has no method ${key}`);
-    return { key, label, values: Object.fromEntries(columns.map(column => {
-      const value = method[column.key];
-      if (!Number.isFinite(value?.mean) || !Number.isFinite(value?.std)) throw new Error(`grade_climbs summary: ${key} ${column.key} is not a number`);
-      return [column.key, { mean: value.mean, std: value.std }];
-    })) };
-  });
-  const [, consensus] = subsets.find(([name]) => name !== 'all');
+// Short names for the method buttons.
+const GRADING_SHORT = { mean_at_angle: 'Mean at angle', bag_linear: 'Bag, ridge', untrained_mlp: 'Untrained, MLP',
+  bag_mlp: 'Bag, MLP', model_linear: 'Model, ridge', bayes: 'Model, Bayes', model_mlp: 'Model, MLP' };
+
+// Predicted against true grade for every grading method and test subset, from
+// results/grade_climbs/confusion.json, with each method's RMSE from summary.json.
+export async function gradingConfusion(root = repo) {
+  const read = file => readFile(path.join(root, 'results/grade_climbs', file), 'utf8').then(JSON.parse);
+  const [confusion, summary] = await Promise.all([read('confusion.json'), read('summary.json')]);
+  const subsets = Object.entries(summary.subsets).map(([key, subset]) => ({
+    key, suffix: subset.suffix, rows: subset.rows,
+    label: key === 'all' ? 'All' : `Over ${key.match(/\d+/)[0]} ascents` }));
+  const counts = {}, rmse = {}, seeds = {};
+  for (const [key] of GRADING_METHODS) {
+    counts[key] = {}; rmse[key] = {};
+    seeds[key] = summary.per_seed[key].length;
+    for (const subset of subsets) {
+      const matrix = confusion.methods[key]?.[subset.key];
+      if (!matrix || matrix.length !== confusion.grades.length || matrix.some(row => row.length !== confusion.grades.length
+        || row.some(v => !Number.isFinite(v) || v < 0))) throw new Error(`grade_climbs confusion: bad matrix for ${key} ${subset.key}`);
+      const total = matrix.flat().reduce((a, b) => a + b, 0);
+      if (Math.abs(total - subset.rows) > 0.01) throw new Error(`grade_climbs confusion: ${key} ${subset.key} counts ${total}, not ${subset.rows} rows`);
+      counts[key][subset.key] = matrix.map(row => row.map(v => Math.round(v * 1000) / 1000));
+      rmse[key][subset.key] = summary.methods[key][`rmse${subset.suffix}`].mean;
+    }
+  }
   return {
-    kind: 'matrix', digits: 2, metrics, columns, rows,
-    title: 'Grade prediction error, by method, metric, and test subset',
-    subtitle: `Mean of three seeds. Darker is larger error; each metric has its own scale, shared by both subsets. `
-      + `All test climbs: ${summary.subsets.all.rows.toLocaleString()} rows. Over 5 ascents: ${consensus.rows.toLocaleString()} rows `
-      + `(${consensus.climbs.toLocaleString()} climbs), where the grade is agreed by more climbers.`,
+    kind: 'grading', grades: confusion.grades, minRows: 20, defaultMethod: 'model_mlp', seeds, counts, rmse,
+    methods: GRADING_METHODS.map(([key, label]) => ({ key, label, short: GRADING_SHORT[key] })),
+    subsets: subsets.map(({ key, label, rows }) => ({ key, label: key === 'all' ? 'All test climbs' : label, rows })),
+    title: 'Predicted against true grade',
+    subtitle: 'Each row is one true grade; its cells show where that grade’s test climbs were predicted, rounded to the nearest grade, '
+      + 'as a share of the row. A good grader is dark along the diagonal. Rows with fewer than 20 climbs are faded. Mean of three seeds.',
   };
 }
 
@@ -134,7 +140,7 @@ export async function chartData(root = repo) {
     ...Object.fromEntries(PROBE_FIGURES.map(view => [`probe-${view}`, { kind: 'probe', view }])),
     // Style-tag figures, drawn by src/tag-figures.mjs from tagData() below.
     ...Object.fromEntries(TAG_FIGURES.map(view => [`tags-${view}`, { kind: 'tags', view }])),
-    'grading-matrix': await gradingMatrix(root),
+    'grading-confusion': await gradingConfusion(root),
     'grading-error': {
       title: 'Grade prediction error by true grade',
       subtitle: 'Test MSE in grades², mean of three seeds; V13 and above have under 20 climbs and are left out',

@@ -77,7 +77,7 @@ export function responsive(container, draw) {
   new ResizeObserver(run).observe(container);
 }
 
-function segmented(label, options, current, onChange) {
+export function segmented(label, options, current, onChange) {
   const group = html('div', { class: 'probe-seg', role: 'group', 'aria-label': label });
   for (const [value, text] of options) {
     const button = html('button', { type: 'button', 'aria-pressed': String(value === current) }, text);

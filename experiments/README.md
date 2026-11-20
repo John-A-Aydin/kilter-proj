@@ -532,7 +532,16 @@ each seed's RMSE).
 | `null_rule_16`, Bayes over grades, no head | 1.83 | 1.41 | 1.35 | 1.19 | 60.4% |
 | `null_rule_16`, MLP head | 1.70 | 1.26 | 1.30 | 1.12 | 62.4% |
 
-<!-- chart: grading-matrix -->
+The heatmap shows each method's predictions against the true grade, with predictions
+rounded to the nearest grade. Each row is one true grade, and its cells show where that
+grade's test climbs were predicted. Choose a method and a test subset above it. For
+`null_rule_16` with an MLP head, the rounded prediction is exactly right for 35% of all test
+climbs and within one grade for 80% (37% and 84% with more than 5 ascents), against 32%
+and 76% for the bag of holds. These count rounded predictions, so they are higher than the
+table's "within 1 grade", which needs the unrounded prediction within one grade. The training mean's prediction depends only on the angle,
+so every row falls in the same band, V2 to V7, whatever the true grade.
+
+<!-- chart: grading-confusion -->
 
 Every learned method does better on the climbs with more than 5 ascents, though their
 grades vary more. The training mean does worse there, because it can only guess the

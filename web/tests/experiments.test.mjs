@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { GRADING_METHODS, PROBE_FIGURES, REPOSITORY, TAG_FIGURES, chartData, gradingMatrix, parseCsv, probeData, renderMarkdown, repositoryLink, tagData } from '../experiments-page.mjs';
-import { MATRIX_STEPS, matrixStep, niceTicks } from '../src/experiments.mjs';
+import { GRADING_METHODS, PROBE_FIGURES, REPOSITORY, TAG_FIGURES, chartData, gradingConfusion, parseCsv, probeData, renderMarkdown, repositoryLink, tagData } from '../experiments-page.mjs';
+import { niceTicks } from '../src/experiments.mjs';
+import { SCALE_MAX, agreement, cellMix, count } from '../src/grading-figure.mjs';
 import { angleError, shareWithin } from '../src/probes.mjs';
 
 test('relative README links point at the repository on GitHub', () => {
@@ -104,27 +105,39 @@ test('the README places every style-tag figure, and the tag data covers all 26 t
   assert.ok(data.correlation > -1 && data.correlation < 1);
 });
 
-test('the grading matrix has MSE and RMSE for every method, on all test climbs and on those with over 5 ascents', async () => {
-  const matrix = await gradingMatrix();
-  assert.equal(matrix.kind, 'matrix');
-  assert.deepEqual(matrix.columns.map(c => c.key), ['mse', 'mse_more_than_5_ascents', 'rmse', 'rmse_more_than_5_ascents']);
-  assert.deepEqual(matrix.rows.map(r => r.key), GRADING_METHODS.map(([key]) => key));
-  const [all, consensus] = [matrix.columns[0].rows, matrix.columns[1].rows];
-  assert.ok(consensus > 0 && consensus < all);
-  for (const row of matrix.rows) {
-    for (const subset of ['', '_more_than_5_ascents']) {
-      const { mean: mse } = row.values[`mse${subset}`], { mean: rmse } = row.values[`rmse${subset}`];
-      // The RMSE is averaged over seeds, so its square is close to, not exactly, the mean MSE.
-      assert.ok(Math.abs(rmse ** 2 - mse) < 0.05 * mse, `${row.key}${subset}`);
+test('the grading heatmap has a true-by-predicted grade matrix for every method and test subset', async () => {
+  const data = await gradingConfusion();
+  assert.equal(data.kind, 'grading');
+  assert.deepEqual(data.grades, [...Array(17).keys()]);
+  assert.deepEqual(data.methods.map(m => m.key), GRADING_METHODS.map(([key]) => key));
+  assert.deepEqual(data.subsets.map(s => s.key), ['all', 'more_than_5_ascents']);
+  assert.ok(data.methods.some(m => m.key === data.defaultMethod));
+  for (const method of data.methods) {
+    for (const subset of data.subsets) {
+      const matrix = data.counts[method.key][subset.key];
+      assert.equal(matrix.length, 17);
+      assert.ok(Math.abs(matrix.flat().reduce((a, b) => a + b, 0) - subset.rows) < 0.1, `${method.key} ${subset.key}`);
+      assert.ok(Number.isFinite(data.rmse[method.key][subset.key]));
     }
+    // Every method sees the same climbs, so each true-grade row has the same total.
+    const totals = data.counts[method.key].all.map(row => row.reduce((a, b) => a + b, 0));
+    assert.deepEqual(totals.map(Math.round), data.counts.model_mlp.all.map(row => Math.round(row.reduce((a, b) => a + b, 0))));
   }
+  // The best grader is right more often than the training mean.
+  assert.ok(agreement(data.counts.model_mlp.all).exact > agreement(data.counts.mean_at_angle.all).exact);
   const readme = await readFile(new URL('../../experiments/README.md', import.meta.url), 'utf8');
-  assert.match(readme, /<!-- chart: grading-matrix -->/);
+  assert.match(readme, /<!-- chart: grading-confusion -->/);
 });
 
-test('matrix cells map values onto the ramp from lightest to darkest', () => {
-  assert.equal(matrixStep(1, 1, 5), 0);
-  assert.equal(matrixStep(5, 1, 5), MATRIX_STEPS.length - 1);
-  assert.equal(matrixStep(3, 1, 5), 3);
-  assert.equal(matrixStep(2, 2, 2), 0);
+test('heatmap cells use one fixed scale, and agreement counts exact and off-by-one predictions', () => {
+  assert.equal(cellMix(0), 0);
+  assert.equal(cellMix(SCALE_MAX), 100);
+  assert.equal(cellMix(0.9), 100);
+  assert.ok(cellMix(0.01) > 0 && cellMix(0.01) < cellMix(0.2));
+  const result = agreement([[3, 1, 0], [0, 2, 2], [1, 0, 1]]);
+  assert.equal(result.total, 10);
+  assert.equal(result.exact, 0.6);
+  assert.equal(result.withinOne, 0.9);
+  assert.equal(count(1900.99999), '1,901');
+  assert.equal(count(12.34), '12.3');
 });
