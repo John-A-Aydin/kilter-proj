@@ -20,10 +20,34 @@ export function seededRandom(seed) {
   };
 }
 
+// How to build the model's condition row (kilter/export_web.py condition_schema). Manifests from
+// before the schema have grade and angle only.
+export function conditionSchema(manifest) {
+  return manifest.condition_schema ?? { columns: ['v_grade', 'angle_divided_by_90'], tags: [],
+    grade: { min: 0, max: 16, nullable: false, null_value: -1 }, angle: { min: 0, max: 90, divide_by: 90 } };
+}
+
+// [grade, angle / 90, one 0/1 per tag in the schema's order], as kilter.sampling.generate builds it.
+export function conditionVector(request, manifest) {
+  const schema = conditionSchema(manifest);
+  const tags = new Set(request.tags ?? []);
+  return new Float32Array([request.grade === null ? schema.grade.null_value : request.grade,
+    request.angle / schema.angle.divide_by, ...schema.tags.map(tag => Number(tags.has(tag)))]);
+}
+
 export function validateRequest(request, manifest) {
   const { grade, angle, temperature, seed, selected } = request;
   if (manifest.format !== 'kilter-v2') throw new Error('This page needs a model exported by kilter.export_web.');
-  if (!Number.isFinite(grade) || grade < 0 || grade > 22) throw new Error('Choose a numeric V grade from 0 to 22.');
+  const schema = conditionSchema(manifest);
+  if (grade === null) {
+    if (!schema.grade.nullable) throw new Error('This model needs a grade.');
+  } else if (!Number.isFinite(grade) || grade < schema.grade.min || grade > schema.grade.max) {
+    throw new Error(`Choose a numeric V grade from ${schema.grade.min} to ${schema.grade.max}.`);
+  }
+  const tags = request.tags ?? [];
+  if (!Array.isArray(tags) || new Set(tags).size !== tags.length || tags.some(tag => !schema.tags.includes(tag))) {
+    throw new Error(schema.tags.length ? 'Style tags must be distinct tags this model knows.' : 'This model takes no style tags.');
+  }
   if (!Number.isFinite(angle) || angle < 0 || angle > 90) throw new Error('Angle must be between 0° and 90°.');
   if (!Number.isFinite(temperature) || temperature <= 0 || temperature > 2) throw new Error('Temperature must be in (0, 2].');
   if (!Number.isInteger(seed) || seed < 0 || seed > 4294967295) throw new Error('Seed must be a 32-bit unsigned integer.');
@@ -90,7 +114,7 @@ export function sampleToken(logits, allowed, temperature, random) {
 export async function completeClimb({ request, manifest, predict, onStep = () => {}, cancelled = () => false }) {
   const picks = validateRequest(request, manifest);
   const random = seededRandom(request.seed);
-  const conditions = new Float32Array([request.grade, request.angle / 90]);
+  const conditions = conditionVector(request, manifest);
   const tokens = [BOS, ...picks.map(pick => pick.token), SEP];
   const used = new Set(picks.map(pick => pick.index));
   const holds = picks.map(({ id, role }) => ({ id, role, locked: true }));

@@ -1,5 +1,5 @@
-# The recipe the website serves: the large null-grade model (configs/climb_null_grade.toml)
-# with the decoding rules in the loss and 16 epochs. The served checkpoint is seed 43.
+# The recipe the website served until 2026-11-20 (it now serves configs/null_rule_16_tags.toml): the large
+# null-grade model (configs/climb_null_grade.toml) with the decoding rules in the loss and 16 epochs, seed 43.
 # Equivalent to experiments/compare_models.py's null_rule_16 on seed 43.
 name = "null_rule_16"
 output_dir = "runs"

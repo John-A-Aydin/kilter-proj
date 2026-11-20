@@ -12,7 +12,7 @@ export async function loadModel() {
   return { manifest, async predict(tokens, conditions) {
     const output = await session.run({
       tokens: new ort.Tensor('int64', BigInt64Array.from(tokens, BigInt), [1, tokens.length]),
-      conditions: new ort.Tensor('float32', Float32Array.from(conditions), [1, 2]),
+      conditions: new ort.Tensor('float32', Float32Array.from(conditions), [1, conditions.length]),
     });
     return output.logits.data;
   } };

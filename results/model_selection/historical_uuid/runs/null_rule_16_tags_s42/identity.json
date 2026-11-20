@@ -1,0 +1,72 @@
+{
+  "config": {
+    "data": {
+      "cache_dir": "data/cache/climb",
+      "include_computed_grades": true,
+      "max_holds": 40,
+      "remove_split_leakage": true,
+      "source": "data/training/climbs.jsonl.gz",
+      "split_manifest": "",
+      "split_seed": 42,
+      "train_fraction": 0.9,
+      "validation_fraction": 0.05,
+      "vocabulary": "data/training/hold_vocabulary.csv"
+    },
+    "model": {
+      "climb_tags": "data/training/climb_tags.csv.gz",
+      "coordinate_frequencies": 6,
+      "d_model": 192,
+      "dropout": 0.1,
+      "ff_multiplier": 4,
+      "hold_labels": "",
+      "n_heads": 6,
+      "n_layers": 6,
+      "null_grade": true
+    },
+    "name": "null_rule_16_tags",
+    "train": {
+      "ascent_weighting": "none",
+      "batch_size": 256,
+      "beta1": 0.9,
+      "beta2": 0.98,
+      "device": "auto",
+      "epochs": 16,
+      "grad_clip": 1.0,
+      "learning_rate": 0.001,
+      "log_every": 100,
+      "max_eval_batches": 0,
+      "max_train_batches": 0,
+      "min_lr_ratio": 0.05,
+      "p_null_grade": 0.5,
+      "p_random": 0.25,
+      "p_scratch": 0.3,
+      "p_starts": 0.45,
+      "patience": 2,
+      "rule_loss": true,
+      "seed": 42,
+      "threads": 4,
+      "warmup_fraction": 0.03,
+      "weight_decay": 0.01
+    }
+  },
+  "data_fingerprint": "40c48fee3a9a2445aa361136ada4e792e6a387497cc0bc7d390695d98c78d010",
+  "device_type": "cuda",
+  "identity_version": 1,
+  "inputs": {
+    "climb_tags_sha256": "94f4a98ac18fde6b2e640dbf22f5a3a076f0d2127915100fd80c81a686cd671e",
+    "hold_labels_sha256": null
+  },
+  "package": "kilter",
+  "run_id": "1603e9fba41521cb5051",
+  "source": {
+    "__init__.py": "8de76ae67a1ea3f3db3513a5b5b7320c8f354d1c4d224c3e985da5cc3100a432",
+    "climb_tags.py": "d27f92dc6fd3ad2067b3354f9e11ce610bdf4dd3d91774d7af73ade9ab067ae6",
+    "config.py": "dc4108cd9e1ea931bf6955a9a76b795822b588980eee48d3b4ac4d31e1d3a99b",
+    "data.py": "11a1d2a033c95bce6b484574ec3b295e4077fb4606db80cef2a3e4ef3947e1cb",
+    "experiment.py": "3a2e9ee621f8314126b60de42749a27f65ae761f0fa905835c21052b037ed6b8",
+    "hold_labels.py": "e573e56ab395a53c004c0569796569249c91aeadbd8800ba5e7af7dd9c44f6a8",
+    "model.py": "716e602a8f59a580392c8224c697fdb4f61a3b5eba40cde19a79ecbc3bb413b5",
+    "sampling.py": "2ab5e1ce126dcbb774712c42227207157d3302a13b26201ae051514a629fb5f5",
+    "splits.py": "b332b98a7dbf0a925b351a8b778e0df1384eca4d89b49b10775b4fcb8c4ae53f"
+  }
+}

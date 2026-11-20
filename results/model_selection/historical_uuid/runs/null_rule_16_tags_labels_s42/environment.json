@@ -1,0 +1,10 @@
+{
+  "device": "cuda",
+  "git_commit": "b88fb027d5a6749c9086dbff255f52e1ba85ad22",
+  "git_status": "M data/training/climb_tags.csv.gz\n M experiments/README.md\n M experiments/tag_conditioning.py\n M kilter/climb_tags.py\n M results/climb_tags/counts.csv\n M results/climb_tags/evidence.csv.gz\n M tests/test_climb.py\n M web/tests/experiments.test.mjs\n M web/tests/interface.spec.mjs",
+  "numpy": "2.5.4",
+  "platform": "Linux-7.0.0-43-generic-x86_64-with-glibc2.39",
+  "python": "3.12.7",
+  "started_at": "20261120T182121981136Z",
+  "torch": "2.15.0+cu132"
+}

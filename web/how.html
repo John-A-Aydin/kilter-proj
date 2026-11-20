@@ -189,12 +189,12 @@
           </svg>
         </div>
         <p class="scroll-hint">Scroll sideways to see the whole figure.</p>
-        <figcaption>Figure 3. The served model, <code>null_rule_16</code>: 2,856,372 parameters. Inference runs in your browser with ONNX Runtime Web, one forward pass per hold.</figcaption>
+        <figcaption>Figure 3. The served model, <code>null_rule_16_tags</code>: 2,860,404 parameters. It is <code>null_rule_16</code> with 21 optional style tags added to the conditions. Inference runs in your browser with ONNX Runtime Web, one forward pass per hold.</figcaption>
       </figure>
       <div class="why-grid">
         <div><h3>Geometry in the embedding</h3><p>The baseline learned 1,904 unrelated hold-and-role vectors. Here, nearby holds start out similar, and holds that are rarely used still get a sensible vector.</p></div>
         <div><h3>Tied output weights</h3><p>The scores for the next hold use the same table that embeds holds, plus a per-token bias. Predicting a hold and reading it share one representation.</p></div>
-        <div><h3>Conditions everywhere</h3><p>The grade and angle pass through sinusoidal features and an MLP, then get added to every position, so their effect can be nonlinear. The baseline used a single linear layer.</p></div>
+        <div><h3>Conditions everywhere</h3><p>The grade and angle pass through sinusoidal features and an MLP, together with any style tags asked for, then get added to every position, so their effect can be nonlinear. The baseline used a single linear layer.</p></div>
       </div>
     </section>
 

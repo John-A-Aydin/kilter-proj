@@ -15,8 +15,11 @@ Rules:
   kein, ohne) is among the 3 words before it in the same clause with no rule word (match,
   feet, legs, hands, kickboard) in between, or it is followed by "off",
   "not allowed", "not required", "banned" or "forbidden". A negated term does not tag the
-  climb. A negated dynamic term ("no dyno", "no jumping") tags it ``static`` instead.
+  climb.
 - Each tag lists phrases that never count, such as "achilles heel" or "tension board".
+
+The tags static, cut_loose, bump, technical and shouldery were removed on 2026-11-20. Earlier
+results under results/ that list 26 tags predate that.
 """
 import csv
 import gzip
@@ -36,17 +39,11 @@ TAG_RULES = {
                 [r"jump ?start", r"throw ?back"]),
     "coordination": ([(r"coord(?:ination|o|y)?", True), (r"paddl(?:e|es|ing)", True), (r"run(?:ning)? ?(?:and|&|n|-) ?jump", True),
                       (r"parkour", True), (r"comp(?:etition)? ?-?style", True), (r"double ?-?clutch", True)], []),
-    "static": ([(r"static(?:ally)?", True)], []),
-    "cut_loose": ([(r"cut(?:ting|s)? ?(?:loose|feet|out)", True), (r"feet ?cut", True), (r"swing(?:s|y|ing)?", False),
-                   (r"barn ?-?door(?:s|ing)?", True)], []),
     "crossover": ([(r"cross ?-?(?:over|through)s?", True), (r"cross(?:es|ing)? (?:to|into|over|under|with|left|right|hand)", True),
                    (r"cross(?:es|ing|y)?", False)], [r"cross ?-?country", r"cross ?fit", r"criss ?-?cross"]),
-    "bump": ([(r"bump(?:s|ing|ed|y)?", False)], []),
     "lock_off": ([(r"lock ?-?offs?", True), (r"locky", True)], []),
     "traverse": ([(r"trav(?:e)?rs(?:e|es|ing|al|ée|ee)", True), (r"travese", True)], []),
     "high_feet": ([(r"high ?-?(?:feet|foot|step|steps|stepping)", True), (r"rock ?-?over", True)], []),
-    "technical": ([(r"technical", True), (r"techy", True), (r"balanc(?:e|ey|y)", False), (r"body ?-?position(?:ing)?", True),
-                   (r"smear(?:s|ing|y)?", True)], []),
     "drop_knee": ([(r"drop ?-?knee(?:s|d)?", True), (r"knee ?-?drop", True), (r"egyptian", True)], []),
     "heel_hook": ([(r"heel(?:s|ed|ing|y)?", True), (r"heel ?-?hook(?:s|ing)?", True), (r"talon(?:s)?", False), (r"tal[oó]n", False)],
                   [r"achilles'? heel", r"high ?-?heels?", r"height heels?", r"over heels"]),
@@ -71,7 +68,6 @@ TAG_RULES = {
     "endurance": ([(r"endurance", True), (r"endurancy", True), (r"pump(?:y|ed|ing)?", False), (r"power ?-?endurance", True),
                    (r"4 ?x ?4s?", True), (r"resistance", True), (r"stamina", True)],
                   [r"least resistance"]),
-    "shouldery": ([(r"shoulder(?:s|y|ing)?", False), (r"shouldery", True)], []),
 }
 TAGS = list(TAG_RULES)
 NEGATORS = r"(?:no|not|without|don'?t|do not|never|zero|avoid|won'?t|wasn'?t|isn'?t|aren'?t|sin|sans|pas|kein|keine|ohne|nicht)"
@@ -84,7 +80,6 @@ AFTER_NEGATION = re.compile(r"^\W{0,3}(?:off\b|not (?:allowed|required|needed|ne
 SHORT_PENALTY = re.compile(r"(?:hard|harder|difficult|tough|bad|rough|sorry|rip|struggle|impossible|warning|beware)\W+(?:\w+\W+){0,3}$", re.I)
 SHORT_PENALTY_AFTER = re.compile(r"^\W*(?:\w+\W+){0,1}(?:nightmare|beware|problem|struggle|hell)", re.I)
 CLAUSE = re.compile(r"[.!?;,\n]|\bbut\b|\bthen\b", re.I)
-DYNAMIC_TERMS = {pattern for pattern, _ in TAG_RULES["dynamic"][0]}
 
 _COMPILED = {tag: ([(re.compile(rf"(?<![\w'-]){pattern}(?![\w-])", re.I), in_name, pattern) for pattern, in_name in terms],
                    [re.compile(rf"\b{pattern}", re.I) for pattern in excluded])
@@ -121,11 +116,7 @@ def extract(name, description):
                         continue
                     target = tag
                     if _negated(text, start, end):
-                        # "No dyno" says the climb is static; any other negated term says nothing.
-                        if tag == "dynamic" and pattern in DYNAMIC_TERMS:
-                            target = "static"
-                        else:
-                            continue
+                        continue
                     if tag == "short_friendly" and (SHORT_PENALTY.search(text[max(0, start - 40):start])
                                                     or SHORT_PENALTY_AFTER.match(text[end:end + 30])):
                         target = "reachy"

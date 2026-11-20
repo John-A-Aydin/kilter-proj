@@ -1,0 +1,14 @@
+{
+  "best_epoch": 15,
+  "best_validation_selection_nll": 37.07174606695642,
+  "data_fingerprint": "40c48fee3a9a2445aa361136ada4e792e6a387497cc0bc7d390695d98c78d010",
+  "epochs_completed": 16,
+  "name": "null_rule_16_tags_labels",
+  "parameters": 2864820,
+  "partial_training_epochs": false,
+  "partial_validation": false,
+  "run": "runs/20261120T182121981136Z_null_rule_16_tags_labels",
+  "run_id": "e0d4062c9be0cd028fc6",
+  "session_seconds": 1517.470183685,
+  "steps": 18976
+}

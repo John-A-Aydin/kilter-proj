@@ -26,11 +26,19 @@ does not send holds to an inference server. A first hosted visit still downloads
 the page and model assets and passes through the host's normal access checks.
 
 `web/public/model/` is committed, so a fresh clone can skip the export step. The site
-serves `null_rule_16`, seed 43. To use another run, export its checkpoint
-with the same command, then rebuild. The page refuses models in any other format.
+serves `null_rule_16_tags`, seed 43 ([`configs/null_rule_16_tags.toml`](../configs/null_rule_16_tags.toml)):
+`null_rule_16` conditioned on the 21 style tags as well. It was the lowest validation score
+of the three tag-model seeds. To use another run, export its checkpoint with the same
+command, then rebuild. The page refuses models in any other format.
+
+The manifest's `condition_schema` says how to build the model's condition row: grade,
+angle / 90, then one 0/1 column per style tag, in order, plus the grade range and the
+null-grade value. The browser builds its input from it (`conditionVector` in
+`src/decoding.mjs`), so a model without tags still works and shows no style controls.
 Export checks ONNX logits against PyTorch for empty,
 starts-only, starts-plus-feet, half-given, and full-length contexts at V0/0°,
-V5/40°, and V16/90°. It also records decoding fixtures: random generation states
+V5/40°, V16/90°, a null grade, one tag, and several tags. The browser parity test
+replays the null-grade and tag cases too. It also records decoding fixtures: random generation states
 with the tokens Python's rules allow, which the browser tests replay. The manifest
 records the checkpoint and model SHA-256, board geometry, each token's canonical
 rank, hold and role limits, condition order, parameter count, and parity error.
@@ -70,6 +78,16 @@ start or finish holds, or ending without at least one of each. The rules are in
 way: at most two start and two finish holds, and at most 40 holds in a climb.
 Numeric conditions remain `[V_grade, angle_degrees / 90]`. No claim is made that a
 generated climb is physically climbable or matches its requested grade.
+
+**Style** (step 3) asks for any of the model's 21 style tags: hold types (pinches, crimps,
+jugs, underclings, gastons), moves (campus, traverse, dynamic, heel hooks, and so on) and
+climber notes (reachy, short-friendly, powerful, endurance). The tags come from what setters
+wrote about their climbs, so they nudge a climb toward a style rather than guarantee it,
+and picking none asks for a typical climb. High feet and body tension are marked: the holds
+alone barely show them, so their effect is hard to check. The tags asked for are part of
+the generation request in an export, and importing that export picks them again. See
+[style tags](../experiments/README.md#style-tags-from-climb-names-and-descriptions) for how
+well each one steers.
 
 **Keep these holds** locks a generated result for the next generation. **Clear
 picks** starts over. Uncheck **New seed on each generation** for repeatable

@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { BOS, EOS, SEP, allowedTokens, completeClimb, seededRandom, validateRequest } from '../src/decoding.mjs';
+import { BOS, EOS, SEP, allowedTokens, completeClimb, conditionVector, seededRandom, validateRequest } from '../src/decoding.mjs';
+import { orderTags, tagGroups, tagLabel } from '../src/tags.mjs';
 
 // Six holds on a 2x3 grid, ranked like kilter.data.Board: role order, then y, then x.
 const ROLE_ORDER = { 2: 0, 0: 1, 3: 2, 1: 3 };
@@ -101,4 +102,46 @@ test('cancellation stops generation and never reports an EOS completion', async 
   assert.equal(result.cancelled, true);
   assert.equal(result.endedWithEos, false);
   assert.equal(result.holds.length, 3);
+});
+
+const tagged = { ...manifest, condition_schema: { columns: ['v_grade', 'angle_divided_by_90', 'tag:campus', 'tag:pinch', 'tag:jug'],
+  tags: ['campus', 'pinch', 'jug'], grade: { min: 0, max: 16, nullable: true, null_value: -1 }, angle: { min: 0, max: 90, divide_by: 90 } } };
+
+test('conditions follow the manifest schema: grade, angle / 90, then one column per style tag', async () => {
+  assert.deepEqual([...conditionVector({ grade: 5, angle: 45, tags: ['jug', 'campus'] }, tagged)], [5, 0.5, 1, 0, 1]);
+  assert.deepEqual([...conditionVector({ grade: null, angle: 90, tags: [] }, tagged)], [-1, 1, 0, 0, 0]);
+  // A manifest from before the schema takes grade and angle only.
+  assert.deepEqual([...conditionVector({ grade: 5, angle: 45 }, manifest)], [5, 0.5]);
+  let conditions;
+  await completeClimb({ request: { ...request, tags: ['pinch'] }, manifest: tagged,
+    predict: async (_, c) => { conditions = [...c]; const logits = new Float32Array(rank.length).fill(-10); logits[token(0, 3)] = 5; logits[EOS] = 9; return logits; } });
+  assert.deepEqual(conditions, [5, 0.5, 0, 1, 0]);
+});
+
+test('style tags must be distinct tags the model knows, and grades stay in the schema range', () => {
+  assert.doesNotThrow(() => validateRequest({ ...request, tags: ['campus', 'jug'] }, tagged));
+  assert.doesNotThrow(() => validateRequest({ ...request, grade: null }, tagged));
+  assert.throws(() => validateRequest({ ...request, tags: ['dyno'] }, tagged), /tags this model knows/);
+  assert.throws(() => validateRequest({ ...request, tags: ['jug', 'jug'] }, tagged), /distinct/);
+  assert.throws(() => validateRequest({ ...request, tags: ['campus'] }, manifest), /takes no style tags/);
+  assert.throws(() => validateRequest({ ...request, grade: 17 }, tagged), /0 to 16/);
+  assert.throws(() => validateRequest({ ...request, grade: null }, manifest), /needs a grade/);
+});
+
+test('the served model takes the style tags its parity fixtures were exported with', () => {
+  const real = JSON.parse(readFileSync(new URL('../public/model/manifest.json', import.meta.url)));
+  const fixtures = JSON.parse(readFileSync(new URL('../public/model/parity-fixtures.json', import.meta.url)));
+  for (const fixture of fixtures) {
+    // The browser builds the same condition row the exporter fed PyTorch.
+    const built = conditionVector({ grade: fixture.grade, angle: fixture.angle, tags: fixture.tags }, real);
+    assert.deepEqual([...built].map(v => Math.round(v * 1e6)), fixture.conditions.map(v => Math.round(v * 1e6)));
+  }
+  assert.ok(fixtures.some(f => f.tags.length > 1) && fixtures.some(f => f.grade === null));
+});
+
+test('tags are grouped and labeled for display, keeping unknown ones', () => {
+  const groups = tagGroups(['jug', 'campus', 'reachy', 'mystery_move']);
+  assert.deepEqual(groups, [['Holds', ['jug']], ['Moves', ['campus']], ['Climber', ['reachy']], ['Other', ['mystery_move']]]);
+  assert.equal(tagLabel('mystery_move'), 'Mystery move');
+  assert.deepEqual(orderTags(['jug', 'campus'], ['campus', 'pinch', 'jug']), ['campus', 'jug']);
 });

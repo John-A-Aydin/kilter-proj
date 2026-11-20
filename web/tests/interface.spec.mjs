@@ -74,6 +74,44 @@ test('click arbitrary holds, set grade and angle, complete with real model, and 
   expect(errors).toEqual([]);
 });
 
+test('style tags: pick them, generate with them, export them, and get them back on import', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await ready(page);
+  const tags = manifest.condition_schema.tags;
+  await expect(page.locator('#tag-card')).toBeVisible();
+  await expect(page.locator('.tag-chip')).toHaveCount(tags.length);
+  await expect(page.locator('#tag-summary')).toHaveText('No style chosen');
+  await page.locator('.tag-chip[data-tag="pinch"]').click();
+  await page.locator('.tag-chip[data-tag="campus"]').click();
+  await expect(page.locator('.tag-chip[data-tag="campus"]')).toHaveAttribute('aria-pressed', 'true');
+  // Listed in the model's column order, whatever order they were picked in.
+  await expect(page.locator('#tag-summary')).toHaveText('Style: Campus, Pinches');
+  await page.getByText('Sampling settings', { exact: true }).click();
+  await page.locator('#vary-seed').uncheck();
+  await page.locator('#generate').click();
+  await expect(page.locator('.tag-chip').first()).toBeDisabled();
+  await expect(page.locator('#generation-status')).toContainText('Complete ·', { timeout: 30000 });
+  await expect(page.locator('#generation-status')).toContainText('Campus, Pinches');
+  const downloaded = page.waitForEvent('download');
+  await page.locator('#export').click();
+  const exported = await readFile(await (await downloaded).path(), 'utf8');
+  const output = JSON.parse(exported);
+  expect(output.source.request.tags).toEqual(['campus', 'pinch']);
+  expect(output.source.model.name).toBe(manifest.name);
+
+  await page.locator('#clear-tags').click();
+  await expect(page.locator('#tag-summary')).toHaveText('No style chosen');
+  await expect(page.locator('#result-actions')).toBeHidden();
+  await page.locator('#import-climb-file').setInputFiles({ name: 'styled.json', mimeType: 'application/json', buffer: Buffer.from(exported) });
+  await expect(page.locator('#generation-status')).toContainText('Imported styled.json');
+  await expect(page.locator('#tag-summary')).toHaveText('Style: Campus, Pinches');
+  await expect(page.locator('.tag-chip[data-tag="pinch"]')).toHaveAttribute('aria-pressed', 'true');
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  expect(errors).toEqual([]);
+});
+
 test('browser WASM inference matches PyTorch fixtures, including full context', async ({ page }) => {
   await ready(page);
   const error = await page.evaluate(async () => {
@@ -413,11 +451,12 @@ test('the style-tag figures draw every tag, read out on hover, and list their da
   await expect(page.locator('#style-tags-from-climb-names-and-descriptions')).toBeVisible();
   for (const view of ['gain', 'steering', 'scatter']) await expect(page.locator(`figure[data-chart="tags-${view}"] svg`)).toHaveCount(1);
   const steering = page.locator('figure[data-chart="tags-steering"]');
-  await expect(steering.locator('.probe-row-label')).toHaveCount(26);
+  const tags = JSON.parse(await readFile(new URL('../../results/tag_conditioning/summary.json', import.meta.url))).tags;
+  await expect(steering.locator('.probe-row-label')).toHaveCount(tags.length);
   await steering.locator('svg rect[fill="transparent"]').first().hover();
   await expect(page.locator('.probe-tip')).toContainText('Probability, tag on');
   await steering.locator('summary', { hasText: 'Data table' }).click();
-  await expect(steering.locator('tbody tr')).toHaveCount(26);
+  await expect(steering.locator('tbody tr')).toHaveCount(tags.length);
   await expect(page.locator('figure[data-chart="tags-scatter"] figcaption')).toContainText('r = 0.');
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);

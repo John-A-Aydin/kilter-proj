@@ -17,7 +17,7 @@
     <div class="model-status" id="model-status" role="status"><span class="status-dot"></span><span id="model-status-text">Loading model…</span></div>
   </header>
   <main>
-    <div class="intro"><div><h1>Generate a climb</h1><p class="subtitle">Pick any holds you want to keep, or none. Choose a grade and angle, then click Generate climb.</p></div><span class="board-label">KILTER ORIGINAL<br><strong>12 × 12 + kickboard</strong></span></div>
+    <div class="intro"><div><h1>Generate a climb</h1><p class="subtitle">Pick any holds you want to keep, or none. Choose a grade and angle, and a style if you like, then click Generate climb.</p></div><span class="board-label">KILTER ORIGINAL<br><strong>12 × 12 + kickboard</strong></span></div>
     <div class="workspace">
       <div class="board-column">
       <section class="board-panel" aria-label="Interactive Kilter board">
@@ -72,6 +72,12 @@
           <div class="range-labels"><span>0° · vertical</span><span>90° · roof</span></div>
           <p class="angle-note" id="angle-note" hidden>The model's training data covers angles up to 70°.</p>
           <details class="advanced"><summary>Sampling settings</summary><div class="advanced-fields"><label for="temperature">Temperature <output id="temperature-value">0.90</output></label><input id="temperature" type="range" min="0.2" max="1.5" step="0.05" value="0.9"><label for="seed">Seed</label><input id="seed" type="number" min="0" max="4294967295" value="42" step="1"><label class="checkbox-label"><input type="checkbox" id="vary-seed" checked> New seed on each generation</label></div></details>
+        </section>
+        <section class="control-card tag-card" id="tag-card" hidden>
+          <div class="step-heading"><span class="step-number">3</span><h2>Style <span class="optional">optional</span></h2></div>
+          <p class="hint">Ask for a style setters describe. Tags nudge the climb toward it; they don't guarantee it. Picking none sets a typical climb.</p>
+          <div id="tag-groups" class="tag-groups"></div>
+          <div class="selection-heading tag-heading"><span id="tag-summary">No style chosen</span><button class="text-button" id="clear-tags" disabled>Clear style</button></div>
         </section>
         <section class="generate-card">
           <button class="generate-button" id="generate" disabled><span id="generate-label">Loading model…</span></button>

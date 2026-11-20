@@ -1,4 +1,5 @@
-import { ROLE_NAMES, validateRequest } from './decoding.mjs';
+import { ROLE_NAMES, conditionSchema, validateRequest } from './decoding.mjs';
+import { SUBTLE_TAGS, orderTags, tagGroups, tagLabel } from './tags.mjs';
 import { createBoard } from './board.mjs';
 import { BOARD_COLORS } from './board-config.mjs';
 import { KilterBluetooth, climbSignature, validateLedMap } from './bluetooth.mjs';
@@ -11,6 +12,8 @@ import { buildClimbExport, exportFileName, generatedSource, generatorCheckpoint,
 const $ = id => document.getElementById(id);
 const COLORS = BOARD_COLORS;
 const selected = new Map();
+// Style tags asked for, by the model's tag names (manifest.condition_schema.tags).
+const selectedTags = new Set();
 let generated = [];
 let role = 2;
 let busy = false;
@@ -58,10 +61,11 @@ function showError(message) {
 
 function setBusy(value) {
   busy = value;
-  document.querySelectorAll('[data-role], .hold-chip, #clear, #grade, #angle, #temperature, #seed, #vary-seed, #generate, [role=tab]').forEach(element => {
+  document.querySelectorAll('[data-role], .hold-chip, .tag-chip, #clear, #grade, #angle, #temperature, #seed, #vary-seed, #generate, [role=tab]').forEach(element => {
     element.disabled = value;
   });
   $('clear').disabled = value || selected.size === 0;
+  $('clear-tags').disabled = value || selectedTags.size === 0;
   $('generate').disabled = value || !ready || !board;
   $('import-climb').disabled = value || !board;
   $('generate-label').textContent = value ? 'Generating…' : ready && board ? 'Generate climb' : 'Loading model…';
@@ -416,6 +420,57 @@ $('angle').oninput = () => {
   resetResult(); updateBoard();
 };
 $('grade').onchange = () => { resetResult(); updateBoard(); };
+
+const styleText = tags => tags.map(tagLabel).join(', ');
+
+function updateTags() {
+  for (const chip of document.querySelectorAll('.tag-chip')) chip.setAttribute('aria-pressed', String(selectedTags.has(chip.dataset.tag)));
+  const tags = orderTags([...selectedTags], conditionSchema(manifest).tags);
+  $('tag-summary').textContent = tags.length ? `Style: ${styleText(tags)}` : 'No style chosen';
+  $('clear-tags').disabled = busy || !tags.length;
+}
+
+// One chip per tag the model takes, in groups; the card stays hidden for a model without tags.
+function renderTags() {
+  const { tags, tag_training_rows: rows = {} } = conditionSchema(manifest);
+  $('tag-card').hidden = !tags.length;
+  const groups = tagGroups(tags).map(([name, members]) => {
+    const group = document.createElement('div');
+    group.className = 'tag-group';
+    group.setAttribute('role', 'group');
+    group.setAttribute('aria-label', `${name} styles`);
+    const label = document.createElement('span');
+    label.className = 'tag-group-name';
+    label.textContent = name;
+    const chips = document.createElement('div');
+    chips.className = 'tag-chips';
+    for (const tag of members) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = `tag-chip${SUBTLE_TAGS.has(tag) ? ' subtle' : ''}`;
+      chip.dataset.tag = tag;
+      chip.textContent = tagLabel(tag);
+      chip.title = `${rows[tag] ? `Learned from ${rows[tag].toLocaleString()} tagged climb–angle rows.` : ''}`
+        + (SUBTLE_TAGS.has(tag) ? ' Hard to see in the holds alone, so its effect is hard to check.' : '');
+      chip.onclick = () => {
+        if (selectedTags.has(tag)) selectedTags.delete(tag); else selectedTags.add(tag);
+        resetResult(); updateTags(); updateBoard();
+      };
+      chips.append(chip);
+    }
+    group.append(label, chips);
+    return group;
+  });
+  if (tags.some(tag => SUBTLE_TAGS.has(tag))) {
+    const note = document.createElement('p');
+    note.className = 'tag-note';
+    note.textContent = '* Hard to see in the holds alone, so its effect is hard to check.';
+    groups.push(note);
+  }
+  $('tag-groups').replaceChildren(...groups);
+  updateTags();
+}
+$('clear-tags').onclick = () => { selectedTags.clear(); resetResult(); updateTags(); updateBoard(); };
 $('temperature').oninput = () => { $('temperature-value').textContent = Number($('temperature').value).toFixed(2); };
 function changeZoom(change) {
   zoom = Math.max(100, Math.min(250, zoom + change));
@@ -484,7 +539,8 @@ $('generate').onclick = () => {
   }
   activeRequest = { grade: Number($('grade').value), angle: Number($('angle').value),
     temperature: Number($('temperature').value), seed: Number($('seed').value),
-    selected: [...selected].map(([id, role]) => ({ id, role })), derivedFrom };
+    selected: [...selected].map(([id, role]) => ({ id, role })), derivedFrom,
+    tags: orderTags([...selectedTags], conditionSchema(manifest).tags) };
   setBusy(true);
   updateBoard();
   setStatus('Generating', 'running');
@@ -531,12 +587,17 @@ async function importClimb(file) {
     $('angle-note').hidden = climb.angle <= 70;
   }
   if (climb.seed !== null) $('seed').value = climb.seed;
+  // A climb generated with style tags brings them back, as far as this model knows them.
+  selectedTags.clear();
+  for (const tag of orderTags(climb.tags, conditionSchema(manifest).tags)) selectedTags.add(tag);
+  updateTags();
   if (climb.temperature !== null) {
     $('temperature').value = climb.temperature;
     $('temperature-value').textContent = climb.temperature.toFixed(2);
   }
   activeRequest = { grade: Number($('grade').value), angle: Number($('angle').value),
-    temperature: Number($('temperature').value), seed: Number($('seed').value), selected: climb.selected };
+    temperature: Number($('temperature').value), seed: Number($('seed').value), selected: climb.selected,
+    tags: [...selectedTags] };
   // The controls show the climb's grade and angle when it has them; the result keeps them as recorded.
   lastResult = { endedWithEos: climb.endedWithEos, cancelled: false, imported: file.name, source: climb.source,
     grade: climb.grade, gradeBasis: climb.gradeBasis, angle: climb.angle, selected: climb.selected };
@@ -581,7 +642,8 @@ worker.onmessage = ({ data }) => {
     const added = generated.filter(hold => !selected.has(hold.id)).length;
     // Auto-send is for finished climbs; a stopped one can still be sent with Send climb.
     if ($('ble-auto').checked && ble?.connected && allHolds().length && shouldAutoSend(data)) sendToBoard();
-    $('generation-status').textContent = `${data.cancelled ? 'Stopped' : 'Complete'} · ${added} added · ${selected.size} picked · V${activeRequest.grade} / ${activeRequest.angle}°`;
+    $('generation-status').textContent = `${data.cancelled ? 'Stopped' : 'Complete'} · ${added} added · ${selected.size} picked · V${activeRequest.grade} / ${activeRequest.angle}°`
+      + (activeRequest.tags.length ? ` · ${styleText(activeRequest.tags)}` : '');
     showMatch();
   } else if (data.type === 'error') {
     if (data.id && data.id !== activeId) return;
@@ -609,7 +671,9 @@ fetch('./model/manifest.json').then(response => {
   return response.json();
 }).then(async value => {
   manifest = value;
-  $('model-info').textContent = `${manifest.name} · ${manifest.parameters.toLocaleString()} parameters. Trained on Kilter Original 12 × 12 climbs to complete a climb from any picked holds, given a V grade and wall angle. It runs entirely on your device.`;
+  const styled = conditionSchema(manifest).tags.length ? ', wall angle, and any style tags' : ' and wall angle';
+  $('model-info').textContent = `${manifest.name} · ${manifest.parameters.toLocaleString()} parameters. Trained on Kilter Original 12 × 12 climbs to complete a climb from any picked holds, given a V grade${styled}. It runs entirely on your device.`;
+  renderTags();
   loadRealClimbs();
   await Promise.all([draw(manifest), setUpBluetooth(manifest)]);
 }).catch(error => { showError(error.message); });

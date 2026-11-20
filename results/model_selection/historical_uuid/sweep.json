@@ -1,0 +1,20 @@
+{
+  "collected_at": "2026-11-20T18:53:22.949581+00:00",
+  "models": [
+    "null_rule_16_tags",
+    "null_rule_16_tags_labels"
+  ],
+  "overrides": [],
+  "samples_per_cell": 50,
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "split": "historical_uuid",
+  "split_manifest": null,
+  "splits": [
+    "validation"
+  ],
+  "stage": "model_selection"
+}

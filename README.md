@@ -15,7 +15,8 @@ structural checks 98% of the time, against 11% for the baseline. Those checks (n
 repeated hold, 1–2 starts and finishes, starts below finishes, at least one foot) are
 not evidence that a climb is climbable. See
 [docs/model.md](docs/model.md) for the model and [experiments/](experiments/README.md)
-for every result, including the `null_rule_16` model the website serves.
+for every result. The website serves `null_rule_16_tags`: `null_rule_16` with style tags
+read from climb names and descriptions, which you can ask for when generating.
 
 ## Repository layout
 
@@ -26,7 +27,7 @@ for every result, including the `null_rule_16` model the website serves.
 | [`data/splits/`](data/README.md#splits) | Versioned split manifests, such as the family-separated `family_v1` |
 | [`kilter/`](kilter/) | The climb transformer: data encoding, model, training, sampling, evaluation, web export |
 | [`kilter/baseline/`](kilter/baseline/) | The original transformer, kept as the comparison baseline |
-| [`configs/`](configs/) | Training configs (`climb.toml`, `climb_null_grade.toml`, `baseline.toml`, and `null_rule_16.toml`, the recipe the website serves) |
+| [`configs/`](configs/) | Training configs (`climb.toml`, `climb_null_grade.toml`, `baseline.toml`, `null_rule_16.toml`, and `null_rule_16_tags.toml`, the recipe the website serves) |
 | [`experiments/`](experiments/README.md) | One script per experiment |
 | [`results/`](results/) | Each experiment's committed outputs, in `results/<script name>/` |
 | [`docs/`](docs/) | Write-ups of the [model](docs/model.md) and the [baseline](docs/baseline.md) |

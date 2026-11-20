@@ -128,8 +128,9 @@ are compared here. Mean nats per climb over seeds 42, 43 and 44, with rules appl
 | `null_rule_16_d256` | 37.30 | 44.77 | 37.58 | 29.16 | 37.17 | 95.9% |
 | `null_rule_16` | 37.14 | 44.58 | 37.43 | 29.01 | 37.01 | 94.0% |
 
-`null_rule_16` was chosen on validation, and the website serves its best validation
-seed, 43. It scores 0.46 nats better than `climb_v2_null_grade` on test, but about 2
+`null_rule_16` was chosen on validation, and the website served its best validation
+seed, 43, until it moved to the same recipe with [style tags](#style-tags-from-climb-names-and-descriptions)
+(`null_rule_16_tags`, also seed 43). It scores 0.46 nats better than `climb_v2_null_grade` on test, but about 2
 points fewer of its samples pass the validity checks. Most of its runs stopped
 improving between epochs 12 and 15, so more epochs alone are unlikely to help much.
 `null_rule_16_d256` stopped early at 11 or 12 epochs, with its best at 9 or 10. It
@@ -165,7 +166,7 @@ to seed. Best epochs are the same, 12 to 15. A likely reason is that every hold
 already has its own learned embedding, trained on about 300,000 climb rows, so anything
 fixed about a hold, such as its type or grip, can already be learned from how it is used.
 Labels like these would matter more for holds with few climbs, or for a board
-the model has not seen. The website still serves `null_rule_16`. The next section
+the model has not seen. The labels model was not served. The next section
 tests the explanation directly: [`null_rule_16`'s hold representations already
 encode most of the labels](#hold-labels-in-the-learned-representations).
 
@@ -311,7 +312,7 @@ geometry network. The in-context state is weaker and varies more between seeds: 
 the position average is removed, it mixes the hold with whatever surrounds it.
 
 On the boards below, each hold on the right is colored by the probe's prediction made
-while that hold was held out, for seed 43, the seed the website serves. Ringed holds
+while that hold was held out, for seed 43 (the `null_rule_16` seed the website served before style tags). Ringed holds
 are wrong. Switch to grip to compare labeled and predicted directions.
 
 <!-- chart: probe-boards -->
@@ -365,10 +366,13 @@ projection, and the held-out predictions of seed 43) to
 ```
 
 Setters often say how a climb moves in its name or description: "big dyno", "pinchy",
-"drop knee to finish". This experiment reads 26 style tags from that text, gives them
+"drop knee to finish". This experiment reads 21 style tags from that text, gives them
 to the model next to grade and angle, and asks two questions. Do the tags make real
 climbs more predictable? And does turning a tag on change what the model sets the way
 real climbs with that tag differ?
+
+Five tags were removed on 2026-11-20: `static`, `cut_loose`, `bump`, `technical` and
+`shouldery`. Everything below, including both tag models, was redone with the 21 that remain.
 
 ### The tags
 
@@ -376,19 +380,18 @@ real climbs with that tag differ?
 appears as a whole word in the climb's name or setter description and is not negated.
 The Kilter data has no style tags of its own, so the text is the only source.
 
-- Ambiguous words (power, swing, bump, cross, shoulder, finger) count only in
-  descriptions, since names are often puns ("Power Nap", "Swing State").
+- Ambiguous words (power, cross, finger, throw, pump) count only in descriptions,
+  since names are often puns ("Power Nap", "Pinch of Salt").
 - A negator (no, not, without, don't, never, sin, sans, kein…) among the 3 words before
   a term cancels it, unless a rule word such as "match" or "feet" sits in between
-  ("no matching, just jump" still counts as dynamic). A negated dynamic term ("no
-  dyno", "no jumping") marks the climb `static` instead.
+  ("no matching, just jump" still counts as dynamic).
 - Known idioms never count: "pinch of salt", "Achilles heel", "Tension Board",
   "lemon squeezy", "power of".
 - `crimp` includes fingery climbs. "Hard for short people" marks a climb `reachy`.
 
 [`data/export_climb_tags.py`](../data/export_climb_tags.py) writes every climb's tags
 to `data/training/climb_tags.csv.gz`, and the text behind each tag to
-[`results/climb_tags/`](../results/climb_tags/). 17,686 of the 207,175 climbs (8.5%)
+[`results/climb_tags/`](../results/climb_tags/). 16,946 of the 207,175 climbs (8.2%)
 mention at least one tag. A tag means the setter mentioned the style; a climb without
 it may still have it.
 
@@ -412,54 +415,59 @@ a floor.
 | `endurance` | 415 | 35% | 13/15 | endurance, power endurance, 4x4, resistance, stamina; pump in descriptions |
 | `short_friendly` | 408 | 41% | 12/15 | shorties, short people, short kings, short friendly, "for the short" |
 | `gaston` | 395 | 26% | 12/15 | gaston |
-| `cut_loose` | 292 | 56% | 15/15 | cut loose, cut feet, barn door; swing in descriptions |
 | `compression` | 278 | 14% | 11/15 | compression, compy, compress, squeeze; not "lemon squeezy" |
-| `static` | 262 | 39% | 13/15 | static, or a negated dynamic term such as "no dyno" |
 | `drop_knee` | 247 | 40% | 15/15 | drop knee, dropknee, knee drop, egyptian |
-| `shouldery` | 211 | 90% | 12/15 | shouldery; shoulder(s) in descriptions |
 | `toe_hook` | 208 | 52% | 15/15 | toe hook, toehook, toe cam, bicycle |
 | `powerful` | 182 | 100% | 14/15 | power, powerful, in descriptions only; not "power endurance" |
 | `coordination` | 165 | 34% | 15/15 | coordination, coordo, paddle, run and jump, parkour, comp style, double clutch |
-| `technical` | 163 | 58% | 13/15 | technical, techy, body position, smear; balance in descriptions |
 | `lock_off` | 160 | 34% | 15/15 | lock off, lockoff, locky |
 | `high_feet` | 160 | 44% | 15/15 | high feet, high foot, high step, rockover |
-| `bump` | 103 | 100% | 13/15 | bump, in descriptions only |
 
 ### How the model uses them
 
-Each climb's tags become a vector of 26 zeros and ones, appended to the grade and angle
+Each climb's tags become a vector of 21 zeros and ones, appended to the grade and angle
 features. The model's condition network (linear, GELU, linear) turns grade, angle, the
 null-grade flag and the tags into one vector added to every token, so the tags can
 change every step of generation. A climb with no tags gets all zeros, the same input
 as "tags off". `null_rule_16_tags` is `null_rule_16` with
 `model.climb_tags = "data/training/climb_tags.csv.gz"` and nothing else changed,
-trained on seeds 42, 43 and 44 by `compare_models.py`.
+trained on seeds 42, 43 and 44 by `compare_models.py`. The website serves seed 43, the
+lowest validation score of the three (37.02 nats, against 37.07 and 37.08), and lets you
+pick tags when generating.
 
 ### Tags make real climbs more predictable
 
 Nats per held-out test climb, generated from nothing with the decoding rules and its
 real grade, mean of three seeds. "All off" scores the same model with every tag set to
-zero. "Samples valid" is the share of climbs sampled with all tags off that pass the
-version 1 checks (`legacy_valid_v1`, which needs a foot-only hold). A rerun of
-`tag_conditioning.py` also records `schema_valid`, `starts_below_finishes`, and
-`explicit_feet_present` separately for each tag. That matters most for `campus`, whose
-climbs legitimately have no feet.
+zero. The historical split's test set is used here as before; it was already open during
+development, so these are development numbers (see [historical results](#historical-results)).
+The tag models were retrained with the 21 tags; `null_rule_16` is the historical run.
 
-| Model | Tags given | Tagged climbs (1,484) | Untagged (15,413) | All (16,897) | Samples valid |
-| --- | --- | ---: | ---: | ---: | ---: |
-| `null_rule_16` | none | 42.68 | 44.76 | 44.58 | 94.0% |
-| `null_rule_16_tags` | true tags | 41.69 | 44.72 | 44.46 | 96.3% |
-| `null_rule_16_tags` | all off | 43.03 | 44.72 | 44.57 |  |
+| Model | Tags given | Tagged climbs (1,415) | Untagged (15,482) | All (16,897) |
+| --- | --- | ---: | ---: | ---: |
+| `null_rule_16` | none | 42.61 | 44.75 | 44.58 |
+| `null_rule_16_tags` | true tags | 41.53 | 44.74 | 44.47 |
+| `null_rule_16_tags` | all off | 42.87 | 44.74 | 44.58 |
+| `null_rule_16_tags_labels` | true tags | 41.59 | 44.73 | 44.46 |
+| `null_rule_16_tags_labels` | all off | 42.96 | 44.73 | 44.58 |
 
-On the 1,484 test climbs that have a tag, giving the model their tags saves 1.34 nats
-per climb, and the tagged model beats `null_rule_16` by 0.99. On untagged climbs the
-two are about equal (44.72 against 44.76). With every tag turned off, tagged climbs score worse than under
-`null_rule_16` (43.03 against 42.68), because the model has learned that no tags means
-a typical untagged climb. Its samples are also slightly more often valid.
+On the 1,415 test climbs that have a tag, giving the model their tags saves 1.35 nats
+per climb, and the tagged model beats `null_rule_16` by 1.09. On untagged climbs the
+two are about equal (44.74 against 44.75). With every tag turned off, tagged climbs score worse than under
+`null_rule_16` (42.87 against 42.61), because the model has learned that no tags means
+a typical untagged climb. The hand-labeled hold features add nothing on top of the tags.
+With the five tags removed, the tagged climbs are fewer (1,415, from 1,484) and the gain
+is the same (1.35 nats, from 1.34).
 
-The gain depends on the tag. Campus (3.8 nats), traverse (2.4) and pinch (1.5) help
-most. Tags with fewer than 20 test climbs give noisy numbers, including the negative
-ones for `cut_loose` and `static`.
+On validation, every sample from `null_rule_16_tags` is schema-valid, and 96.7% pass the
+version 1 checks (`legacy_valid_v1`, which also needs a foot-only hold), against 95.0% for
+`null_rule_16`. `tag_conditioning.py` records `schema_valid`, `starts_below_finishes`
+and `explicit_feet_present` for each tag separately. That matters most for `campus`,
+whose climbs legitimately have no feet.
+
+The gain depends on the tag. Campus (3.8 nats), traverse (2.0) and pinch (1.5) help
+most. Tags with fewer than 20 test climbs are left out, and ones with few more give noisy
+numbers, including the slightly negative ones for `jug` and `heel_hook`.
 
 <!-- chart: tags-gain -->
 
@@ -473,9 +481,9 @@ generated climbs are then measured two ways.
 1. **A tag recognizer.** One logistic regression per tag on the bag of a climb's
    (hold, role) tokens, trained on the 186,039 training climbs with each tag's examples
    up-weighted to balance them. On the 10,344 test climbs it finds campus (ROC AUC
-   0.93), pinch (0.91), traverse (0.90) and undercling (0.87) well. It cannot find
-   static, bump, high feet, technical or body tension (AUC 0.43 to 0.53): those
-   describe how a climb is done, which the holds alone do not show.
+   0.94), pinch (0.91), traverse (0.90) and undercling (0.87) well. It cannot find
+   high feet or body tension (AUC 0.43 and 0.53): those describe how a climb is done,
+   which the holds alone do not show.
 2. **Plain statistics.** Holds, feet, hand holds, the mean and longest move between
    hand holds ordered by height, the width and height the hand holds span (cm, from the
    board's 12 ft width), and the share of hand holds you labeled pinch, jug, edge or
@@ -485,10 +493,11 @@ generated climbs are then measured two ways.
 
 <!-- chart: tags-steering -->
 
-Tags the holds can show steer strongly. Turning on `campus` cuts feet from 3.9 to 0.3
-per climb, `traverse` widens the hand holds from 141 to 238 cm, and `pinch` raises the
-pinch share of hand holds from 7% to 45% (shares use the current hold labels). Across all 26 tags and 13 statistics, the
-generated changes follow the real differences with a correlation of 0.83.
+Tags the holds can show steer strongly. Turning on `campus` cuts feet from 3.8 to 0.3
+per climb, `traverse` widens the hand holds from 141 to 231 cm, and `pinch` raises the
+pinch share of hand holds from 7% to 45% (shares use the current hold labels). Across all
+21 tags and 13 statistics, the generated changes follow the real differences with a
+correlation of 0.84 (0.84 for `null_rule_16_tags_labels` too).
 
 <!-- chart: tags-scatter -->
 
@@ -499,10 +508,12 @@ generated changes follow the real differences with a correlation of 0.83.
 - Some effects are weaker than in real climbs. Real endurance climbs are 1.7 standard
   deviations longer, but turning the tag on adds only 0.2. The undercling share rises
   about half as much as in real climbs.
-- Movement tags such as static, bump, high feet, technical and body tension cannot be
-  checked from holds alone. The model may follow them, but neither test can tell.
-- Turning a tag on costs a little validity: 93.1% of samples pass the checks with one
-  tag on, against 97.0% with all tags off.
+- Movement tags such as high feet and body tension cannot be checked from holds alone.
+  The model may follow them, but neither test can tell.
+- Turning a tag on costs some version 1 validity: 91.9% of samples pass with one tag on,
+  against 96.9% with all tags off. Every sample stays schema-valid. Most of the drop is
+  `campus` climbs without foot holds, which is what the tag asks for, and most of the rest
+  is `traverse` climbs whose starts are not below their finishes.
 - The tags come from free text with simple rules, so each carries some noise.
 
 `summary.json` in [`results/tag_conditioning/`](../results/tag_conditioning/) has every

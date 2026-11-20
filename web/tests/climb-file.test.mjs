@@ -75,7 +75,7 @@ test('an imported climb keeps its source and unknown grade when exported again, 
 });
 
 test('a generated climb records its model and request, and keeps them through another model\'s export', () => {
-  const request = { grade: 6, angle: 25, temperature: 0.9, seed: 12, selected: [{ id: a, role: 2 }] };
+  const request = { grade: 6, angle: 25, temperature: 0.9, seed: 12, tags: ['campus', 'pinch'], selected: [{ id: a, role: 2 }] };
   const parent = keptClimb({ source: { kind: 'catalogue', climb_uuid: 'P' }, grade: 4, angle: 30 }, [{ id: a, role: 2 }, { id: b, role: 3 }]);
   const source = generatedSource({ manifest, request, endedWithEos: true, cancelled: false, derivedFrom: parent });
   const holds = [{ id: a, role: 2 }, { id: c, role: 3 }];
@@ -83,7 +83,8 @@ test('a generated climb records its model and request, and keeps them through an
     result: { source, grade: 6, gradeBasis: 'requested', angle: 25, endedWithEos: true, selected: request.selected } });
   assert.equal(output.source.model.checkpoint_sha256, manifest.checkpoint_sha256);
   assert.equal(output.viewer_model.checkpoint_sha256, 'other-checkpoint');
-  assert.deepEqual(output.source.request, { grade: 6, angle: 25, temperature: 0.9, seed: 12, selected_holds: [{ id: a, role: 2 }] });
+  assert.deepEqual(output.source.request, { grade: 6, angle: 25, temperature: 0.9, seed: 12, tags: ['campus', 'pinch'],
+    selected_holds: [{ id: a, role: 2 }] });
   assert.equal(output.source.derived_from.source.climb_uuid, 'P');
   assert.deepEqual(output.source.derived_from.frames[0].map(h => h.hold_token), [a, b]);
   assert.equal(output.grade_basis, 'requested');
@@ -93,6 +94,7 @@ test('a generated climb records its model and request, and keeps them through an
   assert.equal(climb.seed, 12);
   assert.equal(climb.temperature, 0.9);
   assert.deepEqual(climb.selected, [{ id: a, role: 2 }]);
+  assert.deepEqual(climb.tags, ['campus', 'pinch']);
 });
 
 test('only finished climbs are sent to the board automatically', () => {

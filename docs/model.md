@@ -85,7 +85,8 @@ with a 50% share. To sample with a null grade, leave out `--grade`.
 
 **Rule loss.** `train.rule_loss` masks illegal tokens during training, so the loss only
 ranks legal ones. A model trained this way needs the decoding rules, so its rules-off
-samples mean nothing. The model the website serves, `null_rule_16`, uses it; see
+samples mean nothing. `null_rule_16` uses it, and so does the model the website serves,
+`null_rule_16_tags` (the same recipe with style tags); see
 [experiments](../experiments/README.md).
 
 ## Decoding rules
@@ -120,7 +121,7 @@ Don't use `python -I`: it breaks the package import from the root.
 .venv/bin/python -m kilter train
 .venv/bin/python -m kilter train --set name=climb_v2_d192 --set model.d_model=192 \
   --set model.n_layers=6 --set model.n_heads=6
-.venv/bin/python -m kilter train --config configs/null_rule_16.toml
+.venv/bin/python -m kilter train --config configs/null_rule_16_tags.toml
 
 # The same on the family-separated split (see data/README.md#splits).
 .venv/bin/python -m kilter train --config configs/null_rule_16.toml \

@@ -21,6 +21,10 @@ on seeds 42, 43 and 44. This script measures, for every seed:
    off to on is compared with how real climbs with the tag differ from real climbs without it at
    the same grade and angle.
 
+The tag models are found by identity among the runs compare_models.py trained (so they use the
+current tag file); this refuses to run until both exist on every seed. The reference models are
+the historical runs in results/compare_models/checkpoints.json. summary.json records every run used.
+
 Outputs go to results/tag_conditioning/: summary.json (every number, per seed and averaged) and
 examples.json (generated climbs for a few tags, seed 43, for figures).
 
@@ -214,8 +218,16 @@ def main():
     args = parser.parse_args()
     device = torch.device(args.device)
     args.output.mkdir(parents=True, exist_ok=True)
-    checkpoints = json.loads((ROOT / "results" / "compare_models" / "checkpoints.json").read_text())
-    checkpoint = lambda name, seed: ROOT / checkpoints[f"{name}_s{seed}"]["run"] / "best.pt"
+    historical = json.loads((ROOT / "results" / "compare_models" / "checkpoints.json").read_text())
+    from compare_models import resolve
+    wanted, trained, _ = resolve(TAGGED, SEEDS, "")
+    missing = sorted(f"{name} seed {seed}" for name, seed in wanted if (name, seed) not in trained)
+    if missing:
+        raise SystemExit(f"Train these with experiments/compare_models.py --models {' '.join(TAGGED)} first: "
+                         + ", ".join(missing))
+    runs = {f"{name}_s{seed}": (trained[name, seed] if name in TAGGED else ROOT / historical[f"{name}_s{seed}"]["run"])
+            for name in (*REFERENCE, *TAGGED) for seed in SEEDS}
+    checkpoint = lambda name, seed: runs[f"{name}_s{seed}"] / "best.pt"
 
     _, board, base_config, _ = load_run(checkpoint("null_rule_16", 42))
     arrays = load_arrays(prepare(base_config.data)[0])
@@ -224,6 +236,7 @@ def main():
     labels = read_hold_labels(ROOT / "data/hold_labels.csv", board)
     stats_fn = ClimbStats(board, labels)
     summary = {"tags": TAGS, "stats": list(STATS), "seeds": list(SEEDS), "samples": args.samples,
+               "runs": {key: str(path.relative_to(ROOT)) for key, path in runs.items()},
                "tag_counts": {tag: int(tag_rows[first_rows(arrays, [0, 1, 2, 255]), t].sum()) for t, tag in enumerate(TAGS)}}
 
     # 1. Likelihood of held-out climbs.

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { gunzipSync } from 'node:zlib';
 import test from 'node:test';
 import { GRADING_METHODS, PROBE_FIGURES, REPOSITORY, TAG_FIGURES, chartData, gradingConfusion, parseCsv, probeData, renderMarkdown, repositoryLink, tagData } from '../experiments-page.mjs';
 import { niceTicks } from '../src/experiments.mjs';
@@ -85,11 +86,13 @@ test('grip angles wrap around the circle', () => {
   assert.equal(shareWithin([0, 10, 50, 90], 45), 0.5);
 });
 
-test('the README places every style-tag figure, and the tag data covers all 26 tags', async () => {
+test('the README places every style-tag figure, and the tag data covers exactly the current tags', async () => {
   const readme = await readFile(new URL('../../experiments/README.md', import.meta.url), 'utf8');
   for (const view of TAG_FIGURES) assert.match(readme, new RegExp(`<!-- chart: tags-${view} -->`));
   const data = await tagData();
-  assert.equal(data.tags.length, 26);
+  // The tag file's header lists the tags in use; results from an older tag set would differ.
+  const tagFile = gunzipSync(await readFile(new URL('../../data/training/climb_tags.csv.gz', import.meta.url))).toString();
+  assert.deepEqual(data.tags, tagFile.slice(0, tagFile.indexOf('\n')).trim().split(',').slice(1));
   assert.deepEqual(data.seeds, [42, 43, 44]);
   for (const tag of data.tags) {
     const s = data.steering[tag];

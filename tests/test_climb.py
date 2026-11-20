@@ -527,8 +527,8 @@ class ClimbTagTests(unittest.TestCase):
     def test_terms_tag_and_negation_or_idioms_do_not(self):
         cases = [
             ((None, "Pinchy start into a big dyno"), {"pinch", "dynamic"}),
-            ((None, "No dyno. Static only"), {"static"}),
-            ((None, "no jumping allowed"), {"static"}),
+            ((None, "No dyno. Static only"), set()),
+            ((None, "no jumping allowed"), set()),
             ((None, "No matching just jump for it"), {"dynamic"}),
             (("No legs paddle dyno", None), {"dynamic", "coordination"}),
             ((None, "No heel hooks"), set()),

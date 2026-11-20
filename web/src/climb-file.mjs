@@ -7,7 +7,7 @@
 // instead of taking the page's current controls.
 //
 // source.kind is one of:
-//   generated      made by this page: model, request (grade, angle, temperature, seed, picks),
+//   generated      made by this page: model, request (grade, angle, temperature, seed, style tags, picks),
 //                  ended_with_eos, cancelled, and derived_from (the climb its picks were kept from)
 //   catalogue      a dataset row: climb_uuid, name, setter_username, angle, grade_hueco, ...
 //   legacy_export  a schema 1 export, which recorded the page's model at export time (recorded_model);
@@ -105,7 +105,9 @@ export function parseClimbFile(data, manifest) {
   const temperature = Number.isFinite(rawTemperature) && rawTemperature >= 0.2 && rawTemperature <= 1.5 ? rawTemperature : null;
   const source = sourceOf(data, { grade: data.v_grade ?? null, angle: data.angle ?? null, temperature: data.temperature ?? null,
     seed: data.seed ?? null, selected_holds: selected });
-  return { holds, selected, grade, gradeBasis, angle, seed, temperature, source,
+  // Style tags a generated climb was asked for; the page keeps those its model knows.
+  const tags = Array.isArray(request.tags) ? request.tags.filter(tag => typeof tag === 'string') : [];
+  return { holds, selected, grade, gradeBasis, angle, seed, temperature, source, tags,
     name: data.name || source.name || null, endedWithEos: data.ended_with_eos ?? true, checkpoint: generatorCheckpoint(source) };
 }
 
@@ -117,7 +119,7 @@ export function generatedSource({ manifest, request, endedWithEos, cancelled, de
     model: { name: manifest.name, checkpoint_sha256: manifest.checkpoint_sha256, model_sha256: manifest.model_sha256 ?? null,
       data_fingerprint: manifest.data_fingerprint ?? null },
     request: { grade: request.grade, angle: request.angle, temperature: request.temperature, seed: request.seed,
-      selected_holds: request.selected.map(({ id, role }) => ({ id, role })) },
+      tags: [...(request.tags ?? [])], selected_holds: request.selected.map(({ id, role }) => ({ id, role })) },
     ended_with_eos: endedWithEos, cancelled, derived_from: derivedFrom,
   };
 }
