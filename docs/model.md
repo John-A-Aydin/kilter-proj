@@ -99,8 +99,13 @@ that no training climb has:
 - `EOS` before at least one start and one finish;
 - more than 40 holds.
 
-Everything else is left to the model. These rules guarantee structural validity, so
-the unconstrained numbers below are the honest measure of what the model learned.
+Everything else is left to the model. For every climb that ends with `EOS`, these rules
+guarantee what `kilter/quality.py` calls `schema_valid`: unique holds, 1–2 starts, 1–2
+finishes, and at most 40 holds, plus canonical order and any given holds kept in their
+roles. They do **not** guarantee that every start is below every finish, or that the
+climb has a foot-only hold. Those were part of the old `valid` check, so rules-on
+`valid` was never 100%. The unconstrained numbers below are the honest measure of
+what the model learned.
 
 ## Commands
 
@@ -111,28 +116,38 @@ Don't use `python -I`: it breaks the package import from the root.
 # Encode and cache the dataset (training does this automatically too).
 .venv/bin/python -m kilter prepare
 
-# Train the default model, or the large one.
+# Train the default model, the large one, or the recipe the website serves.
 .venv/bin/python -m kilter train
 .venv/bin/python -m kilter train --set name=climb_v2_d192 --set model.d_model=192 \
   --set model.n_layers=6 --set model.n_heads=6
+.venv/bin/python -m kilter train --config configs/null_rule_16.toml
+
+# The same on the family-separated split (see data/README.md#splits).
+.venv/bin/python -m kilter train --config configs/null_rule_16.toml \
+  --set data.split_manifest=data/splits/family_v1.json
 
 # Resume from the last completed epoch (uses the run's saved config).
 .venv/bin/python -m kilter train --resume runs/<run>/last.pt
 
-# Nats per climb for each given-hold mode. Writes best_<split>.json.
-.venv/bin/python -m kilter evaluate runs/<run>/best.pt --split validation
+# Nats per climb for each given-hold mode, on validation unless --split test.
+# Writes best_<split>.json, with its evaluation identity. On a family split it also
+# reports each similarity band (by_similarity).
+.venv/bin/python -m kilter evaluate runs/<run>/best.pt
 
 # Generate from nothing, or from given holds (HOLD:ROLE, with role hand|foot|start|finish).
 .venv/bin/python -m kilter sample runs/<run>/best.pt --grade 5 --angle 40 --count 3
 .venv/bin/python -m kilter sample runs/<run>/best.pt --grade 5 --angle 40 \
   --given 1176:start --given 1192:start --given 1091:foot
 
-# Sample-quality report against the baseline. Writes quality_<split>.json.
+# Sample-quality report against the baseline (evaluator version 2). Writes quality_<split>.json.
 .venv/bin/python -m kilter quality runs/<run>/best.pt \
   --baseline runs/<baseline run>/best.pt --samples 20
 
 # Completed-run summaries as CSV.
 .venv/bin/python -m kilter compare runs
+
+# Build a family-separated split manifest (data/splits/family_v1.json was made this way).
+.venv/bin/python -m kilter split --name family_v1 --seed 2026
 
 # Put a checkpoint and the real-climb catalogue on the website, then rebuild and test it.
 .venv/bin/python -m kilter.export_web runs/<run>/best.pt
@@ -166,9 +181,30 @@ The `quality` report samples 20 held-out climbs for each of V2, V5, V8, V11 and 
 40°, 50° (207 validation and 211 test climbs, since some cells have fewer). It
 compares them with the model from scratch (with and without decoding rules), the
 baseline from scratch, and completions of each climb's starts plus every other foot
-by the model and by the baseline's barrier decoder. A sample is **valid** when it has
-no repeated hold, 1–2 starts, 1–2 finishes, its highest start is below its lowest
-finish, and it has at least one foot.
+by the model and by the baseline's barrier decoder.
+
+The report is versioned (`QUALITY_EVALUATOR_VERSION` in `kilter/quality.py`), and each
+one records its evaluation identity and the exact prompt rows it used. Version 2 reports
+each property separately:
+
+| Field | Meaning |
+| --- | --- |
+| `schema_valid` | No repeated hold, 1–2 starts, 1–2 finishes, within the hold budget. The decoding rules guarantee it. |
+| `constraint_satisfied` | Every given hold is in the climb, in its given role. |
+| `starts_below_finishes` | Every start is lower than every finish. Descriptive: usual, but not a rule. |
+| `explicit_feet_present` | At least one foot-only hold. Descriptive: campus climbs, and climbs that use hand holds for feet, are legitimate. |
+| `ended_with_eos` | The sampler finished the climb. |
+| `novel_vs_train` | The exact hold-and-role set is in no training row. |
+| `novel_vs_excluded_duplicates`, `novel_vs_all_rows` | The same, against rows removed from training for duplicating a held-out climb, and against every encoded row. |
+| `novel_hand_set_vs_train` | The hand holds (feet and start/hand/finish roles ignored) match no training climb. |
+| `legacy_valid_v1` | Version 1's `valid`: all of the first four checks except the budget, `starts_below_finishes`, and `explicit_feet_present`. Only for comparing with historical results. |
+
+None of them means a climb is climbable, enjoyable, or graded as requested.
+
+The results below, and every result under `results/compare_models/`, come from version
+1. Its **valid** is `legacy_valid_v1`. Its **novel** wrongly counted the excluded
+duplicates as training climbs, so it can call a held-out climb "seen in training" after
+that climb's training copies were removed.
 
 ## First results
 
@@ -225,9 +261,10 @@ than the 71% measured earlier with the raw `kilter.baseline sample` sampler (240
   statistics such as hold count, feet, finish height, and the largest vertical gap
   between hand holds. Nobody has climbed these.
 - **Lead with the unconstrained numbers** when saying what the model learned. With
-  the decoding rules, structural validity is guaranteed by construction. Without
-  them, the model still repeats a hold in about 7% of samples. On the test split, its
-  validity is slightly below the baseline's ID-ordered sampler.
+  the decoding rules, `schema_valid` is guaranteed by construction, but the
+  `valid` above is not: it also asks for starts below finishes and a foot. Without
+  the rules, the model still repeats a hold in about 7% of samples. On the test
+  split, its validity is slightly below the baseline's ID-ordered sampler.
 - **The grade effect on climb length is weak and noisy.** Each grade has only about
   50 samples. The unconstrained model shows a smaller V2→V11 drop than real climbs
   (0.65 on test), and every sampler produces slightly fewer holds than real climbs at

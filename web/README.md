@@ -73,15 +73,29 @@ generated climb is physically climbable or matches its requested grade.
 
 **Keep these holds** locks a generated result for the next generation. **Clear
 picks** starts over. Uncheck **New seed on each generation** for repeatable
-sampling. JSON exports contain all five dataset hold fields, the selected holds,
-grade, angle, normalized angle, seed, temperature, EOS status, and checkpoint
-identity. Stopping generation preserves your selected holds and labels the
+sampling. Stopping generation preserves your selected holds and labels the
 result as incomplete in its export.
+
+**Export JSON** writes schema version 2: all five dataset hold fields, the selected
+holds, and the climb's own grade and angle, which are null when unknown.
+`grade_basis` says whether the grade was `requested` from the model, taken from the
+`catalogue`, or `recorded` in an older file. Two fields keep provenance apart:
+
+- `source` says where the climb came from. A `generated` climb has the generating
+  model (checkpoint, ONNX, and data hashes), the request (grade, angle, temperature,
+  seed, picks), whether it ended or was stopped, and `derived_from`: the climb whose
+  holds were kept with **Keep these holds** to become its picks. A `catalogue` climb
+  keeps its UUID, name, setter, angle, and grade. `legacy_export` marks a schema 1
+  file; its `recorded_model` is whatever model the page had loaded, which may not be
+  the one that generated it.
+- `viewer_model` is the model loaded in the page when the file was saved.
 
 **Import a climb JSON** opens a climb saved with **Export JSON**, or a single row
 of `data/training/climbs.jsonl`. The board shows its holds, with the export's picks
 locked (solid) and the rest dashed, and the grade and angle controls take the
-climb's values; an export also restores its seed and temperature. The closest
+climb's values; an export also restores its seed and temperature. Exporting it
+again keeps its original `source`, and a grade or angle it did not have stays null:
+the controls' values are not stamped on it. The closest
 real climb is looked up as after a generation, so **Keep these holds**, **Export
 JSON**, and **Light up the wall** all work on it. A file with holds that are not on
 the board, an unknown role, a repeated hold, or more than one frame is refused, and
@@ -157,7 +171,8 @@ app or any other app holding the board's connection first.
 
 Click **Connect board**, choose the board in the browser's picker, then click
 **Send climb**. Tick **Send each completed climb** to light every finished
-generation automatically. **Turn off LEDs** clears the wall. The pill reads
+generation automatically. A stopped generation, or an imported climb that did not
+finish, is not sent by itself; **Send climb** still sends it. **Turn off LEDs** clears the wall. The pill reads
 **On the wall** while the board shows exactly what is on screen. The board keeps
 its LEDs lit after you disconnect.
 

@@ -15,8 +15,13 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, Sampler
 
+from ..config import resolve_device
+from ..identity import differences, evaluation_identity, read_run_identity, training_identity
 from .config import Config, ModelConfig, write_json
-from .data import BOS, EOS, PAD, ClimbDataset, Tokenizer, collate, load_arrays, prepare
+from .data import BOS, EOS, PAD, ClimbDataset, Tokenizer, collate, data_specification, load_arrays, prepare
+
+# Bump when the loss metric's meaning changes; evaluations record it (kilter/identity.py).
+EVALUATOR_VERSION = 1
 from .model import AutoregressiveTransformer, parameter_count, resolve_model, token_loss
 
 
@@ -29,10 +34,7 @@ def setup(config):
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(config.seed)
     torch.use_deterministic_algorithms(True)
-    device = config.device
-    if device == "auto":
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-    return torch.device(device)
+    return torch.device(config.device if config.device != "auto" else resolve_device(config.device))
 
 
 class LengthBucketSampler(Sampler):
@@ -116,6 +118,7 @@ def train(config, resume=None):
     resolved, target = resolve_model(config.model, metadata["vocab_size"], config.data.max_seq_len,
                                      metadata["splits"]["train"]["rows"])
     model = AutoregressiveTransformer(resolved, metadata["vocab_size"], config.data.max_seq_len).to(device)
+    identity = training_identity("kilter.baseline", config)
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.train.learning_rate,
                                   betas=(config.train.beta1, config.train.beta2),
                                   weight_decay=config.train.weight_decay)
@@ -142,6 +145,9 @@ def train(config, resume=None):
         run_dir = resume.parent
         if (run_dir / "summary.json").exists():
             raise ValueError("Run already completed; use a new run for a new experiment")
+        recorded = read_run_identity(run_dir)
+        if recorded is not None and recorded != identity:
+            raise ValueError(f"Resume needs the run's identity; these changed: {', '.join(differences(identity, recorded))}")
         model.load_state_dict(state["model"])
         optimizer.load_state_dict(state["optimizer"])
         scheduler.load_state_dict(state["scheduler"])
@@ -164,6 +170,7 @@ def train(config, resume=None):
         run_dir = Path(config.output_dir) / f"{timestamp}_{config.name}"
         run_dir.mkdir(parents=True)
         write_json(run_dir / "config.json", config.to_dict())
+        write_json(run_dir / "identity.json", identity)
         write_json(run_dir / "dataset.json", {**metadata, "cache_directory": str(cache_dir.resolve())})
         write_json(run_dir / "model.json", {**asdict(resolved), "parameters": parameter_count(model),
                                            "target_parameters": target,
@@ -259,14 +266,24 @@ def load_run(checkpoint, device="cpu"):
     return model, config, metadata
 
 
-def evaluate_run(checkpoint, split="test", device="cpu"):
+def likelihood_identity(checkpoint, split):
+    """What ``evaluate_run`` on ``checkpoint`` and ``split`` would record under "evaluation"."""
+    config = Config.from_dict(json.loads((Path(checkpoint).resolve().parent / "config.json").read_text()))
+    return evaluation_identity("baseline_likelihood", EVALUATOR_VERSION, checkpoint, split,
+                               data_specification(config.data)[1], {"batch_size": config.train.batch_size},
+                               [("kilter.baseline", ())])
+
+
+def evaluate_run(checkpoint, split="validation", device="auto"):
+    device = resolve_device(device)
     model, config, metadata = load_run(checkpoint, device)
     torch.set_num_threads(config.train.threads)
     cache_dir, current = prepare(config.data)
     if current["fingerprint"] != metadata["fingerprint"]:
         raise ValueError("Dataset changed since training")
     loader = make_loader(load_arrays(cache_dir), {"validation": 1, "test": 2}[split], config.train)
-    result = {"split": split, "checkpoint": str(checkpoint), **evaluate(model, loader, device)}
+    result = {"split": split, "checkpoint": str(checkpoint), "evaluation": likelihood_identity(checkpoint, split),
+              **evaluate(model, loader, device)}
     write_json(Path(checkpoint).parent / f"{Path(checkpoint).stem}_{split}.json", result)
     print(json.dumps(result), flush=True)
     return result

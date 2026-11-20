@@ -32,6 +32,44 @@ uv run --frozen python data/export_training.py
 
 The output is byte-identical for the same input.
 
+## Splits
+
+Two splits are available. Pick one with `data.split_manifest`; a run's identity and
+data fingerprint record which split it used.
+
+| Split | How it is made | Use |
+| --- | --- | --- |
+| `historical_uuid` (`split_manifest = ""`) | Hash of each climb UUID with `split_seed = 42` (90/5/5). Training rows whose exact hold-and-role set also appears in validation or test are then dropped. | Comparing with every result so far. Unchanged, and encoded byte for byte as before. |
+| `family_v1` (`data/splits/family_v1.json`) | Whole families are assigned instead, with a new seed (2026) so the test set is fresh. A family joins climbs that share a UUID, an exact hold-and-role set, or a hand set (holds not used as feet, start/hand/finish roles ignored). | The benchmark from now on. |
+
+Under the historical split, 673 of the 16,897 test rows (4.0%) and 706 of the 16,936
+validation rows share their hand set with a training climb. Under `family_v1`, no UUID,
+hold-and-role set, or hand set is in more than one partition. The largest family has 28
+climbs (52 rows). Joining climbs that differ by one hand hold as well would chain 5,488
+climbs into one family, so near duplicates are measured instead of grouped. Every held-out
+climb records `nearest_train_hand_jaccard`: the Jaccard similarity between its hand set and
+the closest training hand set. Likelihood evaluations report three bands: `distant` (below
+0.5), `related` (0.5 to 0.75), and `near_duplicate` (0.75 and above). The robustness
+partition is every climb below 0.75.
+
+| `family_v1` | Rows | Climbs | Rows by band (distant / related / near duplicate) |
+| --- | ---: | ---: | --- |
+| Train | 304,398 | 186,080 | |
+| Validation | 17,048 | 10,372 | 8,919 / 6,320 / 1,809 |
+| Test | 16,750 | 10,331 | 8,519 / 6,585 / 1,646 |
+
+The manifest JSON holds the rules, the input
+checksums, these statistics, coverage by grade and angle, and the sha256 of
+`family_v1.membership.csv.gz` (one row per climb: UUID, family, partition, similarity).
+Preparing data with a manifest refuses a membership file that fails its checksum, a climb
+the manifest does not list, or a listed climb the data does not have. To build another:
+
+```bash
+.venv/bin/python -m kilter split --name family_v2 --seed <a new seed>
+```
+
+The baseline (`kilter.baseline`) supports only the historical split.
+
 ## Run
 
 From the repository root, with Python 3.12+ and [uv](https://docs.astral.sh/uv/):

@@ -10,8 +10,10 @@ climb up on a real board over Bluetooth. Its **Experiments** tab presents every 
 
 On held-out test climbs, the large model scores **45.31 nats per climb** from scratch,
 against **50.45** for the [baseline](docs/baseline.md), with no decoding rules (means
-over three seeds). Completing a real climb's starts plus every other foot gives a
-structurally valid climb 98% of the time, against 11% for the baseline. See
+over three seeds). Completing a real climb's starts plus every other foot passes the
+structural checks 98% of the time, against 11% for the baseline. Those checks (no
+repeated hold, 1–2 starts and finishes, starts below finishes, at least one foot) are
+not evidence that a climb is climbable. See
 [docs/model.md](docs/model.md) for the model and [experiments/](experiments/README.md)
 for every result, including the `null_rule_16` model the website serves.
 
@@ -21,9 +23,10 @@ for every result, including the `null_rule_16` model the website serves.
 | --- | --- |
 | [`data/`](data/README.md) | Download, convert, and validate the Kilter catalogue |
 | [`data/training/`](data/README.md#committed-training-data) | The committed training data: every climb–angle row's holds, grade, and name, plus the hold vocabulary |
+| [`data/splits/`](data/README.md#splits) | Versioned split manifests, such as the family-separated `family_v1` |
 | [`kilter/`](kilter/) | The climb transformer: data encoding, model, training, sampling, evaluation, web export |
 | [`kilter/baseline/`](kilter/baseline/) | The original transformer, kept as the comparison baseline |
-| [`configs/`](configs/) | Training configs (`climb.toml`, `climb_null_grade.toml`, `baseline.toml`) |
+| [`configs/`](configs/) | Training configs (`climb.toml`, `climb_null_grade.toml`, `baseline.toml`, and `null_rule_16.toml`, the recipe the website serves) |
 | [`experiments/`](experiments/README.md) | One script per experiment |
 | [`results/`](results/) | Each experiment's committed outputs, in `results/<script name>/` |
 | [`docs/`](docs/) | Write-ups of the [model](docs/model.md) and the [baseline](docs/baseline.md) |

@@ -8,7 +8,8 @@ repository root.
 
 | Script | Question | Results |
 | --- | --- | --- |
-| [`compare_models.py`](compare_models.py) | How do the baseline and each model variant compare over three seeds? | [`results/compare_models/`](../results/compare_models/) |
+| [`compare_models.py`](compare_models.py) | How do the baseline and each model variant compare over three seeds, on validation? | [`results/model_selection/`](../results/model_selection/), and the historical [`results/compare_models/`](../results/compare_models/) |
+| [`final_test.py`](final_test.py) | How do the models chosen on validation score on test? Opens a test set once, on record. | `results/final_test/` |
 | [`hold_embeddings.py`](hold_embeddings.py) | What does the chosen model learn about holds in each role? | [`results/hold_embeddings/`](../results/hold_embeddings/) |
 | [`tag_conditioning.py`](tag_conditioning.py) | Does conditioning on style tags from climb names and descriptions help the model, and does turning a tag on change what it sets? | [`results/tag_conditioning/`](../results/tag_conditioning/) |
 | [`hold_label_probes.py`](hold_label_probes.py) | Do the chosen model's hold representations already encode the hand-labeled hold types and grip directions? | [`results/hold_label_probes/`](../results/hold_label_probes/) |
@@ -22,15 +23,55 @@ and a section below. New model settings go in [`configs/`](../configs/) or as
 ## Model comparison
 
 ```bash
-.venv/bin/python experiments/compare_models.py
+# Which runs would be reused or trained, and why.
+.venv/bin/python experiments/compare_models.py --status
+# Train what is missing and score on validation, on the historical or the family split.
+.venv/bin/python experiments/compare_models.py --models climb_v2_null_grade null_rule_16
+.venv/bin/python experiments/compare_models.py --split-manifest data/splits/family_v1.json --skip ar_transformer
+# After choosing on validation: write down why, then open test once.
+.venv/bin/python experiments/final_test.py --split-manifest data/splits/family_v1.json \
+  --models null_rule_16 --criteria "Lowest mean validation selection_nll_rules over seeds 42-44"
 ```
 
-Trains the baseline, the default and large models, the null-grade models, and the
-variants below on seeds 42, 43 and 44, reusing finished runs. It scores each on
-validation and test, and samples 50 climbs per grade and angle cell. The data split
-stays fixed at `split_seed = 42`. Outputs are `all_metrics.csv` (every number for
-every run), `summary.csv` (mean, standard deviation, minimum and maximum over seeds),
-`epochs.csv`, `samples_by_grade.csv` and `checkpoints.json`.
+`compare_models.py` trains the baseline, the default and large models, the null-grade
+models, and the variants below on seeds 42, 43 and 44. It scores each on **validation
+only**, and samples 50 climbs per grade and angle cell. `--models`, `--skip`, and
+`--seeds` choose what to run. `--set section.key=value` applies to every model, for
+example a few batches to check the pipeline; it changes the identity, so such runs are
+never reused for real ones. The baseline supports only the historical split.
+
+**Reuse is by identity** ([`kilter/identity.py`](../kilter/identity.py)). Training writes
+`identity.json` into each run: the resolved config, a hash of each training source file,
+the dataset fingerprint (input contents, preprocessing code, filters, and split), the
+label and tag files, and the device type. A run is reused only when that identity
+matches the request exactly. Each evaluation file records an `"evaluation"` identity: the
+checkpoint hash, evaluator version and code, split, dataset, and every sampling setting.
+It is rerun when that identity does not match. `--status` lists what differs. Runs made
+before identities existed have none, so they are never reused.
+
+**Test is a separate, recorded step.** `final_test.py` never trains. Every requested
+run must already be scored on validation. Before it scores anything, it appends the
+time, commit, run identities, and your `--criteria` to
+`results/final_test/<split>/access.jsonl`, and it refuses to open a split's test set
+again without `--reopen`. The family split's test set has not been opened.
+
+Outputs go to `results/model_selection/<split>/` and `results/final_test/<split>/`:
+`all_metrics.csv` (every number for every run), `summary.csv` (mean, standard deviation,
+minimum and maximum over seeds), `epochs.csv`, `samples_by_grade.csv`, `runs.json` (run
+and evaluation identities), and `sweep.json`. On a family split, `likelihood_distant`,
+`likelihood_related`, and `likelihood_near_duplicate` give the same numbers per
+[similarity band](../data/README.md#splits).
+
+### Historical results
+
+Everything below and in [`results/compare_models/`](../results/compare_models/) was
+made before this workflow existed. It used the historical split, quality evaluator
+version 1, and scored validation and test together. Variants were then chosen with test
+results available, so treat its test numbers as **development evidence**, not a sealed
+benchmark. Version 1's `valid` is the conjunction now called `legacy_valid_v1`. It
+requires starts below finishes and at least one foot, which the decoding rules do not
+guarantee, so campus-style climbs fail it. Its `novel` counted rows removed from
+training (split 255) as training climbs ([details](../docs/model.md#evaluation-modes)).
 
 The baseline's three-seed means are 3.721 validation and 3.740 test loss per token,
 and 50.59 validation and 50.45 test nats per climb.
@@ -75,6 +116,8 @@ findings, from `climb_v2_null_grade`:
 Rule-loss models are scored with the same mask (`nll_rules`), which is how all of them
 are compared here. Mean nats per climb over seeds 42, 43 and 44, with rules applied:
 
+"Rules-on valid" is version 1's `valid` (`legacy_valid_v1`), not schema validity, which the rules guarantee.
+
 | Model | Validation mean | Test scratch | Test starts | Test starts + feet | Test mean | Rules-on valid (test) |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | `climb_v2_null_grade` | 37.60 | 45.06 | 37.83 | 29.50 | 37.46 | 96.1% |
@@ -102,8 +145,11 @@ each hold's features (`model.hold_labels = "data/hold_labels.csv"`), and nothing
 changed. Only the `type`, `grip` and `on_kickboard` columns are read. Type becomes a
 one-hot over 7 types and grip a multi-hot over 16 compass directions, so a hold's
 features grow from 28 to 51 columns. `on_kickboard` was already a feature, so it is
-only checked against the vocabulary. All 476 holds have both a type and a grip: 197
-edges, 170 foot chips, 80 jugs, 20 pinches and 9 slopers, and 423 holds pull one way.
+only checked against the vocabulary. All 476 holds have both a type and a grip: 195
+edges, 170 foot chips, 80 jugs, 22 pinches and 9 slopers, and 423 holds pull one way.
+The `null_rule_16_labels` runs below were trained before holds 1283 and 1298 were
+relabeled from edge to pinch, when there were 197 edges and 20 pinches; with 2 of 476
+holds different, retraining is not expected to change the result.
 
 Mean over seeds 42, 43 and 44, with rules applied:
 
@@ -174,7 +220,7 @@ seeds (42, 43 and 44) are probed, and every number is their mean.
 
 Balanced accuracy is the mean over types of the share of that type predicted
 correctly (its recall), so each type counts equally: the 9 slopers weigh as much as
-the 197 edges, and always guessing "edge" scores exactly chance. Hand-hold type is
+the 195 edges, and always guessing "edge" scores exactly chance. Hand-hold type is
 the main test. A foot chip is easy to find without learning anything, because 153 of
 the 170 are screw-on holds and the screw-on flag is one of the model's position inputs.
 
@@ -236,22 +282,26 @@ Mean ± standard deviation over the three seeds:
 
 | Representation | Hand-hold type | All five types | Grip error | Grip within 45° |
 | --- | ---: | ---: | ---: | ---: |
-| Position | 24.2 ± 0.7% | 38.0 ± 1.5% | 42.9 ± 0.2° | 61.9% |
-| Usage counts | 52.0 ± 2.1% | 59.7 ± 1.0% | 39.7 ± 0.2° | 61.4% |
-| Untrained model | 22.8 ± 5.2% | 21.4 ± 2.5% | 43.1 ± 0.2° | 62.1% |
-| Hold embedding | 75.3 ± 1.1% | 72.3 ± 0.8% | 30.6 ± 0.6° | 78.2% |
-| Hold vector | 76.7 ± 0.8% | 81.5 ± 0.6% | 34.1 ± 0.8° | 72.5% |
-| In-context state | 50.0 ± 5.4% | 59.4 ± 5.6% | 33.9 ± 0.3° | 73.7% |
+| Position | 21.6 ± 0.6% | 36.7 ± 0.8% | 43.2 ± 0.1° | 62.1% |
+| Usage counts | 53.6 ± 1.3% | 61.1 ± 0.7% | 40.0 ± 0.3° | 61.2% |
+| Untrained model | 22.6 ± 5.0% | 21.5 ± 3.5% | 43.1 ± 0.2° | 62.0% |
+| Hold embedding | 74.8 ± 2.5% | 73.1 ± 1.2% | 30.6 ± 0.8° | 78.2% |
+| Hold vector | 76.3 ± 1.3% | 82.6 ± 0.9% | 34.1 ± 0.8° | 72.2% |
+| In-context state | 51.3 ± 6.0% | 60.2 ± 4.7% | 33.7 ± 0.2° | 73.9% |
 | Chance | 25% | 20% | | |
-| Shuffled labels, mean (95th percentile) | 24.9% (30.8%) | 19.8% (25.4%) | 42.9° | |
+| Shuffled labels, mean (95th percentile) | 25.0% (33.5%) | 20.8% (28.5%) | 42.9° | |
 | Constant average direction | | | 41.1° | |
+
+These results use the labels after holds 1283 and 1298 were relabeled from edge to
+pinch. Changing two types also changes the stratified folds, so every score is redrawn.
+Most moved by a point or two, about the spread between seeds; the conclusions did not change.
 
 <!-- chart: probe-scores -->
 
 **Type is encoded.** From position alone a probe cannot tell the hand-hold types apart
-(24%, chance is 25%), and the untrained network does no better. The learned hold
-embedding and hold vector reach 75% and 77%, far above the shuffled-label null. They
-also beat usage counts (52%), the strongest control. So the model stores more than
+(22%, chance is 25%), and the untrained network does no better. The learned hold
+embedding and hold vector reach 75% and 76%, far above the shuffled-label null. They
+also beat usage counts (54%), the strongest control. So the model stores more than
 how often each hold is used in each role, likely which holds are used together, at
 what grades and angles, and in what order.
 
@@ -266,9 +316,12 @@ are wrong. Switch to grip to compare labeled and predicted directions.
 
 <!-- chart: probe-boards -->
 
-Almost every pinch is recovered (98% recall), against 49% from usage counts. Edges and jugs
+Almost every pinch is recovered (98% recall), against 60% from usage counts. Edges and jugs
 are recovered 76% and 69% of the time and are mostly mistaken for each other. Slopers
-(64%) are the hardest for the model, though with 9 of them that number is noisy.
+(61%) are the hardest for the model, though with 9 of them that number is noisy.
+Holds 1283 and 1298 were labeled edge until they were checked again. Before that, the
+hold-vector, in-context and usage probes had already predicted pinch for both, which was
+scored as wrong. They are now labeled pinch.
 Usage counts find slopers well (76%), probably because they are used in their own way.
 
 <!-- chart: probe-confusion -->
@@ -282,7 +335,7 @@ the probes, using 20 dimensions, are the test.
 
 **Grip direction is only partly encoded.** A third of the single-direction holds pull
 straight up, and always guessing the average direction is off by 41.1° on average. The
-hold embedding is off by 30.6°, against 39.7° for usage counts, so some of the
+hold embedding is off by 30.6°, against 40.0° for usage counts, so some of the
 direction is in there, much less clearly than type.
 
 <!-- chart: probe-grip -->
@@ -293,7 +346,7 @@ direction is in there, much less clearly than type.
   never sees images, so whatever it knows about type came from the climbs.
 - A linear probe finds information that is linearly readable. A score near chance
   does not prove the information is absent, only that it is not stored that simply.
-- Slopers (9) and pinches (20) are few, so their per-type scores move by several
+- Slopers (9) and pinches (22) are few, so their per-type scores move by several
   points between seeds.
 - Usage counts and the model both come from the same training climbs, and the labels
   were made after training. Nothing about the labels leaked into the model.
@@ -387,7 +440,10 @@ trained on seeds 42, 43 and 44 by `compare_models.py`.
 Nats per held-out test climb, generated from nothing with the decoding rules and its
 real grade, mean of three seeds. "All off" scores the same model with every tag set to
 zero. "Samples valid" is the share of climbs sampled with all tags off that pass the
-validity checks.
+version 1 checks (`legacy_valid_v1`, which needs a foot-only hold). A rerun of
+`tag_conditioning.py` also records `schema_valid`, `starts_below_finishes`, and
+`explicit_feet_present` separately for each tag. That matters most for `campus`, whose
+climbs legitimately have no feet.
 
 | Model | Tags given | Tagged climbs (1,484) | Untagged (15,413) | All (16,897) | Samples valid |
 | --- | --- | ---: | ---: | ---: | ---: |
@@ -431,7 +487,7 @@ generated climbs are then measured two ways.
 
 Tags the holds can show steer strongly. Turning on `campus` cuts feet from 3.9 to 0.3
 per climb, `traverse` widens the hand holds from 141 to 238 cm, and `pinch` raises the
-pinch share of hand holds from 6% to 41%. Across all 26 tags and 13 statistics, the
+pinch share of hand holds from 7% to 45% (shares use the current hold labels). Across all 26 tags and 13 statistics, the
 generated changes follow the real differences with a correlation of 0.83.
 
 <!-- chart: tags-scatter -->

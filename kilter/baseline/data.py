@@ -5,8 +5,10 @@ import gzip
 from dataclasses import asdict
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
+import uuid
 
 import numpy as np
 import torch
@@ -85,9 +87,8 @@ def split_for_uuid(uuid, config):
     return 0 if value < config.train_fraction else (1 if value < config.train_fraction + config.validation_fraction else 2)
 
 
-def prepare(config):
-    """Verify source contents on every call; reuse content-addressed encoded data."""
-    tokenizer = Tokenizer.from_csv(config.vocabulary)
+def data_specification(config):
+    """What the encoded dataset depends on, and its fingerprint (input contents, this file, settings)."""
     specification = {
         "cache_version": CACHE_VERSION,
         "source_sha256": sha256(config.source),
@@ -95,7 +96,13 @@ def prepare(config):
         "preprocessing_sha256": sha256(__file__),
         "config": {k: v for k, v in asdict(config).items() if k not in {"source", "vocabulary", "cache_dir"}},
     }
-    fingerprint = hashlib.sha256(json.dumps(specification, sort_keys=True).encode()).hexdigest()
+    return specification, hashlib.sha256(json.dumps(specification, sort_keys=True).encode()).hexdigest()
+
+
+def prepare(config):
+    """Verify source contents on every call; reuse content-addressed encoded data."""
+    tokenizer = Tokenizer.from_csv(config.vocabulary)
+    specification, fingerprint = data_specification(config)
     directory = Path(config.cache_dir) / fingerprint[:20]
     metadata_path = directory / "metadata.json"
     if metadata_path.exists() and (directory / "dataset.npz").exists():
@@ -142,7 +149,8 @@ def prepare(config):
         "uuids": np.asarray(uuids), "row_ids": np.asarray(row_ids),
         "splits": np.asarray(splits, dtype=np.uint8),
     }
-    temporary = directory / "dataset.tmp.npz"
+    # A unique name per writer: runs started together may encode the same cache at once.
+    temporary = directory / f"dataset.{os.getpid()}.{uuid.uuid4().hex}.tmp.npz"
     np.savez_compressed(temporary, **arrays)
     temporary.replace(directory / "dataset.npz")
     metadata = {

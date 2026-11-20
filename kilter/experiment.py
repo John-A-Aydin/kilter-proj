@@ -15,12 +15,19 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, Sampler
 
-from .config import Config, ModelConfig, write_json
-from .data import EVAL_MODES, PAD, Board, ClimbDataset, Collator, load_arrays, prepare
+from .config import Config, ModelConfig, resolve_device, write_json
+from .data import EVAL_MODES, PAD, Board, ClimbDataset, Collator, data_specification, load_arrays, prepare
 from .climb_tags import TAGS, attach_tags, file_sha256
 from .hold_labels import label_features, read_hold_labels
+from .identity import differences, evaluation_identity, read_run_identity, training_identity
 from .model import NULL_GRADE, ClimbTransformer, parameter_count, weighted_token_loss
 from .sampling import LegalTokens
+from .splits import SIMILARITY_BANDS, band_masks
+
+# Bump when a likelihood metric's meaning changes; evaluations record it (kilter/identity.py).
+LIKELIHOOD_EVALUATOR_VERSION = 1
+EVAL_BATCH_SIZE = 512
+SPLIT_IDS = {"validation": 1, "test": 2}
 
 
 def setup(config):
@@ -30,10 +37,7 @@ def setup(config):
     np.random.seed(config.seed)
     torch.manual_seed(config.seed)
     torch.use_deterministic_algorithms(True)
-    device = config.device
-    if device == "auto":
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-    return torch.device(device)
+    return torch.device(config.device if config.device != "auto" else resolve_device(config.device))
 
 
 class LengthBucketSampler(Sampler):
@@ -95,7 +99,7 @@ def eval_loader(arrays, split, mode, batch_size):
 
 
 @torch.no_grad()
-def evaluate(model, arrays, split, device, batch_size=512, max_batches=0, modes=EVAL_MODES, null_grade=False,
+def evaluate(model, arrays, split, device, batch_size=EVAL_BATCH_SIZE, max_batches=0, modes=EVAL_MODES, null_grade=False,
              legal=None):
     """Per-climb negative log-likelihood (nats) of the non-given holds and EOS, for each given mode.
 
@@ -171,6 +175,7 @@ def train(config, resume=None):
                        read_hold_labels(config.model.hold_labels, Board.from_json(metadata["board"])))
     model, board = build_model(config.model, metadata, config.data, hold_labels)
     model.to(device)
+    identity = training_identity("kilter", config)
     legal = LegalTokens(board, config.data.max_holds, device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.train.learning_rate,
                                   betas=(config.train.beta1, config.train.beta2),
@@ -202,6 +207,9 @@ def train(config, resume=None):
         run_dir = resume.parent
         if (run_dir / "summary.json").exists():
             raise ValueError("Run already completed; use a new run for a new experiment")
+        recorded = read_run_identity(run_dir)
+        if recorded is not None and recorded != identity:
+            raise ValueError(f"Resume needs the run's identity; these changed: {', '.join(differences(identity, recorded))}")
         model.load_state_dict(state["model"])
         optimizer.load_state_dict(state["optimizer"])
         scheduler.load_state_dict(state["scheduler"])
@@ -227,6 +235,7 @@ def train(config, resume=None):
             except FileExistsError:
                 continue
         write_json(run_dir / "config.json", config.to_dict())
+        write_json(run_dir / "identity.json", identity)
         write_json(run_dir / "dataset.json", {**metadata, "cache_directory": str(cache_dir.resolve())})
         if hold_labels:
             write_json(run_dir / "hold_labels.json", hold_labels)
@@ -244,7 +253,8 @@ def train(config, resume=None):
             "git_status": git_output("status", "--short"), "started_at": timestamp,
         })
         snapshot_source(run_dir)
-    print(json.dumps({"run": str(run_dir), "device": str(device), "parameters": parameter_count(model),
+    print(json.dumps({"run": str(run_dir), "run_id": identity["run_id"], "device": str(device),
+                      "parameters": parameter_count(model),
                       "splits": metadata["splits"], "excluded": metadata["excluded"]}), flush=True)
     session_start = time.perf_counter()
     completed_epochs = start_epoch
@@ -306,7 +316,7 @@ def train(config, resume=None):
             break
     best = torch.load(run_dir / "best.pt", map_location="cpu", weights_only=False)
     summary = {
-        "name": config.name, "run": str(run_dir), "parameters": parameter_count(model),
+        "name": config.name, "run": str(run_dir), "run_id": identity["run_id"], "parameters": parameter_count(model),
         "best_epoch": best["epoch"], "best_validation_selection_nll": best["best_loss"],
         "epochs_completed": completed_epochs, "steps": global_step,
         "session_seconds": time.perf_counter() - session_start, "data_fingerprint": metadata["fingerprint"],
@@ -331,16 +341,41 @@ def load_run(checkpoint, device="cpu"):
     return model, board, config, metadata
 
 
-def evaluate_run(checkpoint, split="test", device="cpu"):
+def likelihood_identity(checkpoint, split):
+    """What ``evaluate_run`` on ``checkpoint`` and ``split`` would record under "evaluation"."""
+    config = Config.from_dict(json.loads((Path(checkpoint).resolve().parent / "config.json").read_text()))
+    settings = {"modes": list(EVAL_MODES), "batch_size": EVAL_BATCH_SIZE, "rules": True,
+                "similarity_bands": [list(band) for band in SIMILARITY_BANDS]}
+    return evaluation_identity("likelihood", LIKELIHOOD_EVALUATOR_VERSION, checkpoint, split,
+                               data_specification(config.data)[1], settings, [("kilter", ())])
+
+
+def evaluate_run(checkpoint, split="validation", device="auto"):
+    """Likelihood on ``split``, also per similarity band when the split manifest records similarity.
+
+    Selecting models uses validation. Test is for a final, recorded comparison
+    (experiments/final_test.py).
+    """
+    device = resolve_device(device)
     model, board, config, metadata = load_run(checkpoint, device)
     torch.set_num_threads(config.train.threads)
     _, current, arrays = load_dataset(config, Path(checkpoint).parent)
     if current["fingerprint"] != metadata["fingerprint"]:
         raise ValueError("Dataset changed since training")
-    result = {"split": split, "checkpoint": str(checkpoint),
-              **evaluate_grades(model, arrays, {"validation": 1, "test": 2}[split], device,
-                                config.train.p_null_grade,
-                                legal=LegalTokens(board, config.data.max_holds, device))}
+    split_id = SPLIT_IDS[split]
+    legal = LegalTokens(board, config.data.max_holds, device)
+    result = {"split": split, "checkpoint": str(checkpoint), "evaluation": likelihood_identity(checkpoint, split),
+              **evaluate_grades(model, arrays, split_id, device, config.train.p_null_grade, legal=legal)}
+    if "nearest_train_hand_jaccard" in arrays:
+        # Each band is scored as its own split: only its rows keep the split's id.
+        result["by_similarity"] = {}
+        for band, mask in band_masks(arrays["nearest_train_hand_jaccard"]).items():
+            rows = mask & (arrays["splits"] == split_id)
+            if rows.any():
+                banded = {**arrays, "splits": np.where(rows, split_id, 254).astype(np.uint8)}
+                result["by_similarity"][band] = {
+                    "rows": int(rows.sum()),
+                    **evaluate_grades(model, banded, split_id, device, config.train.p_null_grade, legal=legal)}
     write_json(Path(checkpoint).parent / f"{Path(checkpoint).stem}_{split}.json", result)
-    print(json.dumps(result), flush=True)
+    print(json.dumps({k: v for k, v in result.items() if k != "evaluation"}), flush=True)
     return result

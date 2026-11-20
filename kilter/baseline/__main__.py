@@ -21,8 +21,9 @@ def main():
             sub.add_argument("--resume", type=Path, help="Resume an interrupted run from last.pt using its saved config")
     sub = commands.add_parser("evaluate")
     sub.add_argument("checkpoint", type=Path)
-    sub.add_argument("--split", choices=("validation", "test"), default="test")
-    sub.add_argument("--device", default="cpu")
+    sub.add_argument("--split", choices=("validation", "test"), default="validation",
+                     help="Select models on validation; test is for experiments/final_test.py")
+    sub.add_argument("--device", default="auto", help="cpu, cuda, or auto (CUDA when available)")
     sub = commands.add_parser("sample")
     sub.add_argument("checkpoint", type=Path)
     sub.add_argument("--grade", type=float, required=True, help="Numeric V scale, e.g. 5 for V5")

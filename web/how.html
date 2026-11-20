@@ -262,12 +262,12 @@
       </ul>
       <p>The served model was also trained with this mask (<code>train.rule_loss</code>), so its loss only ranks legal tokens. It relies on the mask: with the rules off, its samples are meaningless. The no-rules row below comes from the earlier large model, trained without the mask.</p>
       <figure class="figure">
-        <h3 class="chart-title">Structurally valid samples</h3>
-        <p class="chart-sub">Share of test samples with no repeated hold, 1–2 starts and finishes, starts below finishes, and at least one foot. Mean of 3 seeds.</p>
+        <h3 class="chart-title">Samples passing the structural checks</h3>
+        <p class="chart-sub">Share of test samples with no repeated hold, 1–2 starts and finishes, starts below finishes, and at least one foot (evaluator version 1). Mean of 3 seeds.</p>
         <div class="legend" id="validity-legend"></div>
         <div class="chart" id="validity-chart"></div>
         <details class="chart-table"><summary>Show the numbers</summary><div id="validity-table"></div></details>
-        <figcaption>Figure 7. The baseline sorted holds by ID and couldn’t take start holds as a prefix. Its workaround decoder kept adding start holds. Real climbs aren’t 100% valid either: some have no feet.</figcaption>
+        <figcaption>Figure 7. The baseline sorted holds by ID and couldn’t take start holds as a prefix. Its workaround decoder kept adding start holds. Real climbs don’t all pass either: campus climbs have no feet, and some starts are level with a finish. Neither is a mistake, which is why newer evaluations report each check separately.</figcaption>
       </figure>
     </section>
 
@@ -297,11 +297,11 @@
       <div class="section-head"><h2 id="caveats-heading">Caveats</h2></div>
       <ul>
         <li><strong>Generated climbs haven’t been tested on a wall.</strong> The checks are structural, plus summary statistics such as hold count, feet, finish height, and the largest gap between hand holds.</li>
-        <li><strong>The rules guarantee validity.</strong> With rules on, validity mostly measures the mask. The no-rules number for a model trained without the mask is the fairer measure of what a model learned.</li>
+        <li><strong>The rules guarantee only part of these checks.</strong> With rules on, every finished climb has unique holds, 1–2 starts and finishes, and at most 40 holds. Starts below finishes and at least one foot are not enforced, so rules-on samples can still fail. The no-rules number for a model trained without the mask is the fairer measure of what a model learned.</li>
         <li><strong>Grade fidelity is weak.</strong> About 50 samples per grade, and the V2 → V11 trend in hold count is noisy. The gain in likelihood is solid; matching the requested grade is not established.</li>
         <li><strong>One start is out of distribution for the starts mode.</strong> In that mode, training always gave every start hold. The random-subset mode partly covers giving just one.</li>
       </ul>
-      <p class="source-note">Numbers come from <code>results/</code> in the repository and are exported by <code>experiments/export_training_page.py</code>. The baseline is the original <code>kilter/</code> transformer: 154k parameters, holds sorted by ID.</p>
+      <p class="source-note">Numbers come from <code>results/compare_models/</code> in the repository and are exported by <code>experiments/export_training_page.py</code>. They predate the sealed test workflow: test scores were computed alongside validation during development. The baseline is the original <code>kilter/</code> transformer: 154k parameters, holds sorted by ID.</p>
     </section>
 
     <footer class="page-footer"><a href="./">Back to the climb tool</a></footer>

@@ -1,0 +1,239 @@
+{
+  "built_from": {
+    "builder_sha256": "b332b98a7dbf0a925b351a8b778e0df1384eca4d89b49b10775b4fcb8c4ae53f",
+    "data_fingerprint": "2a60c18e452dcc82144e732593eb787e372f1ae5e9bac6a7348cea6e204f93d8",
+    "encoded_sha256": "e29cc6e26549c04b12d8a5d1d842ec69a45319e83dcb0bd685d6c468d3da1144",
+    "filters": {
+      "include_computed_grades": true,
+      "max_holds": 40
+    },
+    "source_sha256": "ccb763739795a169377659cb303a3cc9ab188a8590a84d1c1c28f8e1ae302a89",
+    "vocabulary_sha256": "83fef692dfde353c9d834c8cb4753ea7aaa1b23e0d1db6fe0ef1673983cb3189"
+  },
+  "description": "Family-separated split: climbs that share a UUID, an exact hold-and-role set, or a hand set are always in the same partition. Held-out climbs record how similar the nearest training hand set is.",
+  "membership": {
+    "climbs": 206783,
+    "columns": [
+      "climb_uuid",
+      "family",
+      "partition",
+      "nearest_train_hand_jaccard"
+    ],
+    "file": "family_v1.membership.csv.gz",
+    "sha256": "a6449f9ef8abf7ef497618b300327cdf68deaf5090b08dd440be56e40ce3ce9a"
+  },
+  "name": "family_v1",
+  "rules": {
+    "assignment": "sha256('<seed>:<family_key>'), first 8 bytes as a fraction of 2**64: train below train_fraction, validation below train_fraction + validation_fraction, test above",
+    "family_closure": "connected components",
+    "family_key": "smallest climb_uuid in the family",
+    "family_links": [
+      "same climb_uuid",
+      "same hold-and-role set",
+      "same hand set (holds not used as feet; start, hand and finish roles ignored)"
+    ],
+    "max_family_climbs": 200,
+    "near_duplicate_jaccard": 0.75,
+    "seed": 2026,
+    "similarity": "Jaccard similarity of a held-out climb's hand set to the nearest training hand set",
+    "similarity_bands": {
+      "distant": 0.0,
+      "near_duplicate": 0.75,
+      "related": 0.5
+    },
+    "train_fraction": 0.9,
+    "validation_fraction": 0.05
+  },
+  "schema_version": 1,
+  "statistics": {
+    "climbs": 206783,
+    "compared_with_historical_split": {
+      "test": {
+        "historical_rows": 16897,
+        "historical_rows_sharing_a_train_hand_set": 673,
+        "rows_also_in_historical": 810
+      },
+      "validation": {
+        "historical_rows": 16936,
+        "historical_rows_sharing_a_train_hand_set": 706,
+        "rows_also_in_historical": 876
+      }
+    },
+    "crossing_partitions": {
+      "climb_uuid": 0,
+      "hand_set": 0,
+      "hold_and_role_set": 0
+    },
+    "families": 202796,
+    "family_size": {
+      "climbs_in_shared_families": 6866,
+      "families_with_several_climbs": 2879,
+      "largest_climbs": 28,
+      "largest_rows": 52
+    },
+    "one_hold_edit_chaining_largest_family_climbs": 5488,
+    "partitions": {
+      "test": {
+        "climbs": 10331,
+        "families": 10100,
+        "nearest_train_hand_jaccard": {
+          "climbs_by_band": {
+            "distant": 5790,
+            "near_duplicate": 667,
+            "related": 3874
+          },
+          "row_quantiles": {
+            "0.1": 0.3636,
+            "0.25": 0.4,
+            "0.5": 0.4615,
+            "0.75": 0.5714,
+            "0.9": 0.7273
+          },
+          "rows_by_band": {
+            "distant": 8519,
+            "near_duplicate": 1646,
+            "related": 6585
+          }
+        },
+        "rows": 16750,
+        "rows_by_angle": {
+          "0": 201,
+          "10": 348,
+          "15": 509,
+          "20": 898,
+          "25": 818,
+          "30": 2311,
+          "35": 1063,
+          "40": 5385,
+          "45": 2372,
+          "5": 135,
+          "50": 1896,
+          "55": 313,
+          "60": 352,
+          "65": 47,
+          "70": 102
+        },
+        "rows_by_grade": {
+          "0": 1022,
+          "1": 988,
+          "10": 262,
+          "11": 142,
+          "12": 50,
+          "13": 12,
+          "14": 1,
+          "16": 3,
+          "2": 899,
+          "3": 2310,
+          "4": 2534,
+          "5": 2885,
+          "6": 1899,
+          "7": 1545,
+          "8": 1676,
+          "9": 522
+        }
+      },
+      "train": {
+        "climbs": 186080,
+        "families": 182538,
+        "rows": 304398,
+        "rows_by_angle": {
+          "0": 3828,
+          "10": 6075,
+          "15": 9464,
+          "20": 17608,
+          "25": 15300,
+          "30": 40952,
+          "35": 19489,
+          "40": 96379,
+          "45": 41456,
+          "5": 2478,
+          "50": 35643,
+          "55": 6303,
+          "60": 6463,
+          "65": 933,
+          "70": 2027
+        },
+        "rows_by_grade": {
+          "0": 18576,
+          "1": 18194,
+          "10": 5647,
+          "11": 3042,
+          "12": 1126,
+          "13": 261,
+          "14": 24,
+          "15": 14,
+          "16": 13,
+          "2": 15810,
+          "3": 41326,
+          "4": 48042,
+          "5": 50929,
+          "6": 34172,
+          "7": 27142,
+          "8": 29973,
+          "9": 10107
+        }
+      },
+      "validation": {
+        "climbs": 10372,
+        "families": 10158,
+        "nearest_train_hand_jaccard": {
+          "climbs_by_band": {
+            "distant": 5950,
+            "near_duplicate": 678,
+            "related": 3744
+          },
+          "row_quantiles": {
+            "0.1": 0.3636,
+            "0.25": 0.4,
+            "0.5": 0.4545,
+            "0.75": 0.5714,
+            "0.9": 0.75
+          },
+          "rows_by_band": {
+            "distant": 8919,
+            "near_duplicate": 1809,
+            "related": 6320
+          }
+        },
+        "rows": 17048,
+        "rows_by_angle": {
+          "0": 223,
+          "10": 364,
+          "15": 543,
+          "20": 950,
+          "25": 850,
+          "30": 2323,
+          "35": 1087,
+          "40": 5445,
+          "45": 2295,
+          "5": 137,
+          "50": 2001,
+          "55": 343,
+          "60": 350,
+          "65": 38,
+          "70": 99
+        },
+        "rows_by_grade": {
+          "0": 1102,
+          "1": 972,
+          "10": 327,
+          "11": 169,
+          "12": 52,
+          "13": 21,
+          "14": 3,
+          "16": 1,
+          "2": 944,
+          "3": 2322,
+          "4": 2688,
+          "5": 2782,
+          "6": 1946,
+          "7": 1478,
+          "8": 1677,
+          "9": 564
+        }
+      }
+    },
+    "rows": 338196,
+    "rows_excluded_by_historical_split": 816
+  }
+}

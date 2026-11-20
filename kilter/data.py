@@ -6,6 +6,9 @@ and within each role bottom to top, then left to right. Loss covers only the
 remaining holds and EOS, so the model learns p(rest | given, grade, angle).
 Given sets are resampled every epoch, covering generation from nothing, from
 start holds plus some feet, and from arbitrary picks.
+
+Rows are split by the historical UUID hash (``split_for_uuid``) unless
+``data.split_manifest`` names a versioned manifest from kilter/splits.py.
 """
 from collections import Counter
 import csv
@@ -13,14 +16,17 @@ import gzip
 from dataclasses import asdict
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
+import uuid
 
 import numpy as np
 import torch
 from torch.utils.data import Dataset
 
 from .config import write_json
+from .splits import HISTORICAL_SPLIT, read_split_manifest
 
 PAD, BOS, EOS, SEP = range(4)
 SPECIAL_TOKENS = ["PAD", "BOS", "EOS", "SEP"]
@@ -29,7 +35,8 @@ ROLE_NAMES = ["hand", "foot", "start", "finish"]
 # Generation order: anchor the start, climb the hands to the finish, then place feet.
 ROLE_ORDER = {START: 0, HAND: 1, FINISH: 2, FOOT: 3}
 MAX_STARTS = MAX_FINISHES = 2
-CACHE_VERSION = 1
+CACHE_VERSION = 2
+EXCLUDED = 255
 EVAL_MODES = ("scratch", "starts", "starts_feet")
 
 
@@ -121,7 +128,7 @@ def v_grade(label):
 
 
 def split_for_uuid(uuid, config):
-    # Identical to kilter.data.split_for_uuid so held-out rows match the baseline.
+    # Identical to kilter.baseline.data.split_for_uuid so held-out rows match the baseline.
     digest = hashlib.sha256(f"{config.split_seed}:{uuid}".encode()).digest()
     value = int.from_bytes(digest[:8], "big") / 2**64
     return 0 if value < config.train_fraction else (1 if value < config.train_fraction + config.validation_fraction else 2)
@@ -145,17 +152,31 @@ def climb_problem(frames, max_holds):
     return None
 
 
-def prepare(config):
-    """Encode and cache the dataset, keyed by the contents of every input and this file."""
-    board = Board.from_csv(config.vocabulary)
+def data_specification(config):
+    """What the encoded dataset depends on, and its fingerprint: input contents, this file, settings.
+
+    Paths are left out in favour of the contents they point at, so moving a file changes nothing.
+    """
+    split = {"name": HISTORICAL_SPLIT}
+    if config.split_manifest:
+        manifest = read_split_manifest(config.split_manifest, rows=False)
+        split = {"name": manifest["name"], "manifest_sha256": manifest["sha256"]}
     specification = {
         "cache_version": CACHE_VERSION,
         "source_sha256": sha256(config.source),
         "vocabulary_sha256": sha256(config.vocabulary),
         "preprocessing_sha256": sha256(__file__),
-        "config": {k: v for k, v in asdict(config).items() if k not in {"source", "vocabulary", "cache_dir"}},
+        "config": {k: v for k, v in asdict(config).items()
+                   if k not in {"source", "vocabulary", "cache_dir", "split_manifest"}},
+        "split": split,
     }
-    fingerprint = hashlib.sha256(json.dumps(specification, sort_keys=True).encode()).hexdigest()
+    return specification, hashlib.sha256(json.dumps(specification, sort_keys=True).encode()).hexdigest()
+
+
+def prepare(config):
+    """Encode and cache the dataset, keyed by the contents of every input and this file."""
+    board = Board.from_csv(config.vocabulary)
+    specification, fingerprint = data_specification(config)
     directory = Path(config.cache_dir) / fingerprint[:20]
     metadata_path = directory / "metadata.json"
     if metadata_path.exists() and (directory / "dataset.npz").exists():
@@ -164,6 +185,7 @@ def prepare(config):
             raise ValueError(f"Corrupt data cache: {directory}")
         return directory, metadata
     directory.mkdir(parents=True, exist_ok=True)
+    manifest = read_split_manifest(config.split_manifest) if config.split_manifest else None
     tokens, offsets, conditions, ascents, uuids, row_ids, splits, signatures = [], [0], [], [], [], [], [], []
     excluded = Counter()
     with open_lines(config.source) as source:
@@ -190,16 +212,27 @@ def prepare(config):
             ascents.append(max(1, int(row.get("ascensionist_count") or 1)))
             uuids.append(row["climb_uuid"])
             row_ids.append(row["climb_angle_id"])
-            splits.append(split_for_uuid(row["climb_uuid"], config))
+            if manifest is None:
+                splits.append(split_for_uuid(row["climb_uuid"], config))
+            elif row["climb_uuid"] in manifest["partition"]:
+                splits.append(manifest["partition"][row["climb_uuid"]])
+            else:
+                raise ValueError(f"Climb {row['climb_uuid']} is not in split manifest {manifest['name']}; "
+                                 "it was built for different data or filters")
             signatures.append(hashlib.sha1(np.asarray(sorted(sequence), dtype=np.int32).tobytes()).hexdigest()[:16])
     splits = np.asarray(splits, dtype=np.uint8)
     signatures = np.asarray(signatures)
+    held_out = set(signatures[splits != 0])
+    mask = (splits == 0) & np.isin(signatures, list(held_out))
     leaked = 0
-    if config.remove_split_leakage:
-        held_out = set(signatures[splits != 0])
-        mask = (splits == 0) & np.isin(signatures, list(held_out))
+    if manifest is not None:
+        # A manifest keeps exact duplicates in one partition, so there is nothing to remove.
+        if mask.any() or set(manifest["partition"]) != set(uuids):
+            raise ValueError(f"Split manifest {manifest['name']} does not match this data: it must list exactly "
+                             "the encoded climbs and keep exact hold sets out of more than one partition")
+    elif config.remove_split_leakage:
         leaked = int(mask.sum())
-        splits[mask] = 255
+        splits[mask] = EXCLUDED
     if not all((splits == i).any() for i in range(3)):
         raise ValueError("Dataset must contain examples in each split")
     arrays = {
@@ -207,7 +240,13 @@ def prepare(config):
         "conditions": np.asarray(conditions, dtype=np.float32), "ascents": np.asarray(ascents, dtype=np.int32),
         "uuids": np.asarray(uuids), "row_ids": np.asarray(row_ids), "splits": splits, "signatures": signatures,
     }
-    temporary = directory / "dataset.tmp.npz"
+    if manifest is not None:
+        # Held-out rows: how close the nearest training hand set is (NaN for training rows).
+        arrays["families"] = np.asarray([manifest["family"][u] for u in uuids], dtype=np.int32)
+        arrays["nearest_train_hand_jaccard"] = np.asarray(
+            [manifest["nearest_train_hand_jaccard"].get(u, np.nan) for u in uuids], dtype=np.float32)
+    # A unique name per writer: runs started together may encode the same cache at once.
+    temporary = directory / f"dataset.{os.getpid()}.{uuid.uuid4().hex}.tmp.npz"
     np.savez_compressed(temporary, **arrays)
     temporary.replace(directory / "dataset.npz")
     metadata = {
@@ -215,6 +254,7 @@ def prepare(config):
         "special_tokens": SPECIAL_TOKENS, "vocab_size": board.vocab_size,
         "condition_order": ["v_grade", "angle_divided_by_90"], "role_order": ROLE_ORDER,
         "excluded": dict(excluded), "training_rows_removed_for_leakage": leaked,
+        "split": specification["split"],
         "max_holds": int(np.diff(arrays["offsets"]).max()),
         "encoded_sha256": sha256(directory / "dataset.npz"),
         "splits": {name: {"rows": int((splits == i).sum()), "unique_climbs": len(set(arrays["uuids"][splits == i]))}

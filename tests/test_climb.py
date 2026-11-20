@@ -1,3 +1,5 @@
+from collections import defaultdict
+import gzip
 import json
 from pathlib import Path
 import tempfile
@@ -9,11 +11,14 @@ import torch
 from kilter.config import Config, DataConfig, ModelConfig, TrainConfig, load_config
 from kilter.data import (BOS, EOS, FINISH, FOOT, HAND, PAD, SEP, START, Board, ClimbDataset, Collator,
                             build_example, climb_problem, given_mask, load_arrays, prepare, split_for_uuid)
-from kilter.experiment import evaluate, load_run, train
+from kilter.experiment import evaluate, evaluate_run, likelihood_identity, load_run, train
 from kilter.climb_tags import TAGS, extract
 from kilter.hold_labels import FEATURE_NAMES, label_features, read_hold_labels
 from kilter.model import NULL_GRADE, ClimbTransformer, condition_features, weighted_token_loss
-from kilter.sampling import LegalTokens, allowed_tokens, climb_checks, generate, generate_batch, validate_given
+from kilter.identity import differences, read_run_identity, training_identity
+from kilter.quality import climb_checks, quality_identity, quality_report, reference_sets, signature, summarize
+from kilter.sampling import LegalTokens, allowed_tokens, generate, generate_batch, validate_given
+from kilter.splits import band_masks, build_split_manifest, read_split_manifest
 
 # Six holds on a 2x3 grid: ids 10..15, y rising with id.
 ROWS = [{"id": 10 + i, "x": (i % 2) / 2, "y": (i // 2) / 3, "kickboard": int(i < 2), "set": 1 + 19 * (i % 2)}
@@ -243,12 +248,62 @@ class SamplingTests(unittest.TestCase):
                                                {"hold_token": 10, "hold_use_type": FOOT, "given": True}])
         self.assertEqual(len(ids), len(set(ids)))
         self.assertTrue(result["ended_with_eos"])
-        checks, _ = climb_checks(result["holds"], {r["id"]: r["y"] for r in ROWS})
-        self.assertTrue(checks["finishes_1_2"] and checks["starts_1_2"] and checks["no_repeated_hold"])
+        checks, _ = climb_checks(result["holds"], {r["id"]: r["y"] for r in ROWS}, given, max_holds=12)
+        self.assertTrue(checks["schema_valid"] and checks["constraint_satisfied"])
         with self.assertRaises(ValueError):
             validate_given(self.board, [(10, START), (11, START), (12, START)], 10)
         with self.assertRaises(ValueError):
             validate_given(self.board, [(10, START), (10, FOOT)], 10)
+
+
+class QualityTests(unittest.TestCase):
+    def setUp(self):
+        self.board = Board(ROWS)
+        self.y_of = {r["id"]: r["y"] for r in ROWS}
+
+    def summary(self, tokens, references):
+        climb = {"grade": 5, "angle": 40, "tokens": tokens, "given": [], "ended": True}
+        return summarize([climb], references, self.board, self.y_of, 40)
+
+    def test_checks_report_each_property_separately(self):
+        # A campus climb is schema-valid without foot holds; only the v1 conjunction rejects it.
+        campus = [hold(10, START), hold(12, HAND), hold(15, FINISH)]
+        checks, stats = climb_checks(campus, self.y_of, max_holds=40)
+        self.assertTrue(checks["schema_valid"] and checks["starts_below_finishes"] and checks["constraint_satisfied"])
+        self.assertFalse(checks["explicit_feet_present"] or checks["legacy_valid_v1"])
+        self.assertAlmostEqual(stats["largest_vertical_hand_gap"], 1 / 3, places=6)
+        # A start above the finish is described, not a schema failure.
+        checks, _ = climb_checks([hold(15, START), hold(10, FINISH), hold(12, FOOT)], self.y_of)
+        self.assertTrue(checks["schema_valid"] and checks["explicit_feet_present"])
+        self.assertFalse(checks["starts_below_finishes"] or checks["legacy_valid_v1"])
+        # A given hold that comes back in another role breaks the request, not the schema.
+        checks, _ = climb_checks(campus, self.y_of, given=[(12, FOOT)])
+        self.assertTrue(checks["schema_valid"])
+        self.assertFalse(checks["constraint_satisfied"])
+        for climb, budget in (([hold(10, START), hold(11, START), hold(12, START), hold(15, FINISH)], None),
+                              ([hold(10, START), hold(10, HAND), hold(15, FINISH)], None),
+                              ([hold(12, HAND), hold(15, FINISH)], None), (campus, 2)):
+            self.assertFalse(climb_checks(climb, self.y_of, max_holds=budget)[0]["schema_valid"], climb)
+
+    def test_novelty_counts_only_training_rows_as_seen(self):
+        # One training climb, one held out, and one removed from training (split 255) for duplicating
+        # a held-out climb.
+        train = self.board.encode([hold(10, START), hold(12, HAND), hold(15, FINISH)])
+        held_out = self.board.encode([hold(11, START), hold(13, HAND), hold(14, FINISH)])
+        removed = self.board.encode([hold(11, START), hold(12, HAND), hold(14, FINISH), hold(10, FOOT)])
+        arrays = {"tokens": np.array(train + held_out + removed, dtype=np.int32), "offsets": np.array([0, 3, 6, 10]),
+                  "splits": np.array([0, 2, 255], dtype=np.uint8),
+                  "signatures": np.array([signature(t) for t in (train, held_out, removed)])}
+        references = reference_sets(arrays)
+        keys = ("novel_vs_train", "novel_vs_excluded_duplicates", "novel_vs_all_rows", "novel_hand_set_vs_train")
+        result = lambda tokens: tuple(self.summary(tokens, references)[key] for key in keys)
+        self.assertEqual(result(train), (0, 1, 0, 0))
+        # Version 1 counted this one as a training climb.
+        self.assertEqual(result(removed), (1, 0, 0, 1))
+        self.assertEqual(result(held_out), (1, 1, 0, 1))
+        # The training climb's hand holds with a foot added: a new climb, not a new hand set.
+        footed = self.board.encode([hold(10, START), hold(12, HAND), hold(15, FINISH), hold(11, FOOT)])
+        self.assertEqual(result(footed), (1, 1, 1, 0))
 
 
 class CatalogueTests(unittest.TestCase):
@@ -276,37 +331,46 @@ class CatalogueTests(unittest.TestCase):
             climb_catalogue(arrays, board, {})
 
 
+def tiny_dataset(root):
+    """A tiny catalogue on ROWS's board, and a quick config for it; returns (config, rows)."""
+    vocabulary = root / "holds.csv"
+    vocabulary.write_text("hold_x,hold_y,on_kickboard,hold_token,set_id\n"
+                          + "".join(f"{r['x']},{r['y']},{r['kickboard']},{r['id']},{r['set']}\n" for r in ROWS))
+    rows = []
+    # 28 distinct hold sets, plus one set repeated under 20 more UUIDs to exercise leakage removal.
+    # Each set has a twin with the same hand holds and one more foot.
+    sets = [[hold(start, START), *[hold(h, HAND) for h in (12, 13, 14) if mask >> (h - 12) & 1],
+             hold(15, FINISH), *([hold(21 - start, FOOT)] if foot else [])]
+            for start in (10, 11) for mask in range(1, 8) for foot in (0, 1)]
+    sets += [sets[0]] * 20
+    for i, frames in enumerate(sets):
+        for angle in (20, 40):
+            rows.append({"climb_uuid": str(i), "climb_angle_id": f"{i}:{angle}", "angle": angle,
+                         "grade_hueco": f"V{i % 8}", "grade_status": "reported",
+                         "ascensionist_count": i, "frames": [frames]})
+    rows.append({**rows[0], "climb_uuid": "multi", "frames": [sets[0], sets[1]]})
+    source = root / "climbs.jsonl"
+    source.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    config = Config(output_dir=str(root / "runs"),
+                    data=DataConfig(source=str(source), vocabulary=str(vocabulary),
+                                    cache_dir=str(root / "cache"), train_fraction=0.5,
+                                    validation_fraction=0.25, max_holds=8),
+                    model=ModelConfig(d_model=16, n_layers=1, n_heads=2, coordinate_frequencies=2),
+                    train=TrainConfig(epochs=2, batch_size=16, threads=1, ascent_weighting="log", device="cpu"))
+    return config, rows
+
+
 class LifecycleTests(unittest.TestCase):
     def test_prepare_train_evaluate_sample_on_tiny_data(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            vocabulary = root / "holds.csv"
-            vocabulary.write_text("hold_x,hold_y,on_kickboard,hold_token,set_id\n"
-                                  + "".join(f"{r['x']},{r['y']},{r['kickboard']},{r['id']},{r['set']}\n" for r in ROWS))
-            rows = []
-            # 28 distinct hold sets, plus one set repeated under 20 more UUIDs to exercise leakage removal.
-            sets = [[hold(start, START), *[hold(h, HAND) for h in (12, 13, 14) if mask >> (h - 12) & 1],
-                     hold(15, FINISH), *([hold(21 - start, FOOT)] if foot else [])]
-                    for start in (10, 11) for mask in range(1, 8) for foot in (0, 1)]
-            sets += [sets[0]] * 20
-            for i, frames in enumerate(sets):
-                for angle in (20, 40):
-                    rows.append({"climb_uuid": str(i), "climb_angle_id": f"{i}:{angle}", "angle": angle,
-                                 "grade_hueco": f"V{i % 8}", "grade_status": "reported",
-                                 "ascensionist_count": i, "frames": [frames]})
-            rows.append({**rows[0], "climb_uuid": "multi", "frames": [sets[0], sets[1]]})
-            source = root / "climbs.jsonl"
-            source.write_text("".join(json.dumps(r) + "\n" for r in rows))
-            config = Config(output_dir=str(root / "runs"),
-                            data=DataConfig(source=str(source), vocabulary=str(vocabulary),
-                                            cache_dir=str(root / "cache"), train_fraction=0.5,
-                                            validation_fraction=0.25, max_holds=8),
-                            model=ModelConfig(d_model=16, n_layers=1, n_heads=2, coordinate_frequencies=2),
-                            train=TrainConfig(epochs=2, batch_size=16, threads=1, ascent_weighting="log"))
+            config, rows = tiny_dataset(root)
             directory, metadata = prepare(config.data)
             self.assertEqual(metadata["excluded"], {"multi_frame": 1})
             self.assertGreater(metadata["training_rows_removed_for_leakage"], 0)
             arrays = load_arrays(directory)
+            self.assertEqual(metadata["split"], {"name": "historical_uuid"})
+            self.assertEqual(signature(arrays["tokens"][:arrays["offsets"][1]]), arrays["signatures"][0])
             held_out = set(arrays["signatures"][(arrays["splits"] == 1) | (arrays["splits"] == 2)])
             self.assertFalse(held_out & set(arrays["signatures"][arrays["splits"] == 0]))
             self.assertEqual(prepare(config.data)[1]["fingerprint"], metadata["fingerprint"])
@@ -372,11 +436,81 @@ class LifecycleTests(unittest.TestCase):
                 generate(model, board, None, 40, max_holds=8, tags=["not_a_tag"])
             conditions = torch.tensor([[-1.0, 40 / 90, *[1.0 if t == "campus" else 0.0 for t in TAGS]]] * 5)
             for climb in generate_batch(model, board, conditions, torch.Generator().manual_seed(2), max_holds=8):
-                checks, _ = climb_checks(board.decode(climb), {h: 0.1 * i for i, h in enumerate(board.holds)})
-                self.assertTrue(checks["no_repeated_hold"] and checks["starts_1_2"] and checks["finishes_1_2"])
+                checks, _ = climb_checks(board.decode(climb), {h: 0.1 * i for i, h in enumerate(board.holds)},
+                                         max_holds=8)
+                self.assertTrue(checks["schema_valid"])
             tags_path.write_bytes(b"changed")
             with self.assertRaises(ValueError):
                 load_dataset(loaded, run)
+
+
+class SplitAndIdentityTests(unittest.TestCase):
+    def test_family_manifest_identities_and_versioned_evaluations(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            config, rows = tiny_dataset(root)
+            historical = prepare(config.data)[1]
+            path, manifest = build_split_manifest(config.data, "family_test", 3, root / "splits")
+            statistics = manifest["statistics"]
+            self.assertEqual(statistics["crossing_partitions"], {"climb_uuid": 0, "hold_and_role_set": 0, "hand_set": 0})
+            # The 21 copies of set 0 and its footed twin form one family; every other set pairs with its twin.
+            self.assertEqual(statistics["family_size"]["largest_climbs"], 22)
+            self.assertEqual(statistics["families"], 14)
+            self.assertEqual(read_split_manifest(path)["family"], read_split_manifest(path)["family"])
+
+            config.data.split_manifest = str(path)
+            directory, metadata = prepare(config.data)
+            self.assertEqual(metadata["split"]["name"], "family_test")
+            self.assertNotEqual(metadata["fingerprint"], historical["fingerprint"])
+            self.assertEqual(metadata["training_rows_removed_for_leakage"], 0)
+            arrays = load_arrays(directory)
+            partitions = defaultdict(set)
+            for family, split in zip(arrays["families"], arrays["splits"]):
+                partitions[family].add(int(split))
+            self.assertTrue(all(len(parts) == 1 for parts in partitions.values()))
+            self.assertEqual({int(s) for s in arrays["splits"]}, {0, 1, 2})
+            similarity, held = arrays["nearest_train_hand_jaccard"], arrays["splits"] != 0
+            self.assertTrue(np.isnan(similarity[~held]).all())
+            self.assertTrue(((similarity[held] > 0) & (similarity[held] < 1)).all())
+            bands = band_masks(similarity)
+            self.assertEqual(sum(mask.astype(int) for mask in bands.values()).tolist(), held.astype(int).tolist())
+
+            run = train(config)
+            identity = read_run_identity(run)
+            self.assertEqual(identity, training_identity("kilter", config))
+            self.assertEqual(identity["data_fingerprint"], metadata["fingerprint"])
+            reseeded = Config.from_dict({**config.to_dict(), "train": {**config.to_dict()["train"], "seed": 7}})
+            self.assertEqual(differences(training_identity("kilter", reseeded), identity), ["config.train.seed"])
+            self.assertEqual(json.loads((run / "summary.json").read_text())["run_id"], identity["run_id"])
+
+            result = evaluate_run(run / "best.pt", "validation", "cpu")
+            self.assertEqual(result["evaluation"], likelihood_identity(run / "best.pt", "validation"))
+            self.assertEqual(result["evaluation"]["run_id"], identity["run_id"])
+            self.assertEqual(json.loads((run / "best_validation.json").read_text())["evaluation"], result["evaluation"])
+            self.assertEqual(sum(band["rows"] for band in result["by_similarity"].values()), result["scratch"]["rows"])
+            report = quality_report(run / "best.pt", split="validation", samples=2)
+            self.assertEqual(report["evaluation"], quality_identity(run / "best.pt", "validation", 2))
+            self.assertNotEqual(quality_identity(run / "best.pt", "validation", 3)["evaluation_id"],
+                                report["evaluation"]["evaluation_id"])
+            self.assertEqual(report["evaluation"]["evaluator_version"], 2)
+            self.assertEqual(report["samples"]["real"]["novel_vs_train"], 1.0)
+            self.assertEqual(report["samples"]["real"]["novel_hand_set_vs_train"], 1.0)
+            self.assertEqual(report["samples"]["v2_given_starts_feet"]["constraint_satisfied"], 1.0)
+            self.assertEqual(sum(len(v) for v in report["prompts"]["cells"].values()), report["samples"]["real"]["count"])
+
+            # A changed membership file, or a climb the manifest does not list, is refused.
+            membership = root / "splits" / "family_test.membership.csv.gz"
+            original = membership.read_bytes()
+            changed = gzip.decompress(original).decode().replace(",train,", ",test,", 1)
+            membership.write_bytes(gzip.compress(changed.encode()))
+            with self.assertRaisesRegex(ValueError, "checksum"):
+                read_split_manifest(path)
+            membership.write_bytes(original)
+            source = Path(config.data.source)
+            extra = {**rows[0], "climb_uuid": "new", "climb_angle_id": "new:20"}
+            source.write_text(source.read_text() + json.dumps(extra) + "\n")
+            with self.assertRaisesRegex(ValueError, "not in split manifest"):
+                prepare(config.data)
 
 
 def write_labels(path, rows=ROWS, kickboard=None):

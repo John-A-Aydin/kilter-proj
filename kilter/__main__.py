@@ -32,8 +32,9 @@ def main():
             sub.add_argument("--resume", type=Path, help="Resume an interrupted run from last.pt")
     sub = commands.add_parser("evaluate", help="Per-climb likelihood for each given-hold mode")
     sub.add_argument("checkpoint", type=Path)
-    sub.add_argument("--split", choices=("validation", "test"), default="test")
-    sub.add_argument("--device", default="cpu")
+    sub.add_argument("--split", choices=("validation", "test"), default="validation",
+                     help="Select models on validation; test is for experiments/final_test.py")
+    sub.add_argument("--device", default="auto", help="cpu, cuda, or auto (CUDA when available)")
     sub = commands.add_parser("sample", help="Generate climbs from nothing or from given holds")
     sub.add_argument("checkpoint", type=Path)
     sub.add_argument("--grade", type=float, help="Numeric V scale, e.g. 5 for V5; omit for a null grade")
@@ -51,6 +52,13 @@ def main():
     sub.add_argument("--split", choices=("validation", "test"), default="validation")
     sub.add_argument("--samples", type=int, default=20, help="Samples per grade/angle cell and mode")
     sub.add_argument("--output", type=Path)
+    sub = commands.add_parser("split", help="Build a family-separated split manifest (kilter/splits.py)")
+    sub.add_argument("--config", default=str(DEFAULT_CONFIG), help="Config whose data filters define the climbs")
+    sub.add_argument("--set", action="append", default=[], metavar="SECTION.KEY=VALUE")
+    sub.add_argument("--name", required=True, help="Manifest name, such as family_v1")
+    sub.add_argument("--seed", type=int, required=True,
+                     help="Assignment seed; use one the historical split (42) did not, so the new test set is fresh")
+    sub.add_argument("--output-dir", type=Path, default=Path("data/splits"))
     sub = commands.add_parser("compare", help="Write completed-run summaries as CSV")
     sub.add_argument("directory", nargs="?", default="runs", type=Path)
     args = parser.parse_args()
@@ -84,6 +92,15 @@ def main():
     elif args.command == "quality":
         from .quality import quality_report
         quality_report(args.checkpoint, args.baseline, args.split, args.samples, args.output)
+    elif args.command == "split":
+        from .splits import build_split_manifest
+        config = load_config(args.config, args.set)
+        path, manifest = build_split_manifest(config.data, args.name, args.seed, args.output_dir)
+        statistics = manifest["statistics"]
+        print(json.dumps({"manifest": str(path), "membership_sha256": manifest["membership"]["sha256"],
+                          "families": statistics["families"], "family_size": statistics["family_size"],
+                          "partitions": {k: {key: v[key] for key in ("rows", "climbs", "families")}
+                                         for k, v in statistics["partitions"].items()}}, indent=2))
     elif args.command == "compare":
         rows = [json.loads(p.read_text()) for p in sorted(args.directory.glob("*/summary.json"))]
         rows = [r for r in rows if "best_validation_selection_nll" in r]

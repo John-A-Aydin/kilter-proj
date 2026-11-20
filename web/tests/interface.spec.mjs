@@ -49,12 +49,18 @@ test('click arbitrary holds, set grade and angle, complete with real model, and 
   await page.locator('#export').click();
   const download = await downloaded;
   const output = JSON.parse(await readFile(await download.path(), 'utf8'));
+  expect(output.schema_version).toBe(2);
   expect(output.v_grade).toBe(7);
+  expect(output.grade_basis).toBe('requested');
   expect(output.angle).toBe(60);
   expect(output.normalized_angle).toBe(60 / 90);
-  expect(output.seed).toBe(123);
-  expect(output.model.checkpoint_sha256).toBe(manifest.checkpoint_sha256);
   expect(output.ended_with_eos).toBe(true);
+  expect(output.source.kind).toBe('generated');
+  expect(output.source.cancelled).toBe(false);
+  expect(output.source.request.seed).toBe(123);
+  expect(output.source.request.selected_holds).toEqual(picks.map(({ id, role }) => ({ id, role })));
+  expect(output.source.model.checkpoint_sha256).toBe(manifest.checkpoint_sha256);
+  expect(output.viewer_model.checkpoint_sha256).toBe(manifest.checkpoint_sha256);
   for (const pick of picks) expect(output.frames[0]).toContainEqual(expect.objectContaining({ hold_token: pick.id, hold_use_type: pick.role }));
   const ids = output.frames[0].map(hold => hold.hold_token);
   expect(new Set(ids).size).toBe(ids.length);
@@ -138,6 +144,33 @@ test('connects to a Kilter board over Web Bluetooth and puts the completed climb
   await page.locator('#ble-connect').click();
   await expect(page.locator('#ble-pill')).toHaveText('Offline');
   await expect(page.locator('#ble-message')).toContainText('keeps its last LED state');
+});
+
+test('a stopped generation is not sent to the wall automatically, but can still be sent by hand', async ({ page }) => {
+  await mockBluetooth(page);
+  await ready(page);
+  await page.locator('#ble-connect').click();
+  await expect(page.locator('#ble-pill')).toHaveText('Connected');
+  await page.locator('#ble-auto').check();
+  const pick = { id: manifest.holds[300].id, role: 3 };
+  await page.locator(`[data-role="${pick.role}"]`).click();
+  await page.locator(`#hold-${pick.id}`).click();
+  await page.locator('#generate').click();
+  await expect(page.locator('#svg-climb .hold.generated').first()).toBeAttached();
+  await page.locator('#stop').click();
+  await expect(page.locator('#generation-status')).toContainText('Stopped ·');
+  // Give a send every chance to start; none may.
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(() => window.bleWrites.length)).toBe(0);
+  await expect(page.locator('#ble-pill')).toHaveText('Connected');
+  const downloaded = page.waitForEvent('download');
+  await page.locator('#export').click();
+  const output = JSON.parse(await readFile(await (await downloaded).path(), 'utf8'));
+  expect(output.ended_with_eos).toBe(false);
+  expect(output.source.cancelled).toBe(true);
+  await page.locator('#ble-send').click();
+  await expect(page.locator('#ble-pill')).toHaveText('On the wall');
+  expect(await page.evaluate(() => window.bleWrites.length)).toBeGreaterThan(0);
 });
 
 test('generates from nothing, and from two start holds plus a foot, with valid start and finish holds', async ({ page }) => {
@@ -508,5 +541,46 @@ test('imports an exported climb or a dataset row, restoring its holds, picks, gr
   await page.locator('#import-climb-file').setInputFiles({ name: 'broken.json', mimeType: 'application/json', buffer: Buffer.from('{oops') });
   await expect(page.locator('#error')).toHaveText('Could not import broken.json: it is not valid JSON.');
   expect((await shown()).length).toBe(2);
+  expect(errors).toEqual([]);
+});
+
+test('an imported climb keeps its own source and unknown grade through export and import', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await ready(page);
+  async function exported() {
+    const downloaded = page.waitForEvent('download');
+    await page.locator('#export').click();
+    return readFile(await (await downloaded).path(), 'utf8');
+  }
+  // The controls say V7 at 25°; the row has no grade, so neither may its export.
+  await page.locator('#grade').selectOption('7');
+  await page.locator('#angle').evaluate(input => { input.value = 25; input.dispatchEvent(new Event('input')); });
+  const row = { climb_uuid: 'ROW', angle: 40, grade_hueco: null, name: 'Ungraded row', setter_username: 'setter',
+    frames: [[{ hold_use_type: 2, hold_token: manifest.holds[300].id }, { hold_use_type: 3, hold_token: manifest.holds[400].id }]] };
+  await page.locator('#import-climb-file').setInputFiles({ name: 'row.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(row)) });
+  await expect(page.locator('#generation-status')).toHaveText('Imported “Ungraded row” · 2 holds · grade unknown / 40°');
+  const first = await exported();
+  const output = JSON.parse(first);
+  expect(output.v_grade).toBe(null);
+  expect(output.grade_basis).toBe(null);
+  expect(output.angle).toBe(40);
+  expect(output.source).toEqual({ kind: 'catalogue', climb_uuid: 'ROW', name: 'Ungraded row', setter_username: 'setter',
+    angle: 40, grade_hueco: null });
+  expect(output.source.model).toBeUndefined();
+  expect(output.viewer_model.checkpoint_sha256).toBe(manifest.checkpoint_sha256);
+
+  await page.locator('#import-climb-file').setInputFiles({ name: 'again.json', mimeType: 'application/json', buffer: Buffer.from(first) });
+  await expect(page.locator('#generation-status')).toHaveText('Imported “Ungraded row” · 2 holds · grade unknown / 40°');
+  expect(JSON.parse(await exported())).toEqual(output);
+
+  // Keeping its holds and generating records the imported climb as the new one's origin.
+  await page.locator('#keep-generated').click();
+  await page.locator('#generate').click();
+  await expect(page.locator('#generation-status')).toContainText('Complete ·', { timeout: 30000 });
+  const derived = JSON.parse(await exported());
+  expect(derived.source.kind).toBe('generated');
+  expect(derived.source.derived_from.source.climb_uuid).toBe('ROW');
+  expect(derived.source.request.selected_holds).toHaveLength(2);
   expect(errors).toEqual([]);
 });

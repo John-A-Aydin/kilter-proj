@@ -17,6 +17,9 @@ class DataConfig:
     include_computed_grades: bool = True
     # Drop training rows whose exact hold set also appears in validation or test.
     remove_split_leakage: bool = True
+    # Path to a versioned split manifest (kilter/splits.py), such as data/splits/family_v1.json.
+    # Empty keeps the historical split: the UUID hash above, then leakage removal.
+    split_manifest: str = ""
 
 
 @dataclass
@@ -109,8 +112,8 @@ class Config:
             raise ValueError("p_scratch, p_starts, and p_random must be nonnegative and sum to 1")
         if not 0 <= t.p_null_grade <= 1 or (t.p_null_grade > 0 and not m.null_grade):
             raise ValueError("p_null_grade must be in [0,1] and above 0 only with model.null_grade")
-        if not isinstance(m.hold_labels, str) or not isinstance(m.climb_tags, str):
-            raise ValueError("model.hold_labels and model.climb_tags must be paths or empty")
+        if not all(isinstance(v, str) for v in (m.hold_labels, m.climb_tags, d.split_manifest)):
+            raise ValueError("model.hold_labels, model.climb_tags, and data.split_manifest must be paths or empty")
         if min(t.max_train_batches, t.max_eval_batches) < 0:
             raise ValueError("Batch limits must be nonnegative")
         if not all(isinstance(v, bool) for v in (d.include_computed_grades, d.remove_split_leakage, m.null_grade, t.rule_loss)):
@@ -138,6 +141,14 @@ def load_config(path, overrides=()):
             raise ValueError(f"Unknown config key: {key}")
         target[parts[-1]] = parsed
     return Config.from_dict(config)
+
+
+def resolve_device(device):
+    """The device type a device setting means on this machine: "auto" is CUDA when available."""
+    if device == "auto":
+        import torch
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    return str(device).split(":")[0]
 
 
 def write_json(path, value):

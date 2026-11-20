@@ -42,7 +42,8 @@ from kilter.climb_tags import TAGS, read_tag_file  # noqa: E402
 from kilter.data import FOOT, PAD, ClimbDataset, Collator, load_arrays, prepare  # noqa: E402
 from kilter.experiment import load_dataset, load_run  # noqa: E402
 from kilter.hold_labels import read_hold_labels  # noqa: E402
-from kilter.sampling import LegalTokens, climb_checks, generate_batch  # noqa: E402
+from kilter.quality import climb_checks  # noqa: E402
+from kilter.sampling import LegalTokens, generate_batch  # noqa: E402
 
 SEEDS = (42, 43, 44)
 PLOT_SEED = 43
@@ -303,7 +304,10 @@ def main():
                 logits_off = recognize(recognizer, [np.array(c) for c in climbs_off], device)
                 stats_on, stats_off = stat_matrix(stats_fn, climbs_on), stat_matrix(stats_fn, climbs_off)
                 y_of = dict(zip(board.holds, board.y))
-                valid = lambda cs: float(np.mean([climb_checks(board.decode(c), y_of)[0]["valid"] for c in cs]))
+                # "valid" is the v1 conjunction (kilter/quality.py), kept so these results stay comparable.
+                # Campus climbs fail it for having no foot holds, so the separate checks are recorded too.
+                check = lambda cs, key: float(np.mean([climb_checks(board.decode(c), y_of)[0][key] for c in cs]))
+                valid = lambda cs: check(cs, "legacy_valid_v1")
                 per_tag[tag] = {
                     "logit_shift": (logits_on.mean(0) - logits_off.mean(0)).tolist(),
                     "probability_on": float((1 / (1 + np.exp(-logits_on[:, t]))).mean()),
@@ -311,6 +315,9 @@ def main():
                     "stat_difference": ((np.nanmean(stats_on, 0) - np.nanmean(stats_off, 0)) / sd).tolist(),
                     "stat_on": np.nanmean(stats_on, 0).tolist(), "stat_off": np.nanmean(stats_off, 0).tolist(),
                     "valid_on": valid(climbs_on), "valid_off": valid(climbs_off),
+                    **{f"{key}_{side}": check(cs, key) for key in ("schema_valid", "starts_below_finishes",
+                                                                   "explicit_feet_present")
+                       for side, cs in (("on", climbs_on), ("off", climbs_off))},
                 }
                 if seed == PLOT_SEED and tag in EXAMPLE_TAGS:
                     examples.setdefault(name, {})[tag] = {

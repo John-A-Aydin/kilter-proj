@@ -5,7 +5,8 @@ import { KilterBluetooth, climbSignature, validateLedMap } from './bluetooth.mjs
 import { PATTERNS, showFrame } from './lightshow.mjs';
 import { KEYS, newGame, snakeFrame, snakeGrid, step, turn } from './snake.mjs';
 import { FOOT, closestClimb, gradeNear, loadCatalogue } from './similar.mjs';
-import { parseClimbFile } from './climb-file.mjs';
+import { buildClimbExport, exportFileName, generatedSource, generatorCheckpoint, keptClimb, parseClimbFile,
+  shouldAutoSend } from './climb-file.mjs';
 
 const $ = id => document.getElementById(id);
 const COLORS = BOARD_COLORS;
@@ -18,7 +19,11 @@ let manifest;
 let board;
 let activeRequest;
 let activeId = 0;
+// The shown result: holds aside, where it came from (source), its own grade and angle (null when
+// unknown), whether it ended, and its picks. Exports are built from this, not from the controls.
 let lastResult;
+// The climb whose holds were kept as the current picks, recorded in the next generation's source.
+let derivedFrom = null;
 let zoom = 100;
 let ble;
 let bleState;
@@ -110,6 +115,7 @@ async function sendToBoard(holds = allHolds()) {
 }
 
 function updateSelections() {
+  if (!selected.size) derivedFrom = null;
   $('selected-count').textContent = selected.size;
   $('clear').disabled = busy || !selected.size;
   const container = $('selected-holds');
@@ -403,7 +409,7 @@ document.querySelectorAll('[data-role]').forEach(button => button.onclick = () =
     item.setAttribute('aria-pressed', String(item === button));
   });
 });
-$('clear').onclick = () => { selected.clear(); resetResult(); updateSelections(); updateBoard(); };
+$('clear').onclick = () => { selected.clear(); derivedFrom = null; resetResult(); updateSelections(); updateBoard(); };
 $('angle').oninput = () => {
   $('angle-value').textContent = `${$('angle').value}°`;
   $('angle-note').hidden = Number($('angle').value) <= 70;
@@ -478,7 +484,7 @@ $('generate').onclick = () => {
   }
   activeRequest = { grade: Number($('grade').value), angle: Number($('angle').value),
     temperature: Number($('temperature').value), seed: Number($('seed').value),
-    selected: [...selected].map(([id, role]) => ({ id, role })) };
+    selected: [...selected].map(([id, role]) => ({ id, role })), derivedFrom };
   setBusy(true);
   updateBoard();
   setStatus('Generating', 'running');
@@ -487,28 +493,18 @@ $('generate').onclick = () => {
 };
 $('stop').onclick = () => { worker.postMessage({ type: 'cancel' }); $('stop').textContent = 'Stopping…'; };
 $('keep-generated').onclick = () => {
+  derivedFrom = keptClimb(lastResult, allHolds());
   for (const hold of allHolds()) selected.set(hold.id, hold.role);
   resetResult(); updateSelections(); updateBoard();
 };
 $('export').onclick = () => {
   if (!lastResult) return;
   const geometry = new Map(manifest.holds.map(hold => [hold.id, hold]));
-  const output = { schema_version: 1, v_grade: activeRequest.grade, grade_hueco: `V${activeRequest.grade}`,
-    angle: activeRequest.angle, normalized_angle: activeRequest.angle / 90,
-    seed: activeRequest.seed, temperature: activeRequest.temperature,
-    ended_with_eos: lastResult.endedWithEos, selected_holds: activeRequest.selected,
-    closest_real_climb: match && { name: match.name, overlap: match.overlap, shared_holds: match.shared,
-      same_role_holds: match.sameRole, holds: match.holds.map(hold => ({ hold_token: hold.id, hold_use_type: hold.role })),
-      angles: match.angles },
-    model: { name: manifest.name, checkpoint_sha256: manifest.checkpoint_sha256 },
-    frames: [allHolds().map(hold => ({ hold_token: hold.id, hold_use_type: hold.role,
-      hold_x: geometry.get(hold.id).x, hold_y: geometry.get(hold.id).y,
-      on_kickboard: Number(geometry.get(hold.id).kickboard) }))],
-  };
+  const output = buildClimbExport({ holds: allHolds(), geometry, result: lastResult, manifest, match });
   const blob = new Blob([JSON.stringify(output, null, 2) + '\n'], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
-  anchor.href = url; anchor.download = `kilter-V${output.v_grade}-${output.angle}deg-${output.seed}.json`;
+  anchor.href = url; anchor.download = exportFileName(output);
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
@@ -525,6 +521,7 @@ async function importClimb(file) {
   }
   resetResult();
   selected.clear();
+  derivedFrom = null;
   for (const { id, role } of climb.selected) selected.set(id, role);
   generated = climb.holds;
   if (climb.grade !== null) $('grade').value = climb.grade;
@@ -540,14 +537,17 @@ async function importClimb(file) {
   }
   activeRequest = { grade: Number($('grade').value), angle: Number($('angle').value),
     temperature: Number($('temperature').value), seed: Number($('seed').value), selected: climb.selected };
-  lastResult = { endedWithEos: climb.endedWithEos, imported: file.name };
+  // The controls show the climb's grade and angle when it has them; the result keeps them as recorded.
+  lastResult = { endedWithEos: climb.endedWithEos, cancelled: false, imported: file.name, source: climb.source,
+    grade: climb.grade, gradeBasis: climb.gradeBasis, angle: climb.angle, selected: climb.selected };
   updateSelections();
   updateBoard();
   $('result-actions').hidden = false;
-  const otherModel = climb.checkpoint && climb.checkpoint !== manifest.checkpoint_sha256 ? ' · made by a different model' : '';
+  const generator = generatorCheckpoint(climb.source);
+  const otherModel = generator && generator !== manifest.checkpoint_sha256 ? ' · made by a different model' : '';
   $('generation-status').textContent = `Imported ${climb.name ? `“${climb.name}”` : file.name} · ${plural(climb.holds.length, 'hold')}`
-    + ` · V${activeRequest.grade} / ${activeRequest.angle}°${otherModel}`;
-  if ($('ble-auto').checked && ble?.connected) sendToBoard();
+    + ` · ${climb.grade === null ? 'grade unknown' : `V${climb.grade}`} / ${climb.angle === null ? 'angle unknown' : `${climb.angle}°`}${otherModel}`;
+  if ($('ble-auto').checked && ble?.connected && shouldAutoSend(lastResult)) sendToBoard();
   showMatch();
 }
 $('import-climb').onclick = () => $('import-climb-file').click();
@@ -569,14 +569,18 @@ worker.onmessage = ({ data }) => {
     $('generation-status').textContent = `${added} ${added === 1 ? 'hold' : 'holds'} added`;
   } else if (data.type === 'done' && data.id === activeId) {
     generated = data.holds;
-    lastResult = data;
+    lastResult = { ...data, grade: activeRequest.grade, gradeBasis: 'requested', angle: activeRequest.angle,
+      selected: activeRequest.selected,
+      source: generatedSource({ manifest, request: activeRequest, endedWithEos: data.endedWithEos,
+        cancelled: data.cancelled, derivedFrom: activeRequest.derivedFrom }) };
     setBusy(false);
     $('stop').textContent = 'Stop generation';
     setStatus('Model ready');
     updateBoard();
     $('result-actions').hidden = !allHolds().length;
     const added = generated.filter(hold => !selected.has(hold.id)).length;
-    if ($('ble-auto').checked && ble?.connected && allHolds().length) sendToBoard();
+    // Auto-send is for finished climbs; a stopped one can still be sent with Send climb.
+    if ($('ble-auto').checked && ble?.connected && allHolds().length && shouldAutoSend(data)) sendToBoard();
     $('generation-status').textContent = `${data.cancelled ? 'Stopped' : 'Complete'} · ${added} added · ${selected.size} picked · V${activeRequest.grade} / ${activeRequest.angle}°`;
     showMatch();
   } else if (data.type === 'error') {

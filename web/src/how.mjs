@@ -440,7 +440,7 @@ function ablationChart(rows) {
     })),
     ariaLabel: 'Validation and test nats per climb for each single change from the starting model.',
   });
-  table($('ablation-table'), ['Model', 'Validation', 'Test', 'Test scratch', 'Test starts', 'Test starts + feet', 'Valid samples (rules on)'],
+  table($('ablation-table'), ['Model', 'Validation', 'Test', 'Test scratch', 'Test starts', 'Test starts + feet', 'Pass v1 checks (rules on)'],
     sorted.map(r => [r.model, `${r.validation.mean.toFixed(2)} ± ${r.validation.std.toFixed(2)}`,
       `${r.test.mean.toFixed(2)} ± ${r.test.std.toFixed(2)}`, r.scratch.mean.toFixed(2), r.starts.mean.toFixed(2),
       r.starts_feet.mean.toFixed(2), percent(r.valid.mean)]), row => row[0] === 'null_rule_16');
@@ -462,7 +462,7 @@ function validityChart(rows) {
       marks: [{ name: `valid · ${percent(r.starts_1_2.mean)} have 1–2 starts`, value: r.valid.mean, color: color(r) }] })),
     ariaLabel: 'Share of structurally valid samples for real climbs, v2 and the baseline.',
   });
-  table($('validity-table'), ['Sampler', 'Valid', '1–2 starts'],
+  table($('validity-table'), ['Sampler', 'Pass v1 checks', '1–2 starts'],
     rows.map(r => [r.label, `${percent(r.valid.mean)} ± ${percent(r.valid.std)}`, percent(r.starts_1_2.mean)]));
 }
 

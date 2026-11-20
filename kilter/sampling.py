@@ -1,4 +1,7 @@
-"""Generation from nothing or from given holds. web/src/decoding.mjs mirrors ``allowed_tokens``."""
+"""Generation from nothing or from given holds. web/src/decoding.mjs mirrors ``allowed_tokens``.
+
+Checks of finished climbs live in kilter/quality.py, which training never imports.
+"""
 import numpy as np
 import torch
 
@@ -172,22 +175,4 @@ def generate_batch(model, board, conditions, generator=None, temperature=1.0, ma
     return [[int(t) for t in row[2:] if t >= 4] for row in tokens.tolist()]
 
 
-def climb_checks(holds, y_of):
-    """Structural and physical-plausibility summary of one climb (list of hold dicts)."""
-    ids = [h["hold_token"] for h in holds]
-    by_role = {r: sorted(y_of[h["hold_token"]] for h in holds if h["hold_use_type"] == r) for r in range(4)}
-    route = sorted(y_of[h["hold_token"]] for h in holds if h["hold_use_type"] != FOOT)
-    checks = {
-        "no_repeated_hold": len(set(ids)) == len(ids),
-        "starts_1_2": 1 <= len(by_role[START]) <= MAX_STARTS,
-        "finishes_1_2": 1 <= len(by_role[FINISH]) <= MAX_FINISHES,
-        "start_below_finish": bool(by_role[START] and by_role[FINISH]) and by_role[START][-1] < by_role[FINISH][0],
-        "has_feet": bool(by_role[FOOT]),
-    }
-    checks["valid"] = all(checks.values())
-    return checks, {"holds": len(holds), "feet": len(by_role[FOOT]),
-                    "finish_height": by_role[FINISH][-1] if by_role[FINISH] else float("nan"),
-                    "largest_hand_gap": float(np.diff(route).max()) if len(route) > 1 else float("nan")}
-
-
-__all__ = ["Board", "LegalTokens", "allowed_tokens", "climb_checks", "generate", "validate_given"]
+__all__ = ["Board", "LegalTokens", "allowed_tokens", "generate", "generate_batch", "validate_given"]
