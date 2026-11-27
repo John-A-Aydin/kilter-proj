@@ -281,7 +281,7 @@ function boards(figure, data) {
       legend.append(legendKey('Probe got it wrong', 'ring'));
     } else {
       legend.append(legendKey('Direction you pull, 0° is up', 'arrow'), legendKey('Prediction more than 45° off', 'arrow off'),
-        html('span', { class: 'probe-note' }, 'The right board shows holds with exactly one labeled direction.'));
+        html('span', { class: 'probe-note' }, 'A pinch\'s direction is 90° to the pull, either way.'));
     }
   }
 

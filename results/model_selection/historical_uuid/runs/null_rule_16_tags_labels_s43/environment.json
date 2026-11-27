@@ -1,10 +1,10 @@
 {
   "device": "cuda",
-  "git_commit": "b88fb027d5a6749c9086dbff255f52e1ba85ad22",
-  "git_status": "M data/training/climb_tags.csv.gz\n M experiments/README.md\n M experiments/tag_conditioning.py\n M kilter/climb_tags.py\n M results/climb_tags/counts.csv\n M results/climb_tags/evidence.csv.gz\n M tests/test_climb.py\n M web/tests/experiments.test.mjs\n M web/tests/interface.spec.mjs",
+  "git_commit": "878382e239316224d596efbb2f2950d421bc996c",
+  "git_status": "M data/hold_labels.csv\n M experiments/tag_conditioning.py\n M results/hold_label_probes/holds.csv\n M results/hold_label_probes/summary.json\n M web/README.md\n M web/src/label-app.mjs\n M web/src/labels.mjs\n M web/src/style.css\n M web/tests/interface.spec.mjs\n M web/tests/labels.test.mjs\n?? CLIMB_SIMILARITY_PLAN_AND_IDEAS.md",
   "numpy": "2.5.4",
   "platform": "Linux-7.0.0-43-generic-x86_64-with-glibc2.39",
   "python": "3.12.7",
-  "started_at": "20261120T182253418590Z",
+  "started_at": "20261126T173811306683Z",
   "torch": "2.15.0+cu132"
 }

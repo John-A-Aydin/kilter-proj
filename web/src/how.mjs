@@ -484,19 +484,22 @@ function gradeChart(samples) {
 }
 
 function gradingChart(grading) {
-  const group = method => (method.startsWith('model') || method === 'bayes' ? 'trained' : method.startsWith('untrained') ? 'untrained' : 'simple');
-  const colors = { trained: COLOR.s1, untrained: COLOR.s3, simple: COLOR.quiet };
+  const group = method => (method.startsWith('model') || method === 'bayes' || method === 'finetuned' ? 'trained'
+    : method === 'bert' || method === 'lightgbm' ? 'supervised' : method.startsWith('untrained') ? 'untrained' : 'simple');
+  const colors = { trained: COLOR.s1, supervised: COLOR.s2, untrained: COLOR.s3, simple: COLOR.quiet };
   legend($('grading-legend'), [{ name: 'Trained generator', color: colors.trained, kind: 'rect' },
-    { name: 'Same network, untrained', color: colors.untrained, kind: 'rect' }, { name: 'No transformer', color: colors.simple, kind: 'rect' }]);
-  const rows = [...grading.rows].sort((a, b) => b.mse - a.mse);
-  const hi = Math.ceil(Math.max(...rows.map(r => r.mse)));
+    { name: 'Trained for grading only', color: colors.supervised, kind: 'rect' },
+    { name: 'Same network, untrained', color: colors.untrained, kind: 'rect' }, { name: 'Simple baseline', color: colors.simple, kind: 'rect' }]);
+  const rows = [...grading.rows].sort((a, b) => b.rmse - a.rmse);
+  const hi = Math.ceil(Math.max(...rows.map(r => r.rmse)) * 2) / 2;
   rowChart($('grading-chart'), {
-    domain: [0, hi], ticks: niceTicks(0, hi, 5), format: fixed(0), valueFormat: fixed(2), axisLabel: 'test MSE (grades²)',
+    domain: [0, hi], ticks: niceTicks(0, hi, 5), format: fixed(1), valueFormat: fixed(2), axisLabel: 'test RMSE (grades)',
     rows: rows.map(r => ({ label: r.label, strong: group(r.method) === 'trained',
-      marks: [{ name: `MSE · ${percent(r.within_one)} within 1 grade`, value: r.mse, color: colors[group(r.method)] }] })),
-    ariaLabel: 'Test mean squared error of grade predictions for each method.',
+      marks: [{ name: `RMSE · MAE ${r.mae.toFixed(2)} · ${percent(r.within_one)} within 1 grade`, value: r.rmse, color: colors[group(r.method)] }] })),
+    ariaLabel: 'Test root mean squared error of grade predictions for each method.',
   });
-  table($('grading-table'), ['Method', 'MSE', 'Within 1 grade'], rows.map(r => [r.label, r.mse.toFixed(2), percent(r.within_one)]));
+  table($('grading-table'), ['Method', 'RMSE', 'MAE', 'Within 1 grade'],
+    rows.map(r => [r.label, r.rmse.toFixed(2), r.mae.toFixed(2), percent(r.within_one)]));
 }
 
 sequenceFigure();

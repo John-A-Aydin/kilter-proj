@@ -11,8 +11,9 @@ Tasks (all scored on held-out holds):
   over types of per-type recall. Chance is 1 / 5 whatever the class sizes.
 - hand_type: the same without foot chips (306 holds, chance 1 / 4). Foot chips are easy: most
   are screw-on holds, and the screw-on flag is a position input.
-- grip: the pull direction of the 423 holds labeled with exactly one, scored by the mean angle
-  between predicted and labeled directions, |((p - l + 180) mod 360) - 180| degrees.
+- grip: each hold's one labeled direction (all 476 holds), scored by the mean angle between
+  predicted and labeled directions, |((p - l + 180) mod 360) - 180| degrees. For pinches the
+  label is 90 degrees to the pull, either way, which this score treats as a single direction.
 
 Representations (one vector per hold, per seed):
 

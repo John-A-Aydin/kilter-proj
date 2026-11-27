@@ -1,7 +1,7 @@
 import { addBoardArt, loadBoardConfig } from './board.mjs';
 import { BOARD_WIDTH, BOARD_HEIGHT, outlinePath } from './board-config.mjs';
 import { CARDINALS, DIRECTIONS, DIRECTION_STEP, FIELDS, FIELD_NAMES, directionLabel, fromCsv, hasLabel, holdOrder,
-  isComplete, migrateLabel, missingGrip, rotateGrip, toCsv, toggleDirection } from './labels.mjs';
+  isComplete, migrateLabel, missingGrip, multiGrip, rotateGrip, toCsv, toggleDirection } from './labels.mjs';
 
 const $ = id => document.getElementById(id);
 const NS = 'http://www.w3.org/2000/svg';
@@ -15,6 +15,7 @@ let order = [];
 let index = 0;
 let labels = {};
 const paths = new Map();
+const badges = new Map();
 const fieldButtons = new Map();
 const wedges = new Map();
 let zoomOutline;
@@ -90,7 +91,13 @@ function paintHold(id) {
   path.classList.toggle('typed', Boolean(color));
   path.classList.toggle('partial', Boolean(label?.type) && !isComplete(label));
   path.classList.toggle('no-grip', $('show-labels').checked && missingGrip(label));
-  path.setAttribute('aria-label', `Hold ${id}, ${holds.get(id).name}${label?.type ? `, ${label.type}` : ', unlabeled'}`);
+  const multi = multiGrip(label);
+  path.classList.toggle('multi-grip', $('show-labels').checked && multi);
+  const badge = badges.get(id);
+  badge.classList.toggle('shown', $('show-labels').checked && multi);
+  badge.querySelector('text').textContent = multi ? label.grip.length : '';
+  path.setAttribute('aria-label', `Hold ${id}, ${holds.get(id).name}${label?.type ? `, ${label.type}` : ', unlabeled'}`
+    + (multi ? `, ${label.grip.length} grip directions` : ''));
 }
 
 function show(newIndex) {
@@ -123,8 +130,10 @@ function renderFields() {
     wedge.classList.toggle('on', grip.includes(direction));
     wedge.setAttribute('aria-checked', String(grip.includes(direction)));
   }
-  $('grip-summary').textContent = grip.length === DIRECTIONS.length ? 'All round'
-    : grip.length ? grip.map(directionLabel).join(', ') : 'None yet';
+  $('grip-summary').textContent = grip.length === DIRECTIONS.length ? 'All round · 16 directions'
+    : grip.length > 1 ? `${grip.length} directions · ${grip.map(directionLabel).join(', ')}`
+    : grip.length ? directionLabel(grip[0]) : 'None yet';
+  $('grip-field').classList.toggle('multi', grip.length > 1);
   $('grip-all').setAttribute('aria-pressed', String(grip.length === DIRECTIONS.length));
   const needsMore = label.type && label.type !== 'unsure';
   $('fields').classList.toggle('unsure', label.type === 'unsure');
@@ -144,14 +153,15 @@ function renderProgress() {
     item.firstChild.style.background = option.color;
     item.lastChild.textContent = `${option.label} ${counts[option.value]}`;
     return item;
-  }), noGripLegend());
+  }), gripLegend('no-grip-key', 'No grip direction', missingGrip),
+  gripLegend('multi-grip-key', 'More than one direction', multiGrip));
 }
 
-function noGripLegend() {
+function gripLegend(className, text, test) {
   const item = document.createElement('span');
-  item.className = 'no-grip-key';
+  item.className = className;
   item.innerHTML = '<i class="swatch"></i><span></span>';
-  item.lastChild.textContent = `No grip direction ${Object.values(labels).filter(missingGrip).length}`;
+  item.lastChild.textContent = `${text} ${Object.values(labels).filter(test).length}`;
   return item;
 }
 
@@ -204,6 +214,16 @@ function buildBoards() {
     path.onclick = () => show(order.indexOf(id));
     paths.set(id, path);
     board.append(path);
+  }
+  // Badges go on top of every outline; each shows how many directions its hold has.
+  for (const id of order) {
+    const { cx, cy, r } = shapes.get(id);
+    const badge = document.createElementNS(NS, 'g');
+    badge.classList.add('grip-badge');
+    badge.setAttribute('transform', `translate(${cx + r * 0.75} ${cy - r * 0.75})`);
+    badge.innerHTML = '<circle r="12"></circle><text text-anchor="middle" dominant-baseline="central"></text>';
+    badges.set(id, badge);
+    board.append(badge);
     paintHold(id);
   }
   const zoom = $('svg-zoom');

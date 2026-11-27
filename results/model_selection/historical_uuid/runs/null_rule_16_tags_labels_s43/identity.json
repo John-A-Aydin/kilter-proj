@@ -54,10 +54,10 @@
   "identity_version": 1,
   "inputs": {
     "climb_tags_sha256": "94f4a98ac18fde6b2e640dbf22f5a3a076f0d2127915100fd80c81a686cd671e",
-    "hold_labels_sha256": "37624041ad6c149a58e8a319641b73f8d29f858d090957d1501932f266f491b6"
+    "hold_labels_sha256": "9b6421ca29df577ed836a193b4b741b832fbc5a32afe7ade544cdae0d00d2137"
   },
   "package": "kilter",
-  "run_id": "2a30ba6b8546391e0050",
+  "run_id": "190ccf18c6fee3fb5278",
   "source": {
     "__init__.py": "8de76ae67a1ea3f3db3513a5b5b7320c8f354d1c4d224c3e985da5cc3100a432",
     "climb_tags.py": "d27f92dc6fd3ad2067b3354f9e11ce610bdf4dd3d91774d7af73ade9ab067ae6",

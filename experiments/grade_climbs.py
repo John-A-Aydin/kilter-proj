@@ -1,4 +1,4 @@
-"""Downstream task: predict a climb's V grade from its holds and angle, scored by MSE and RMSE.
+"""Downstream task: predict a climb's V grade from its holds and angle, scored by RMSE and MAE.
 
 Trained model, against baselines that see the same climb and angle:
 
@@ -8,22 +8,48 @@ Trained model, against baselines that see the same climb and angle:
 - ``model``: the frozen model, always read with a null grade so the label cannot leak in.
 - ``bayes``: no new training. p(climb | grade, angle) from the model, with a prior per angle.
 
+Three graders are trained by their own scripts on the same rows and split, and read from
+results/<script>/test_predictions.npz when that file exists (refused if it was made for different
+test rows):
+
+- ``bert``: a BERT-style encoder trained from scratch for grading (experiments/bert_grader.py).
+- ``finetuned``: the generator fine-tuned end to end with a grade head (experiments/finetune_grader.py).
+- ``lightgbm``: gradient-boosted trees on the bag of holds plus geometry features
+  (experiments/lightgbm_grader.py).
+
 Heads are a ridge regression ("linear") and a small MLP. The ridge penalty, MLP epoch and Bayes
-temperature are chosen on validation, and the test split is only read to report.
+temperature are chosen on validation MSE, and the test split is only read to report.
 
-Every score is reported on two test subsets (``SUBSETS``): every row, and rows whose climb has
-more than 5 ascents at that angle, where the grade is a consensus of several climbers. Scores
-with no suffix are the whole test set; ``_more_than_5_ascents`` marks the subset. RMSE is in
-grades, and its mean over seeds is the mean of each seed's RMSE.
+Every score is reported on four test subsets (``SUBSETS``): every row, and rows whose climb has
+more than 5, 10 or 25 ascents at that angle, where the grade is a consensus of more climbers.
+Scores with no suffix are the whole test set; ``_more_than_<n>_ascents`` marks a subset. RMSE and
+MAE (mean absolute error) are in grades, and their mean over seeds is the mean of each seed's value.
 
-Outputs in results/grade_climbs/: summary.json (every score), by_grade.csv (MSE by true grade),
-and confusion.json: for each method and subset, test rows counted by true grade (rows) and
-prediction rounded to the nearest grade within V0-V16 (columns), averaged over seeds.
+Significance (``COMPARISONS``, in summary.json under ``significance``): for each pair of methods
+and each subset, the difference in RMSE and in MAE, with
+
+- a 95% interval from a climb-level bootstrap: climbs are resampled, so a climb's angles stay
+  together, and the difference is recomputed as a mean over seeds, like the table;
+- a two-sided p-value from a climb-level sign-flip permutation test. Under the null hypothesis the
+  two methods' errors are exchangeable within a climb, so each climb's summed error difference is
+  equally likely to have either sign. For MAE the statistic is the mean absolute-error difference;
+  for RMSE it is the mean squared-error difference (equal RMSE means equal MSE);
+- the p-values adjusted with Holm's method across every comparison in that subset and metric.
+
+The test climbs are the only source of randomness these account for. The three training seeds
+are averaged, not resampled, so ``per_seed`` lists each seed's difference to show whether they agree.
+
+Outputs in results/grade_climbs/: summary.json (every score and test), by_grade.csv (RMSE and MAE
+by true grade), and confusion.json: for each method and subset, test rows counted by true grade
+(rows) and prediction rounded to the nearest grade within V0-V16 (columns), averaged over seeds.
 
     .venv/bin/python experiments/grade_climbs.py
+    # Keep the test predictions, so the statistics can be recomputed without training again:
+    .venv/bin/python experiments/grade_climbs.py --predictions /tmp/grade_predictions.npz
 """
 import argparse
 import csv
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -46,12 +72,25 @@ MODEL = "null_rule_16"
 SEEDS = (42, 43, 44)
 TRAIN, VALIDATION, TEST = 0, 1, 2
 GRADES = 17
-# Rows of climbs with more than this many ascents at their angle form the consensus subset.
-ASCENTS_OVER = 5
-SUBSETS = {"all": "", f"more_than_{ASCENTS_OVER}_ascents": f"_more_than_{ASCENTS_OVER}_ascents"}
+# Rows of climbs with more than each of these ascents at their angle form a consensus subset.
+ASCENTS_OVER = (5, 10, 25)
+# Subset name -> (score suffix, smallest ascent count it excludes, or None for every row).
+SUBSETS = {"all": ("", None), **{f"more_than_{n}_ascents": (f"_more_than_{n}_ascents", n) for n in ASCENTS_OVER}}
 PENALTIES = (1.0, 10.0, 100.0, 1000.0, 10000.0)
 TEMPERATURES = (1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0)
-BOOTSTRAPS = 2000
+BOOTSTRAPS = 10000
+PERMUTATIONS = 100000
+MAIN_BASELINE = "bag_mlp"
+# (method, reference) pairs tested in every subset: everything against the main baseline, and the
+# best model against the other ways of reading the same model.
+COMPARISONS = tuple((name, MAIN_BASELINE) for name in
+                    ("model_mlp", "model_linear", "bayes", "untrained_mlp", "bag_linear", "mean_at_angle")) + (
+    ("model_mlp", "bayes"), ("model_mlp", "model_linear"), ("model_mlp", "untrained_mlp"),
+    ("bert", MAIN_BASELINE), ("finetuned", MAIN_BASELINE), ("lightgbm", MAIN_BASELINE),
+    # What the frozen generator leaves behind, what freezing it costs, and what starting from it gives.
+    ("model_mlp", "bert"), ("model_mlp", "finetuned"), ("finetuned", "bert"), ("model_mlp", "lightgbm"))
+# Methods trained by their own scripts: name -> results folder.
+EXTERNAL = {"bert": "bert_grader", "finetuned": "finetune_grader", "lightgbm": "lightgbm_grader"}
 
 
 def rows_of(arrays, split):
@@ -180,17 +219,18 @@ def posterior_mean(likelihood, prior, angles, temperature):
 
 
 def subset_mask(name, ascents):
-    return np.ones(len(ascents), dtype=bool) if name == "all" else ascents > ASCENTS_OVER
+    over = SUBSETS[name][1]
+    return np.ones(len(ascents), dtype=bool) if over is None else ascents > over
 
 
 def score(predicted, truth, ascents):
-    """MSE, RMSE, R², share within one grade, and bias, on each subset of the test rows."""
+    """RMSE, MAE, R², share within one grade, and bias, on each subset of the test rows."""
     scores = {}
-    for name, suffix in SUBSETS.items():
+    for name, (suffix, _) in SUBSETS.items():
         keep = subset_mask(name, ascents)
         error = predicted[keep] - truth[keep]
         mse = float(np.mean(error ** 2))
-        scores |= {f"mse{suffix}": mse, f"rmse{suffix}": mse ** 0.5, f"r2{suffix}": 1 - mse / float(np.var(truth[keep])),
+        scores |= {f"rmse{suffix}": mse ** 0.5, f"mae{suffix}": float(np.mean(np.abs(error))), f"r2{suffix}": 1 - mse / float(np.var(truth[keep])),
                    f"within_one_grade{suffix}": float(np.mean(np.abs(error) <= 1)), f"bias{suffix}": float(np.mean(error))}
     return scores
 
@@ -203,22 +243,170 @@ def confusion(predicted, truth):
     return matrix
 
 
-def bootstrap_gap(first, second, truth, climbs, seed=0):
-    """95% interval of MSE(first) - MSE(second), resampling climbs so a climb's angles stay together."""
+def rmse(predicted, truth):
+    return float(np.sqrt(np.mean((predicted - truth) ** 2)))
+
+
+def mae(predicted, truth):
+    return float(np.mean(np.abs(predicted - truth)))
+
+
+def holm(p_values):
+    """Holm-adjusted p-values, in the order given."""
+    order = np.argsort(p_values)
+    adjusted, running = np.empty(len(p_values)), 0.0
+    for rank, index in enumerate(order):
+        running = max(running, min(1.0, (len(p_values) - rank) * p_values[index]))
+        adjusted[index] = running
+    return adjusted.tolist()
+
+
+def resampled_climbs(n, draws, seed, chunk=500):
+    """Bootstrap weights: how many times each of ``n`` climbs is drawn, in chunks of (rows, n)."""
+    rng = np.random.default_rng(seed)
+    for start in range(0, draws, chunk):
+        rows = min(chunk, draws - start)
+        picks = rng.integers(0, n, (rows, n)) + n * np.arange(rows)[:, None]
+        yield np.bincount(picks.ravel(), minlength=rows * n).reshape(rows, n).astype(np.float64)
+
+
+def sign_flips(n, draws, seed, chunk=500):
+    rng = np.random.default_rng(seed)
+    for start in range(0, draws, chunk):
+        yield rng.choice((-1.0, 1.0), (min(chunk, draws - start), n))
+
+
+def significance_in(predictions, truth, climbs, comparisons):
+    """Every comparison on these rows: difference in RMSE and MAE, bootstrap interval, p-value, per seed.
+
+    A method with one seed (the training mean) is paired with every seed of the other. Every
+    comparison draws the same bootstrap samples and sign flips, so their results are comparable.
+    """
     _, groups = np.unique(climbs, return_inverse=True)
     n = groups.max() + 1
-    gap = (first - truth) ** 2 - (second - truth) ** 2
-    totals, sizes = np.bincount(groups, gap, n), np.bincount(groups, minlength=n)
-    rng = np.random.default_rng(seed)
-    weights = rng.multinomial(n, np.full(n, 1 / n), BOOTSTRAPS)
-    values = (weights @ totals) / (weights @ sizes)
-    return {"mean": float(gap.mean()), "low": float(np.percentile(values, 2.5)), "high": float(np.percentile(values, 97.5))}
+    sizes = np.bincount(groups, minlength=n).astype(np.float64)
+    losses = {"rmse": lambda p: (p - truth) ** 2, "mae": lambda p: np.abs(p - truth)}
+    finish = {"rmse": np.sqrt, "mae": lambda x: x}
+    errors = {"rmse": rmse, "mae": mae}
+    # Per method and metric, per-seed summed loss of each climb: (seeds, climbs).
+    totals = {(name, metric): np.stack([np.bincount(groups, loss(p), n) for p in predictions[name]])
+              for name in {m for pair in comparisons for m in pair} for metric, loss in losses.items()}
+
+    def paired(a, b, metric):
+        seeds = max(len(totals[a, metric]), len(totals[b, metric]))
+        index = lambda name: np.arange(seeds) % len(totals[name, metric])
+        return totals[a, metric][index(a)], totals[b, metric][index(b)]
+
+    draws = {pair: {metric: [] for metric in losses} for pair in comparisons}
+    for weights in resampled_climbs(n, BOOTSTRAPS, seed=0):
+        count = weights @ sizes
+        for a, b in comparisons:
+            for metric in losses:
+                first, second = paired(a, b, metric)
+                gap = finish[metric]((weights @ first.T) / count[:, None]) - finish[metric]((weights @ second.T) / count[:, None])
+                draws[a, b][metric].append(gap.mean(1))
+    # Each climb's loss difference averaged over seeds; the permutation statistic is linear in it.
+    differences = {(pair, metric): np.subtract(*paired(*pair, metric)).mean(0) for pair in comparisons for metric in losses}
+    extreme = dict.fromkeys(differences, 0)
+    for signs in sign_flips(n, PERMUTATIONS, seed=1):
+        for key, difference in differences.items():
+            extreme[key] += int((np.abs(signs @ difference) >= abs(difference.sum()) * (1 - 1e-12)).sum())
+
+    result = {}
+    for a, b in comparisons:
+        seeds = max(len(predictions[a]), len(predictions[b]))
+        pairs = [(predictions[a][i % len(predictions[a])], predictions[b][i % len(predictions[b])]) for i in range(seeds)]
+        result[f"{a}_vs_{b}"] = {}
+        for metric in losses:
+            per_seed = [errors[metric](x, truth) - errors[metric](z, truth) for x, z in pairs]
+            values = np.concatenate(draws[a, b][metric])
+            result[f"{a}_vs_{b}"][metric] = {
+                "difference": float(np.mean(per_seed)), "low": float(np.percentile(values, 2.5)),
+                "high": float(np.percentile(values, 97.5)),
+                "p_value": (extreme[(a, b), metric] + 1) / (PERMUTATIONS + 1), "per_seed": per_seed}
+    return result
+
+
+def significance(predictions, truth, ascents, climbs):
+    """Every comparison whose methods were run, in every subset, with Holm-adjusted p-values per subset and metric."""
+    comparisons = tuple(pair for pair in COMPARISONS if all(name in predictions for name in pair))
+    tests = {}
+    for subset in SUBSETS:
+        keep = subset_mask(subset, ascents)
+        tests[subset] = significance_in({name: [p[keep] for p in values] for name, values in predictions.items()},
+                                        truth[keep], climbs[keep], comparisons)
+        for metric in ("rmse", "mae"):
+            names = list(tests[subset])
+            for name, value in zip(names, holm([tests[subset][k][metric]["p_value"] for k in names])):
+                tests[subset][name][metric]["p_holm"] = value
+        print(f"significance: {subset} done", flush=True)
+    return {"rule": "difference = method - reference, in grades, mean over seeds (negative: method is better); "
+                    "95% climb-bootstrap interval; two-sided climb-level sign-flip permutation p-value "
+                    "(squared-error difference for RMSE), Holm-adjusted within each subset and metric",
+            "bootstraps": BOOTSTRAPS, "permutations": PERMUTATIONS, "smallest_p_value": 1 / (PERMUTATIONS + 1),
+            "comparisons": [list(pair) for pair in comparisons], "subsets": tests}
+
+
+def external_predictions(folder, test_row_ids):
+    """Per-seed test predictions written by experiments/<folder>.py and its choices, or None if it has not run."""
+    path = ROOT / "results" / folder / "test_predictions.npz"
+    if not path.exists():
+        return None
+    saved = np.load(path)
+    if str(saved["rows_sha256"]) != hashlib.sha256("\n".join(map(str, test_row_ids)).encode()).hexdigest():
+        raise ValueError(f"{path} was made for different test rows; rerun experiments/{folder}.py")
+    summary = json.loads((path.parent / "summary.json").read_text())
+    choices = [{"config": summary["chosen"]["name"], "epoch": run["best_epoch"], "validation_mse": run["validation"]["mse"]}
+               for run in summary["runs"]]
+    return [p.astype(np.float64) for p in saved["predictions"]], choices
+
+
+def train_and_predict(arrays, board, y, angles, train_angles, checkpoints, device):
+    """Fit every method on training rows, choose its settings on validation, and predict test rows.
+
+    Returns per-method lists of test predictions (one per seed) and the settings chosen per seed.
+    """
+    by_angle = np.array([y[TRAIN].numpy()[train_angles == a].mean() if (train_angles == a).any() else y[TRAIN].mean().item()
+                         for a in range(91)])
+    bag, bag_angle = zip(*(bag_of_holds(arrays, split, board.vocab_size) for split in (TRAIN, VALIDATION, TEST)))
+    prior = angle_prior(arrays)
+    choices, predictions = {}, {}
+
+    def record(name, predicted, choice=None):
+        predictions.setdefault(name, []).append(predicted)
+        if choice:
+            choices.setdefault(name, []).append(choice)
+
+    def heads(name, x, seed):
+        record(f"{name}_linear", *fit_ridge(x[0], y[TRAIN], x[1], y[VALIDATION], x[2], device))
+        record(f"{name}_mlp", *fit_mlp(x[0], y[TRAIN], x[1], y[VALIDATION], x[2], device, seed))
+
+    joined = [torch.cat([b.to(torch.uint8), (a * 255).to(torch.uint8)], dim=1) for b, a in zip(bag, bag_angle)]
+    record("mean_at_angle", by_angle[angles[TEST]])
+    truth = y[TEST].numpy()
+    for seed in SEEDS:
+        checkpoint = ROOT / checkpoints[f"{MODEL}_s{seed}"]["run"] / "best.pt"
+        heads("bag", joined, seed)
+        model, board, config, _ = load_run(checkpoint, device)
+        legal = LegalTokens(board, config.data.max_holds, device)
+        heads("model", [representations(model, arrays, split, device) for split in (TRAIN, VALIDATION, TEST)], seed)
+        validation_likelihood = grade_likelihoods(model, legal, arrays, VALIDATION, device)
+        temperature = min(TEMPERATURES, key=lambda t: np.mean(
+            (posterior_mean(validation_likelihood, prior, angles[VALIDATION], t) - y[VALIDATION].numpy()) ** 2))
+        test_likelihood = grade_likelihoods(model, legal, arrays, TEST, device)
+        record("bayes", posterior_mean(test_likelihood, prior, angles[TEST], temperature), {"temperature": temperature})
+        reset(model, seed)
+        heads("untrained", [representations(model, arrays, split, device) for split in (TRAIN, VALIDATION, TEST)], seed)
+        print(json.dumps({"seed": seed, **{n: rmse(v[-1], truth) for n, v in predictions.items()}}), flush=True)
+    return predictions, choices
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=ROOT / "results" / "grade_climbs")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument("--predictions", type=Path,
+                        help="npz of test predictions: read it if it exists instead of training, otherwise write it")
     args = parser.parse_args()
     device = args.device
     checkpoints = json.loads((ROOT / "results" / "compare_models" / "checkpoints.json").read_text())
@@ -232,58 +420,34 @@ def main():
     angles = {split: np.round(arrays["conditions"][rows_of(arrays, split), 1] * 90).astype(int)
               for split in (VALIDATION, TEST)}
     train_angles = np.round(arrays["conditions"][rows_of(arrays, TRAIN), 1] * 90).astype(int)
-    by_angle = np.array([y[TRAIN].numpy()[train_angles == a].mean() if (train_angles == a).any() else y[TRAIN].mean().item()
-                         for a in range(91)])
-    bag, bag_angle = zip(*(bag_of_holds(arrays, split, board.vocab_size) for split in (TRAIN, VALIDATION, TEST)))
-    prior = angle_prior(arrays)
-
-    scores, choices, predictions = {}, {}, {}
-
-    def record(name, seed, predicted, choice=None):
-        scores.setdefault(name, []).append(score(predicted, truth, ascents))
-        predictions.setdefault(name, []).append(predicted)
-        if choice:
-            choices.setdefault(name, []).append(choice)
-
-    def heads(name, x, seed):
-        record(f"{name}_linear", seed, *fit_ridge(x[0], y[TRAIN], x[1], y[VALIDATION], x[2], device))
-        record(f"{name}_mlp", seed, *fit_mlp(x[0], y[TRAIN], x[1], y[VALIDATION], x[2], device, seed))
-
-    joined = [torch.cat([b.to(torch.uint8), (a * 255).to(torch.uint8)], dim=1) for b, a in zip(bag, bag_angle)]
-    record("mean_at_angle", 0, by_angle[angles[TEST]])
-    for seed in SEEDS:
-        checkpoint = ROOT / checkpoints[f"{MODEL}_s{seed}"]["run"] / "best.pt"
-        heads("bag", joined, seed)
-        model, board, config, _ = load_run(checkpoint, device)
-        legal = LegalTokens(board, config.data.max_holds, device)
-        heads("model", [representations(model, arrays, split, device) for split in (TRAIN, VALIDATION, TEST)], seed)
-        validation_likelihood = grade_likelihoods(model, legal, arrays, VALIDATION, device)
-        temperature = min(TEMPERATURES, key=lambda t: np.mean(
-            (posterior_mean(validation_likelihood, prior, angles[VALIDATION], t) - y[VALIDATION].numpy()) ** 2))
-        test_likelihood = grade_likelihoods(model, legal, arrays, TEST, device)
-        record("bayes", seed, posterior_mean(test_likelihood, prior, angles[TEST], temperature), {"temperature": temperature})
-        reset(model, seed)
-        heads("untrained", [representations(model, arrays, split, device) for split in (TRAIN, VALIDATION, TEST)], seed)
-        print(json.dumps({"seed": seed, **{n: v[-1]["mse"] for n, v in scores.items()}}), flush=True)
+    if args.predictions and args.predictions.exists():
+        saved = np.load(args.predictions)
+        predictions = {name: list(saved[name]) for name in saved.files if name != "choices"}
+        choices = json.loads(str(saved["choices"]))
+        print(f"Read test predictions from {args.predictions}", flush=True)
+    else:
+        predictions, choices = train_and_predict(arrays, board, y, angles, train_angles, checkpoints, device)
+        if args.predictions:
+            np.savez_compressed(args.predictions, choices=json.dumps(choices),
+                                **{name: np.stack(values) for name, values in predictions.items()})
+    for name, folder in EXTERNAL.items():
+        external = external_predictions(folder, arrays["row_ids"][test_rows])
+        if external is not None:
+            predictions[name], choices[name] = external
+    scores = {name: [score(predicted, truth, ascents) for predicted in values] for name, values in predictions.items()}
 
     summary = {name: {metric: {"mean": float(np.mean([r[metric] for r in rows])),
                                "std": float(np.std([r[metric] for r in rows], ddof=1)) if len(rows) > 1 else 0.0}
                       for metric in rows[0]} for name, rows in scores.items()}
-    averaged = {name: np.mean(values, axis=0) for name, values in predictions.items()}
-    baseline = "bag_mlp"
-    gaps = {name: bootstrap_gap(averaged[name], averaged[baseline], truth, climbs)
-            for name in ("model_mlp", "model_linear", "bayes", "untrained_mlp")}
-    per_seed_gap = {name: [float(np.mean((predictions[name][i] - truth) ** 2) - np.mean((predictions[baseline][i] - truth) ** 2))
-                           for i in range(len(SEEDS))] for name in ("model_mlp", "model_linear", "bayes", "untrained_mlp")}
     (args.output / "summary.json").write_text(json.dumps({
         "model": MODEL, "seeds": SEEDS, "test_rows": len(truth), "test_grade_variance": float(np.var(truth)),
-        "subsets": {name: {"rule": "every test row" if name == "all" else f"ascents at that angle > {ASCENTS_OVER}",
+        "subsets": {name: {"rule": "every test row" if over is None else f"ascents at that angle > {over}",
                            "suffix": suffix, "rows": int(subset_mask(name, ascents).sum()),
                            "climbs": len(set(climbs[subset_mask(name, ascents)])),
                            "grade_variance": float(np.var(truth[subset_mask(name, ascents)]))}
-                    for name, suffix in SUBSETS.items()},
+                    for name, (suffix, over) in SUBSETS.items()},
         "methods": summary, "per_seed": scores, "chosen_on_validation": choices,
-        "mse_gap_to_bag_mlp_seed_averaged_predictions": gaps, "mse_gap_to_bag_mlp_per_seed": per_seed_gap}, indent=2) + "\n")
+        "significance": significance(predictions, truth, ascents, climbs)}, indent=2) + "\n")
     (args.output / "confusion.json").write_text(json.dumps({
         "grades": list(range(GRADES)),
         "rule": "rows: true V grade; columns: prediction rounded to the nearest grade and clipped to V0-V16; "
@@ -295,14 +459,15 @@ def main():
     }) + "\n")
     with (args.output / "by_grade.csv").open("w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(["method", "grade", "rows", "mse", "mean_predicted"])
+        writer.writerow(["method", "grade", "rows", "rmse", "mae", "mean_predicted"])
         for name, values in predictions.items():
             for grade in range(GRADES):
                 keep = truth == grade
                 if keep.any():
-                    errors = np.mean([np.mean((v[keep] - truth[keep]) ** 2) for v in values])
-                    writer.writerow([name, grade, int(keep.sum()), errors, float(np.mean([v[keep].mean() for v in values]))])
-    print(json.dumps({name: values["mse"] for name, values in summary.items()}, indent=1))
+                    writer.writerow([name, grade, int(keep.sum()), np.mean([rmse(v[keep], truth[keep]) for v in values]),
+                                     np.mean([mae(v[keep], truth[keep]) for v in values]),
+                                     float(np.mean([v[keep].mean() for v in values]))])
+    print(json.dumps({name: {"rmse": values["rmse"], "mae": values["mae"]} for name, values in summary.items()}, indent=1))
 
 
 if __name__ == "__main__":

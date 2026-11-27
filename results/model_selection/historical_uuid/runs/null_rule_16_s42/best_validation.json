@@ -1,0 +1,99 @@
+{
+  "checkpoint": "runs/20261126T165239432114Z_null_rule_16/best.pt",
+  "evaluation": {
+    "checkpoint": "best.pt",
+    "checkpoint_sha256": "5f7c608b32f818071b666630fa0ec20ae444464ad877588c66bf81ca7c857dd6",
+    "data_fingerprint": "40c48fee3a9a2445aa361136ada4e792e6a387497cc0bc7d390695d98c78d010",
+    "evaluation_id": "2fead0acbed66db1b280",
+    "evaluator_source": {
+      "kilter": {
+        "__init__.py": "8de76ae67a1ea3f3db3513a5b5b7320c8f354d1c4d224c3e985da5cc3100a432",
+        "climb_tags.py": "d27f92dc6fd3ad2067b3354f9e11ce610bdf4dd3d91774d7af73ade9ab067ae6",
+        "config.py": "dc4108cd9e1ea931bf6955a9a76b795822b588980eee48d3b4ac4d31e1d3a99b",
+        "data.py": "11a1d2a033c95bce6b484574ec3b295e4077fb4606db80cef2a3e4ef3947e1cb",
+        "experiment.py": "3a2e9ee621f8314126b60de42749a27f65ae761f0fa905835c21052b037ed6b8",
+        "hold_labels.py": "e573e56ab395a53c004c0569796569249c91aeadbd8800ba5e7af7dd9c44f6a8",
+        "model.py": "716e602a8f59a580392c8224c697fdb4f61a3b5eba40cde19a79ecbc3bb413b5",
+        "sampling.py": "2ab5e1ce126dcbb774712c42227207157d3302a13b26201ae051514a629fb5f5",
+        "splits.py": "b332b98a7dbf0a925b351a8b778e0df1384eca4d89b49b10775b4fcb8c4ae53f"
+      }
+    },
+    "evaluator_version": 1,
+    "identity_version": 1,
+    "kind": "likelihood",
+    "run_id": "f137e84a5eacc9723ae5",
+    "settings": {
+      "batch_size": 512,
+      "modes": [
+        "scratch",
+        "starts",
+        "starts_feet"
+      ],
+      "rules": true,
+      "similarity_bands": [
+        [
+          "distant",
+          0.0
+        ],
+        [
+          "related",
+          0.5
+        ],
+        [
+          "near_duplicate",
+          0.75
+        ]
+      ]
+    },
+    "split": "validation"
+  },
+  "null_grade": {
+    "scratch": {
+      "loss_per_token": 5.730054341383126,
+      "nll_per_climb": 77.97048967493892,
+      "nll_rules": 45.292428082883724,
+      "rows": 16936,
+      "token_accuracy": 0.07999895857289772
+    },
+    "selection_nll": 64.76202118443685,
+    "selection_nll_rules": 37.64686641173557,
+    "starts": {
+      "loss_per_token": 5.788052333737967,
+      "nll_per_climb": 68.58992390008709,
+      "nll_rules": 38.1098474962958,
+      "rows": 16936,
+      "token_accuracy": 0.07972256547215689
+    },
+    "starts_feet": {
+      "loss_per_token": 5.075487956397574,
+      "nll_per_climb": 47.725649978284515,
+      "nll_rules": 29.538323656027195,
+      "rows": 16936,
+      "token_accuracy": 0.11758722025469068
+    }
+  },
+  "scratch": {
+    "loss_per_token": 5.6883512319011365,
+    "nll_per_climb": 77.40302352653002,
+    "nll_rules": 44.665755021893084,
+    "rows": 16936,
+    "token_accuracy": 0.08284552598577584
+  },
+  "selection_nll": 64.29880648015184,
+  "selection_nll_rules": 37.13716692737549,
+  "split": "validation",
+  "starts": {
+    "loss_per_token": 5.75353248600145,
+    "nll_per_climb": 68.18085473609747,
+    "nll_rules": 37.616088333814616,
+    "rows": 16936,
+    "token_accuracy": 0.08417706381791366
+  },
+  "starts_feet": {
+    "loss_per_token": 5.031555003313587,
+    "nll_per_climb": 47.31254117782802,
+    "nll_rules": 29.12965742641876,
+    "rows": 16936,
+    "token_accuracy": 0.12325119935699394
+  }
+}

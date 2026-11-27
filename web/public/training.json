@@ -1407,58 +1407,90 @@
    {
     "method": "mean_at_angle",
     "label": "Training mean at that angle",
-    "mse": 5.0386,
-    "mse_std": 0.0,
+    "rmse": 2.2447,
+    "rmse_std": 0.0,
+    "mae": 1.7836,
     "within_one": 0.3411
    },
    {
     "method": "untrained_linear",
     "label": "Untrained model, ridge",
-    "mse": 3.3601,
-    "mse_std": 0.047,
+    "rmse": 1.833,
+    "rmse_std": 0.0128,
+    "mae": 1.4326,
     "within_one": 0.4323
    },
    {
     "method": "bag_linear",
     "label": "Bag of holds, ridge",
-    "mse": 2.8578,
-    "mse_std": 0.0,
+    "rmse": 1.6905,
+    "rmse_std": 0.0,
+    "mae": 1.3022,
     "within_one": 0.4771
    },
    {
     "method": "untrained_mlp",
     "label": "Untrained model, MLP head",
-    "mse": 2.392,
-    "mse_std": 0.0304,
+    "rmse": 1.5466,
+    "rmse_std": 0.0098,
+    "mae": 1.1753,
     "within_one": 0.5258
    },
    {
     "method": "bag_mlp",
     "label": "Bag of holds, MLP head",
-    "mse": 2.0284,
-    "mse_std": 0.014,
+    "rmse": 1.4242,
+    "rmse_std": 0.0049,
+    "mae": 1.0653,
     "within_one": 0.5734
    },
    {
     "method": "model_linear",
     "label": "Generator features, ridge",
-    "mse": 1.8459,
-    "mse_std": 0.012,
+    "rmse": 1.3586,
+    "rmse_std": 0.0044,
+    "mae": 1.0209,
     "within_one": 0.5892
    },
    {
     "method": "bayes",
     "label": "Generator, Bayes over grades",
-    "mse": 1.8326,
-    "mse_std": 0.0449,
+    "rmse": 1.3537,
+    "rmse_std": 0.0166,
+    "mae": 1.0017,
     "within_one": 0.604
    },
    {
     "method": "model_mlp",
     "label": "Generator features, MLP head",
-    "mse": 1.6973,
-    "mse_std": 0.0106,
+    "rmse": 1.3028,
+    "rmse_std": 0.0041,
+    "mae": 0.9597,
     "within_one": 0.6243
+   },
+   {
+    "method": "lightgbm",
+    "label": "LightGBM, bag of holds + geometry",
+    "rmse": 1.2949,
+    "rmse_std": 0.0012,
+    "mae": 0.9533,
+    "within_one": 0.6264
+   },
+   {
+    "method": "bert",
+    "label": "BERT-style encoder, trained for grading",
+    "rmse": 1.2649,
+    "rmse_std": 0.0006,
+    "mae": 0.935,
+    "within_one": 0.6341
+   },
+   {
+    "method": "finetuned",
+    "label": "Generator fine-tuned for grading",
+    "rmse": 1.2518,
+    "rmse_std": 0.001,
+    "mae": 0.9159,
+    "within_one": 0.6499
    }
   ]
  }

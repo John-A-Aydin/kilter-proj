@@ -14,6 +14,9 @@ repository root.
 | [`tag_conditioning.py`](tag_conditioning.py) | Does conditioning on style tags from climb names and descriptions help the model, and does turning a tag on change what it sets? | [`results/tag_conditioning/`](../results/tag_conditioning/) |
 | [`hold_label_probes.py`](hold_label_probes.py) | Do the chosen model's hold representations already encode the hand-labeled hold types and grip directions? | [`results/hold_label_probes/`](../results/hold_label_probes/) |
 | [`grade_climbs.py`](grade_climbs.py) | Does the model help predict a climb's grade? | [`results/grade_climbs/`](../results/grade_climbs/) |
+| [`bert_grader.py`](bert_grader.py) | How well does a BERT-style encoder trained only for grading do, on the same split? | [`results/bert_grader/`](../results/bert_grader/) |
+| [`finetune_grader.py`](finetune_grader.py) | How much does freezing the model cost for grading, against fine-tuning it end to end? | [`results/finetune_grader/`](../results/finetune_grader/) |
+| [`lightgbm_grader.py`](lightgbm_grader.py) | How well do gradient-boosted trees on the bag of holds plus geometry features grade? | [`results/lightgbm_grader/`](../results/lightgbm_grader/) |
 
 To add an experiment, add a script to `experiments/` with a docstring that says what it measures
 and how to run it, write its outputs to `results/<script name>/`, and add a row above
@@ -140,29 +143,36 @@ long enough.
 ### Hand-labeled hold features
 
 Every hold was labeled by hand in the website's hold labeler
-([`data/hold_labels.csv`](../data/hold_labels.csv)): its type and every direction it
-can be pulled on. `null_rule_16_labels` is `null_rule_16` with those labels added to
+([`data/hold_labels.csv`](../data/hold_labels.csv)): its type and one grip direction.
+For most holds the direction is the way you pull. For pinches it is 90° to the
+pulling force, either way. `null_rule_16_labels` is `null_rule_16` with those labels added to
 each hold's features (`model.hold_labels = "data/hold_labels.csv"`), and nothing else
 changed. Only the `type`, `grip` and `on_kickboard` columns are read. Type becomes a
 one-hot over 7 types and grip a multi-hot over 16 compass directions, so a hold's
 features grow from 28 to 51 columns. `on_kickboard` was already a feature, so it is
-only checked against the vocabulary. All 476 holds have both a type and a grip: 195
-edges, 170 foot chips, 80 jugs, 22 pinches and 9 slopers, and 423 holds pull one way.
-The `null_rule_16_labels` runs below were trained before holds 1283 and 1298 were
-relabeled from edge to pinch, when there were 197 edges and 20 pinches; with 2 of 476
-holds different, retraining is not expected to change the result.
+only checked against the vocabulary. All 476 holds have a type and exactly one direction:
+195 edges, 170 foot chips, 80 jugs, 22 pinches and 9 slopers.
 
-Mean over seeds 42, 43 and 44, with rules applied:
+Until 2026-11-26, 53 holds had several directions (every pinch among them, usually two
+opposite sides). Each now has one. The old runs also predate the relabeling of holds
+1283 and 1298 from edge to pinch. Both versions were trained and are shown below, with
+`null_rule_16` retrained under the current code as the control. It reproduced the
+historical runs to every digit. The model choice is made on validation, so the table is
+validation. Test scratch comes from the [style tag experiment](#tags-make-real-climbs-more-predictable),
+which scores the historical test split (development numbers). Mean over seeds 42, 43 and 44,
+nats per climb, with rules applied:
 
-| Model | Validation mean | Test scratch | Test starts | Test starts + feet | Test mean | Rules-on valid (test) |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `null_rule_16` | 37.14 | 44.58 | 37.43 | 29.01 | 37.01 | 94.0% |
-| `null_rule_16_labels` | 37.12 | 44.56 | 37.43 | 29.00 | 37.00 | 93.4% |
+| Model | Grip labels | Validation mean | Scratch | Starts | Starts + feet | Rules-on valid | Test scratch |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `null_rule_16` | none | 37.14 | 44.70 | 37.60 | 29.14 | 95.0% | 44.58 |
+| `null_rule_16_labels` | several directions (old) | 37.12 | 44.67 | 37.57 | 29.12 | 94.3% | 44.56 |
+| `null_rule_16_labels` | one direction (2026-11-26) | 37.13 | 44.68 | 37.58 | 29.13 | 94.2% | 44.56 |
 
-The labels make no measurable difference. Test mean improves by 0.01 nats per climb.
-Seed for seed, the gain is 0.00 to 0.03, smaller than the spread between seeds (standard
-deviation 0.02 to 0.04). Validity is 0.6 points lower, and its sign changes from seed
-to seed. Best epochs are the same, 12 to 15. A likely reason is that every hold
+The labels make no measurable difference, with either grip scheme. The validation mean
+improves by 0.01 nats per climb (0.03 with the old labels). Seed for seed, it is 0.01 and
+0.03 worse on seeds 42 and 43 and 0.08 better on seed 44, whose `null_rule_16` run is the
+weakest of the three. The spread between seeds is 0.02 to 0.05. Validity is 0.8 points
+lower, and its sign changes from seed to seed. Best epochs are the same, 12 to 15. A likely reason is that every hold
 already has its own learned embedding, trained on about 300,000 climb rows, so anything
 fixed about a hold, such as its type or grip, can already be learned from how it is used.
 Labels like these would matter more for holds with few climbs, or for a board
@@ -217,7 +227,7 @@ seeds (42, 43 and 44) are probed, and every number is their mean.
 | --- | ---: | --- | --- |
 | Hand-hold type | 306 | edge, jug, pinch or sloper | balanced accuracy, chance 25% |
 | All five types | 476 | the four above or foot chip | balanced accuracy, chance 20% |
-| Grip direction | 423 | the one labeled direction, for holds with exactly one | mean angle between predicted and labeled direction |
+| Grip direction | 476 | each hold's one labeled direction | mean angle between predicted and labeled direction |
 
 Balanced accuracy is the mean over types of the share of that type predicted
 correctly (its recall), so each type counts equally: the 9 slopers weigh as much as
@@ -226,8 +236,12 @@ the main test. A foot chip is easy to find without learning anything, because 15
 the 170 are screw-on holds and the screw-on flag is one of the model's position inputs.
 
 The angle between two directions is `|((p − l + 180) mod 360) − 180|` degrees, so it
-runs from 0° (exact) to 180° (opposite). Pinches all have two or more labeled
-directions, so they are not in the grip task.
+runs from 0° (exact) to 180° (opposite). Every hold has exactly one labeled direction.
+For edges, jugs, slopers and foot chips it is the direction you pull. For the 22 pinches
+it is 90° to the pulling force, either way, so a pinch's direction is really an axis: 0°
+and 180° mean the same pinch. The error above does not know that, so a pinch predicted
+exactly backwards scores 180° when it is right. Before 2026-11-26, holds with several
+directions (53 of them, every pinch among them) were left out of this task, and it had 423 holds.
 
 ### What is probed
 
@@ -283,25 +297,28 @@ Mean ± standard deviation over the three seeds:
 
 | Representation | Hand-hold type | All five types | Grip error | Grip within 45° |
 | --- | ---: | ---: | ---: | ---: |
-| Position | 21.6 ± 0.6% | 36.7 ± 0.8% | 43.2 ± 0.1° | 62.1% |
-| Usage counts | 53.6 ± 1.3% | 61.1 ± 0.7% | 40.0 ± 0.3° | 61.2% |
-| Untrained model | 22.6 ± 5.0% | 21.5 ± 3.5% | 43.1 ± 0.2° | 62.0% |
-| Hold embedding | 74.8 ± 2.5% | 73.1 ± 1.2% | 30.6 ± 0.8° | 78.2% |
-| Hold vector | 76.3 ± 1.3% | 82.6 ± 0.9% | 34.1 ± 0.8° | 72.2% |
-| In-context state | 51.3 ± 6.0% | 60.2 ± 4.7% | 33.7 ± 0.2° | 73.9% |
+| Position | 21.6 ± 0.6% | 36.7 ± 0.8% | 44.1 ± 0.3° | 60.7% |
+| Usage counts | 53.9 ± 0.2% | 60.5 ± 1.0% | 41.6 ± 0.1° | 59.8% |
+| Untrained model | 21.7 ± 5.5% | 21.4 ± 4.1% | 43.9 ± 0.2° | 60.9% |
+| Hold embedding | 74.8 ± 3.5% | 72.4 ± 1.2% | 30.4 ± 0.7° | 77.7% |
+| Hold vector | 77.9 ± 0.9% | 81.7 ± 0.6% | 34.4 ± 0.6° | 71.6% |
+| In-context state | 51.4 ± 6.8% | 59.0 ± 4.1% | 35.8 ± 0.9° | 70.3% |
 | Chance | 25% | 20% | | |
-| Shuffled labels, mean (95th percentile) | 25.0% (33.5%) | 20.8% (28.5%) | 42.9° | |
-| Constant average direction | | | 41.1° | |
+| Shuffled labels, mean (95th percentile) | 25.0% (32.2%) | 20.4% (26.3%) | 43.8° | |
+| Constant average direction | | | 41.9° | |
 
-These results use the labels after holds 1283 and 1298 were relabeled from edge to
-pinch. Changing two types also changes the stratified folds, so every score is redrawn.
-Most moved by a point or two, about the spread between seeds; the conclusions did not change.
+These results use the labels of 2026-11-26, with one grip direction for every hold. No
+type changed, but the type scores still move a little: each seed's probes share one random
+generator, and the larger grip task draws from it, so every representation after position
+gets new folds. Those moves are within the spread between seeds. The grip columns changed
+because 53 holds joined the task; the old scores, on 423 holds, were 30.6° for the hold
+embedding and 40.0° for usage counts.
 
 <!-- chart: probe-scores -->
 
 **Type is encoded.** From position alone a probe cannot tell the hand-hold types apart
 (22%, chance is 25%), and the untrained network does no better. The learned hold
-embedding and hold vector reach 75% and 76%, far above the shuffled-label null. They
+embedding and hold vector reach 75% and 78%, far above the shuffled-label null. They
 also beat usage counts (54%), the strongest control. So the model stores more than
 how often each hold is used in each role, likely which holds are used together, at
 what grades and angles, and in what order.
@@ -317,13 +334,13 @@ are wrong. Switch to grip to compare labeled and predicted directions.
 
 <!-- chart: probe-boards -->
 
-Almost every pinch is recovered (98% recall), against 60% from usage counts. Edges and jugs
-are recovered 76% and 69% of the time and are mostly mistaken for each other. Slopers
-(61%) are the hardest for the model, though with 9 of them that number is noisy.
+Almost every pinch is recovered (99% recall), against 58% from usage counts. Edges and jugs
+are recovered 76% and 70% of the time and are mostly mistaken for each other. Slopers
+(67%) are the hardest for the model, though with 9 of them that number is noisy.
 Holds 1283 and 1298 were labeled edge until they were checked again. Before that, the
 hold-vector, in-context and usage probes had already predicted pinch for both, which was
 scored as wrong. They are now labeled pinch.
-Usage counts find slopers well (76%), probably because they are used in their own way.
+Usage counts find slopers well (77%), probably because they are used in their own way.
 
 <!-- chart: probe-confusion -->
 
@@ -334,10 +351,12 @@ the probes, using 20 dimensions, are the test.
 
 <!-- chart: probe-projection -->
 
-**Grip direction is only partly encoded.** A third of the single-direction holds pull
-straight up, and always guessing the average direction is off by 41.1° on average. The
-hold embedding is off by 30.6°, against 40.0° for usage counts, so some of the
-direction is in there, much less clearly than type.
+**Grip direction is only partly encoded.** A third of the holds (154 of 476) are labeled
+straight up, and always guessing the average direction is off by 41.9° on average. The
+hold embedding is off by 30.4°, against 41.6° for usage counts, so some of the
+direction is in there, much less clearly than type. Pinches are scored as if their
+direction were a pull direction (see [what is predicted](#what-is-predicted)), so this
+slightly understates what the representations hold.
 
 <!-- chart: probe-grip -->
 
@@ -441,15 +460,16 @@ Nats per held-out test climb, generated from nothing with the decoding rules and
 real grade, mean of three seeds. "All off" scores the same model with every tag set to
 zero. The historical split's test set is used here as before; it was already open during
 development, so these are development numbers (see [historical results](#historical-results)).
-The tag models were retrained with the 21 tags; `null_rule_16` is the historical run.
+The tag models were retrained with the 21 tags, and `null_rule_16_tags_labels` again with the
+hold labels of 2026-11-26; `null_rule_16` is the historical run.
 
 | Model | Tags given | Tagged climbs (1,415) | Untagged (15,482) | All (16,897) |
 | --- | --- | ---: | ---: | ---: |
 | `null_rule_16` | none | 42.61 | 44.75 | 44.58 |
 | `null_rule_16_tags` | true tags | 41.53 | 44.74 | 44.47 |
 | `null_rule_16_tags` | all off | 42.87 | 44.74 | 44.58 |
-| `null_rule_16_tags_labels` | true tags | 41.59 | 44.73 | 44.46 |
-| `null_rule_16_tags_labels` | all off | 42.96 | 44.73 | 44.58 |
+| `null_rule_16_tags_labels` | true tags | 41.60 | 44.73 | 44.47 |
+| `null_rule_16_tags_labels` | all off | 43.01 | 44.73 | 44.59 |
 
 On the 1,415 test climbs that have a tag, giving the model their tags saves 1.35 nats
 per climb, and the tagged model beats `null_rule_16` by 1.09. On untagged climbs the
@@ -490,6 +510,12 @@ generated climbs are then measured two ways.
    sloper, or whose grip points down (undercling) or sideways (sidepull). Each is
    compared with how real climbs with the tag differ from real climbs without it in the
    same grade and angle cell, in standard deviations of the statistic.
+   The grip shares read each hold's labeled direction as the way you pull. Since
+   2026-11-26 a pinch's direction is 90° to the pull instead, so a pinch you pull
+   sideways is labeled about 0° and no longer counts as a sidepull. With that change,
+   real `pinch` climbs stand out for sidepulls by 0.38 standard deviations, down from
+   1.16, and for underclings by −0.33, from +0.23. No other tag's grip share moved by
+   more than 0.23.
 
 <!-- chart: tags-steering -->
 
@@ -507,7 +533,7 @@ correlation of 0.84 (0.84 for `null_rule_16_tags_labels` too).
   off" means "a typical untagged climb", not "no dynamic moves".
 - Some effects are weaker than in real climbs. Real endurance climbs are 1.7 standard
   deviations longer, but turning the tag on adds only 0.2. The undercling share rises
-  about half as much as in real climbs.
+  about half as much as in real climbs (1.0 standard deviations against 2.1).
 - Movement tags such as high feet and body tension cannot be checked from holds alone.
   The model may follow them, but neither test can tell.
 - Turning a tag on costs some version 1 validity: 91.9% of samples pass with one tag on,
@@ -526,22 +552,55 @@ number for every seed, and `examples.json` has generated climbs for a few tags.
 ```
 
 Predicts a climb's V grade from its holds and angle. The model is frozen and read with
-a null grade, so the label cannot leak in. Settings are chosen on validation. Every
-method is scored on two test subsets: all 16,897 test rows (10,344 climbs, grade
-variance 6.66), and the 3,736 rows (2,275 climbs, grade variance 8.24) whose climb has
-**more than 5 ascents** at that angle, where the grade is agreed by more climbers. MSE
-is in grades² and RMSE in grades; both are means over three seeds (RMSE is the mean of
-each seed's RMSE).
+a null grade, so the label cannot leak in. The ridge penalty, MLP epoch and Bayes temperature
+are chosen on validation MSE. Three stronger baselines are trained end to end for grading
+alone, on the same rows and split, by their own scripts (see
+[Models trained for grading](#models-trained-for-grading)): a BERT-style encoder, the generator
+fine-tuned, and LightGBM. `grade_climbs.py` reads their test predictions and scores them with
+the rest. Every method is scored on four test subsets: every test row,
+and the rows whose climb has **more than 5, 10 or 25 ascents** at that angle, where more
+climbers agree on the grade. The subsets are nested, and the better-climbed ones have a wider
+spread of grades.
 
-| Method | MSE, all | MSE, over 5 ascents | RMSE, all | RMSE, over 5 ascents | Within 1 grade, all |
+| Test subset | Rows | Climbs | Grade variance |
+| --- | ---: | ---: | ---: |
+| All test rows | 16,897 | 10,344 | 6.66 |
+| More than 5 ascents | 3,736 | 2,275 | 8.24 |
+| More than 10 ascents | 2,345 | 1,382 | 8.60 |
+| More than 25 ascents | 1,247 | 697 | 9.15 |
+
+RMSE (root mean squared error) and MAE (mean absolute error) are in grades; each is the mean
+over three seeds of that seed's value. RMSE weighs large misses more heavily than MAE.
+
+**RMSE** (grades, lower is better)
+
+| Method | All | Over 5 | Over 10 | Over 25 |
+| --- | ---: | ---: | ---: | ---: |
+| Training mean at that angle | 2.24 | 2.60 | 2.70 | 2.83 |
+| Bag of holds, ridge | 1.69 | 1.69 | 1.71 | 1.72 |
+| Untrained model, MLP head | 1.55 | 1.42 | 1.40 | 1.35 |
+| Bag of holds, MLP head (main baseline) | 1.42 | 1.25 | 1.23 | 1.18 |
+| `null_rule_16`, ridge | 1.36 | 1.23 | 1.21 | 1.18 |
+| `null_rule_16`, Bayes over grades, no head | 1.35 | 1.19 | 1.18 | 1.14 |
+| `null_rule_16`, MLP head | 1.30 | 1.12 | 1.10 | 1.05 |
+| LightGBM, bag of holds + geometry | 1.29 | 1.11 | 1.08 | 1.05 |
+| BERT-style encoder, trained for grading | 1.26 | 1.13 | 1.11 | 1.07 |
+| `null_rule_16`, fine-tuned for grading | 1.25 | 1.08 | 1.05 | 1.01 |
+
+**MAE** (grades, lower is better)
+
+| Method | All | Over 5 | Over 10 | Over 25 | Within 1 grade, all |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Training mean at that angle | 5.04 | 6.78 | 2.24 | 2.60 | 34.1% |
-| Bag of holds, ridge | 2.86 | 2.85 | 1.69 | 1.69 | 47.7% |
-| Untrained model, MLP head | 2.39 | 2.02 | 1.55 | 1.42 | 52.6% |
-| Bag of holds, MLP head (main baseline) | 2.03 | 1.57 | 1.42 | 1.25 | 57.3% |
-| `null_rule_16`, ridge | 1.85 | 1.50 | 1.36 | 1.23 | 58.9% |
-| `null_rule_16`, Bayes over grades, no head | 1.83 | 1.41 | 1.35 | 1.19 | 60.4% |
-| `null_rule_16`, MLP head | 1.70 | 1.26 | 1.30 | 1.12 | 62.4% |
+| Training mean at that angle | 1.78 | 2.13 | 2.22 | 2.32 | 34.1% |
+| Bag of holds, ridge | 1.30 | 1.32 | 1.33 | 1.34 | 47.7% |
+| Untrained model, MLP head | 1.18 | 1.09 | 1.08 | 1.04 | 52.6% |
+| Bag of holds, MLP head (main baseline) | 1.07 | 0.97 | 0.95 | 0.92 | 57.3% |
+| `null_rule_16`, ridge | 1.02 | 0.96 | 0.95 | 0.93 | 58.9% |
+| `null_rule_16`, Bayes over grades, no head | 1.00 | 0.93 | 0.93 | 0.91 | 60.4% |
+| `null_rule_16`, MLP head | 0.96 | 0.87 | 0.85 | 0.82 | 62.4% |
+| LightGBM, bag of holds + geometry | 0.95 | 0.85 | 0.83 | 0.82 | 62.6% |
+| BERT-style encoder, trained for grading | 0.93 | 0.89 | 0.88 | 0.87 | 63.4% |
+| `null_rule_16`, fine-tuned for grading | 0.92 | 0.84 | 0.83 | 0.82 | 65.0% |
 
 The heatmap shows each method's predictions against the true grade, with predictions
 rounded to the nearest grade. Each row is one true grade, and its cells show where that
@@ -554,14 +613,219 @@ so every row falls in the same band, V2 to V7, whatever the true grade.
 
 <!-- chart: grading-confusion -->
 
-Every learned method does better on the climbs with more than 5 ascents, though their
-grades vary more. The training mean does worse there, because it can only guess the
-average. The order of the methods is the same on both subsets, and `null_rule_16` with
-an MLP head is best on both: 1.26 MSE (1.12 RMSE) against 1.57 (1.25) for the bag of
-holds. Earlier versions of this table used climbs with 5 or more ascents (4,324 rows);
-the numbers on all test climbs are unchanged.
+Among the methods that read the frozen model, `null_rule_16` with an MLP head is best in every
+subset, on both measures. Fine-tuning the same model for grading does better still, in every
+subset. The BERT-style encoder and LightGBM come close to the frozen model; they are compared
+in [Models trained for grading](#models-trained-for-grading). Every learned
+method except the bag of holds with ridge does better on the better-climbed subsets than on
+all test climbs, though their grades vary more. The bag of holds with ridge does slightly
+worse there, and so does the training mean, which can only guess the average. Ridge and Bayes
+on `null_rule_16` beat the bag of holds with an MLP head on all test climbs, but their lead
+shrinks as the ascent count rises. Earlier versions of this table used climbs with 5 or more ascents (4,324 rows); the
+numbers on all test climbs are unchanged.
+
+### Statistical significance
+
+Each comparison below is the difference in RMSE or MAE between two methods on the same test
+rows: method minus reference, as a mean over seeds, so negative means the method is better.
+
+- The interval is a 95% bootstrap interval over test climbs. Climbs are resampled with
+  replacement (10,000 times), and all angles of a climb are drawn together, since they are not
+  independent.
+- The *p*-value is from a two-sided paired permutation test at the climb level. If the two
+  methods were equally good, each climb's error difference would be equally likely to be
+  positive or negative, so the test flips their signs at random (100,000 times). For MAE it uses
+  absolute errors; for RMSE, squared errors (equal RMSE means equal MSE).
+- The *p*-values are adjusted with Holm's method for the sixteen comparisons in each subset and
+  measure (the nine below and the seven in
+  [Models trained for grading](#models-trained-for-grading)). A cell shows *p* only when it is
+  0.001 or more; every other cell has *p* < 0.001. The smallest value 100,000 permutations can
+  show is 0.00001, or 0.00016 after adjustment.
+
+**Difference in RMSE**, method minus reference (negative: the method is better)
+
+| Method | Reference | All | Over 5 | Over 10 | Over 25 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `null_rule_16`, MLP head | bag of holds, MLP head | −0.12 (−0.14 to −0.10) | −0.13 (−0.16 to −0.10) | −0.14 (−0.17 to −0.10) | −0.13 (−0.18 to −0.09) |
+| `null_rule_16`, Bayes | bag of holds, MLP head | −0.07 (−0.09 to −0.05) | −0.07 (−0.10 to −0.04) | −0.05 (−0.09 to −0.02), *p* = 0.02 | −0.04 (−0.09 to +0.01), *p* = 0.35 |
+| `null_rule_16`, ridge | bag of holds, MLP head | −0.07 (−0.08 to −0.05) | −0.03 (−0.06 to 0.00), *p* = 0.17 | −0.03 (−0.06 to +0.01), *p* = 0.46 | 0.00 (−0.05 to +0.05), *p* = 1.00 |
+| Untrained, MLP head | bag of holds, MLP head | +0.12 (+0.10 to +0.14) | +0.17 (+0.14 to +0.20) | +0.17 (+0.13 to +0.20) | +0.17 (+0.12 to +0.21) |
+| Bag of holds, ridge | bag of holds, MLP head | +0.27 (+0.24 to +0.29) | +0.43 (+0.39 to +0.49) | +0.48 (+0.41 to +0.54) | +0.54 (+0.45 to +0.64) |
+| Training mean | bag of holds, MLP head | +0.82 (+0.78 to +0.86) | +1.35 (+1.26 to +1.44) | +1.47 (+1.35 to +1.58) | +1.65 (+1.49 to +1.81) |
+| `null_rule_16`, MLP head | `null_rule_16`, Bayes | −0.05 (−0.06 to −0.04) | −0.06 (−0.09 to −0.04) | −0.08 (−0.12 to −0.05) | −0.09 (−0.14 to −0.05) |
+| `null_rule_16`, MLP head | `null_rule_16`, ridge | −0.06 (−0.07 to −0.04) | −0.10 (−0.13 to −0.08) | −0.11 (−0.15 to −0.08) | −0.13 (−0.18 to −0.09) |
+| `null_rule_16`, MLP head | untrained, MLP head | −0.24 (−0.26 to −0.23) | −0.30 (−0.33 to −0.27) | −0.30 (−0.34 to −0.27) | −0.30 (−0.35 to −0.26) |
+
+**Difference in MAE**, method minus reference (negative: the method is better)
+
+| Method | Reference | All | Over 5 | Over 10 | Over 25 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `null_rule_16`, MLP head | bag of holds, MLP head | −0.11 (−0.12 to −0.10) | −0.10 (−0.12 to −0.08) | −0.10 (−0.13 to −0.08) | −0.10 (−0.14 to −0.07) |
+| `null_rule_16`, Bayes | bag of holds, MLP head | −0.06 (−0.07 to −0.05) | −0.04 (−0.06 to −0.01), *p* = 0.005 | −0.02 (−0.05 to +0.01), *p* = 0.35 | −0.01 (−0.05 to +0.03), *p* = 1.00 |
+| `null_rule_16`, ridge | bag of holds, MLP head | −0.04 (−0.06 to −0.03) | −0.01 (−0.03 to +0.02), *p* = 0.50 | 0.00 (−0.03 to +0.02), *p* = 0.79 | +0.01 (−0.03 to +0.05), *p* = 1.00 |
+| Untrained, MLP head | bag of holds, MLP head | +0.11 (+0.10 to +0.12) | +0.13 (+0.10 to +0.15) | +0.13 (+0.10 to +0.16) | +0.11 (+0.08 to +0.15) |
+| Bag of holds, ridge | bag of holds, MLP head | +0.24 (+0.22 to +0.25) | +0.35 (+0.31 to +0.39) | +0.38 (+0.33 to +0.43) | +0.41 (+0.34 to +0.49) |
+| Training mean | bag of holds, MLP head | +0.72 (+0.69 to +0.75) | +1.17 (+1.09 to +1.25) | +1.27 (+1.17 to +1.38) | +1.40 (+1.24 to +1.56) |
+| `null_rule_16`, MLP head | `null_rule_16`, Bayes | −0.04 (−0.05 to −0.03) | −0.06 (−0.08 to −0.04) | −0.08 (−0.10 to −0.05) | −0.09 (−0.13 to −0.06) |
+| `null_rule_16`, MLP head | `null_rule_16`, ridge | −0.06 (−0.07 to −0.05) | −0.09 (−0.11 to −0.07) | −0.10 (−0.12 to −0.08) | −0.11 (−0.14 to −0.08) |
+| `null_rule_16`, MLP head | untrained, MLP head | −0.22 (−0.23 to −0.20) | −0.23 (−0.25 to −0.21) | −0.23 (−0.26 to −0.20) | −0.22 (−0.26 to −0.18) |
+
+The MLP head on `null_rule_16` beats the main baseline by about 0.1 grades in every subset,
+on both measures, and all three seeds agree (`per_seed` in `summary.json`). It also beats
+every other way of reading the same model, and the untrained copy by 0.2 to 0.3 grades, so
+the gain comes from pretraining, not from the architecture. Ridge and Bayes on `null_rule_16`
+beat the baseline significantly on all test climbs, but not on well-climbed ones. Ridge's lead
+is not significant from 5 ascents on, on either measure. Bayes's lead is not significant from
+10 ascents on for MAE, or with more than 25 ascents for RMSE.
+
+These intervals and tests account for which climbs happen to be in the test set. They don't
+account for training randomness: the three seeds are averaged, not resampled. They also
+assume the test set played no part in choosing the methods. That holds for the heads (chosen
+on validation), but the historical split's test set was seen while the model was developed.
 
 The Bayes grader uses p(climb | grade, angle) from the generative model with a prior
 per angle. Errors are largest at both ends of the scale, where labels are noisier or rarer.
 
 <!-- chart: grading-error -->
+
+### Models trained for grading
+
+```bash
+.venv/bin/python experiments/bert_grader.py       # sweep on validation, then the chosen one on three seeds
+.venv/bin/python experiments/finetune_grader.py
+.venv/bin/python experiments/lightgbm_grader.py   # needs the experiments extra: uv pip install --python .venv/bin/python -e ".[experiments]"
+.venv/bin/python experiments/grade_climbs.py      # then score every method on test
+```
+
+The heads above read a frozen generator. These three baselines are trained for grading only,
+to show how much that leaves behind:
+
+- **BERT-style encoder.** A bidirectional transformer over the climb's holds as a set, with no
+  positions, a [CLS] token and the angle added at every position. Each hold's input is its
+  identity, its role, and an MLP of its geometry features, the same inputs the generator sees
+  (no hand-labeled hold types, since `null_rule_16` has none). It is trained from scratch, with
+  BERT's masked-hold pretraining on the training rows first in the chosen configuration.
+- **`null_rule_16`, fine-tuned.** The generator, read exactly as the frozen probe reads it
+  (scratch-mode sequence, null grade, mean and last hidden states plus the angle), with a grade
+  head, updating every weight. Seed *s* starts from the generator trained on seed *s*. The
+  generator learns at a tenth of the head's rate.
+- **LightGBM.** Gradient-boosted trees on the angle, 1,904 bag-of-holds columns (one per hold
+  and role) and 38 geometry features: counts per role, spans and means of hand and foot
+  positions, and the largest, second-largest and mean gaps between consecutive hands. This is
+  the usual strong tabular baseline for a bag of holds.
+
+All three use the same 303,547 training and 16,936 validation rows as the generator. Each
+script checks that its rows are byte-identical to the generator's training cache. Every
+configuration tried is listed in the script and in its `results/<script>/sweep.csv`, in the
+order it was added. Each later round was chosen after reading the earlier round's validation
+scores, never test. The configuration with the lowest validation MSE on seed 42 is trained on
+seeds 43 and 44, and each script writes test predictions once, for `grade_climbs.py` to score.
+The neural models keep the epoch with the lowest validation MSE, using weights averaged over
+training (EMA), and LightGBM stops early on validation.
+
+| Method | Configurations tried | Chosen | Parameters | Validation MSE, three seeds |
+| --- | ---: | --- | ---: | --- |
+| BERT-style encoder | 24 | d384, 8 layers, 50 epochs of masked-hold pretraining, 12 epochs of grading with a distribution loss | 15.0M | 1.635 to 1.650 |
+| `null_rule_16`, fine-tuned | 11 | 10 epochs, distribution loss, generator learning rate 1e-4, head 1e-3 | 3.2M | 1.596 to 1.605 |
+| LightGBM | 15 | 63 leaves, learning rate 0.01, 13,000 to 19,000 trees | | 1.728 to 1.734 |
+| `null_rule_16`, MLP head (frozen) | | | | 1.754 to 1.762 |
+
+The "distribution loss" predicts a distribution over the 17 grades, trained with
+cross-entropy against the true grade smoothed by a Gaussian (σ = 0.75 grades), and predicts its
+mean. It beat plain MSE on a standardized grade for both neural models. The BERT search was
+the largest, since it is the baseline built to be as strong as possible. Its gains came mostly
+from pretraining: 1.72 on validation without it and 1.64 with it. Differences under about 0.005
+in validation MSE are within seed noise.
+
+**What the sweeps found** (validation MSE, seed 42; every row is in `results/<script>/sweep.csv`):
+
+| Method | Step | Validation MSE |
+| --- | --- | ---: |
+| BERT-style encoder | Start: d256, 6 layers, MSE loss, 30 epochs | 1.767 |
+| | Learning rate ×2 or ×½, 60 epochs, d192 with 4 layers | 1.754 to 1.775 |
+| | Dropout 0.2; d384 with 8 layers | 1.861; 1.799 |
+| | Distribution loss (12 or 30 epochs; the best epoch was 12 or 13 either way) | 1.717 to 1.719 |
+| | + lower learning rate, weight decay 0.2, or σ = 1 (one at a time) | 1.704 to 1.707 |
+| | + weighting rows by log ascents | 1.743 |
+| | + 20 epochs of masked-hold pretraining | 1.668 |
+| | + 50 epochs of masked-hold pretraining | 1.646 |
+| | + 50 epochs of pretraining, d384 with 8 layers (**chosen**) | 1.641 |
+| `null_rule_16`, fine-tuned | Start: MSE loss, generator learning rate 1e-4, head 1e-3, 10 epochs | 1.613 |
+| | Generator learning rate 3e-5 or 3e-4 | 1.629 |
+| | Train the head alone for 2 epochs first; 20 epochs | 1.622; 1.611 |
+| | Distribution loss | 1.597 |
+| | + 15 epochs, σ = 1, head learning rate 3e-4, or weight decay 0.05 (**chosen**) | 1.596 to 1.601 |
+| | + weighting rows by log ascents | 1.606 |
+| LightGBM | Start: 255 leaves, learning rate 0.05 | 1.768 |
+| | 1,023 leaves; more data per leaf, stronger L2, or fewer features per tree | 1.763 to 1.796 |
+| | 63, 31 or 15 leaves, and 63 leaves with more data per leaf or fewer features | 1.748 to 1.762 |
+| | Learning rate 0.02 or 0.01, 15 to 63 leaves (**chosen**: 63 leaves, 0.01) | 1.733 to 1.745 |
+
+Three things carried across methods. The distribution loss beat MSE for both neural models.
+Weighting rows by ascents hurt both, perhaps because validation weighs every row equally. And
+BERT overfits quickly: with 30 or 60 epochs on offer, most runs without pretraining peaked
+between epochs 7 and 14, and the larger model was worse until it was pretrained. The fine-tuned run
+chosen is tied with the plain distribution-loss run (1.5965 against 1.5971), well within seed
+noise of about 0.005.
+
+**Compute**, on one RTX 4060 Ti (LightGBM on 12 CPU threads):
+
+| Method | Whole sweep | Chosen configuration, per seed |
+| --- | ---: | ---: |
+| BERT-style encoder | 3.4 hours (24 runs) | 28 minutes, most of it pretraining |
+| `null_rule_16`, fine-tuned | 65 minutes (11 runs) | 5 minutes |
+| LightGBM | 22 minutes (15 runs) | 4 minutes |
+
+The test RMSE and MAE are in the tables above. These comparisons use the same tests as the
+section above, and are adjusted together with its nine comparisons.
+
+**Difference in RMSE**, method minus reference (negative: the method is better)
+
+| Method | Reference | All | Over 5 | Over 10 | Over 25 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Fine-tuned `null_rule_16` | bag of holds, MLP head | −0.17 (−0.19 to −0.15) | −0.17 (−0.20 to −0.15) | −0.18 (−0.22 to −0.15) | −0.17 (−0.21 to −0.12) |
+| BERT-style encoder | bag of holds, MLP head | −0.16 (−0.18 to −0.14) | −0.12 (−0.15 to −0.09) | −0.13 (−0.17 to −0.09) | −0.11 (−0.16 to −0.06) |
+| LightGBM | bag of holds, MLP head | −0.13 (−0.15 to −0.10) | −0.14 (−0.17 to −0.12) | −0.15 (−0.19 to −0.12) | −0.13 (−0.17 to −0.09) |
+| `null_rule_16`, MLP head | fine-tuned `null_rule_16` | +0.05 (+0.04 to +0.06) | +0.04 (+0.03 to +0.06) | +0.05 (+0.03 to +0.06) | +0.03 (+0.01 to +0.06), *p* = 0.06 |
+| `null_rule_16`, MLP head | BERT-style encoder | +0.04 (+0.02 to +0.05) | −0.01 (−0.03 to +0.01), *p* = 0.53 | −0.01 (−0.03 to +0.02), *p* = 0.57 | −0.03 (−0.06 to +0.01), *p* = 0.53 |
+| `null_rule_16`, MLP head | LightGBM | +0.01 (−0.01 to +0.02), *p* = 0.24 | +0.01 (−0.01 to +0.03), *p* = 0.34 | +0.02 (−0.01 to +0.04), *p* = 0.46 | 0.00 (−0.04 to +0.03), *p* = 1.00 |
+| Fine-tuned `null_rule_16` | BERT-style encoder | −0.01 (−0.02 to −0.01) | −0.05 (−0.06 to −0.04) | −0.05 (−0.07 to −0.04) | −0.06 (−0.08 to −0.03) |
+
+**Difference in MAE**, method minus reference (negative: the method is better)
+
+| Method | Reference | All | Over 5 | Over 10 | Over 25 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Fine-tuned `null_rule_16` | bag of holds, MLP head | −0.15 (−0.16 to −0.14) | −0.12 (−0.15 to −0.10) | −0.12 (−0.15 to −0.09) | −0.10 (−0.14 to −0.06) |
+| BERT-style encoder | bag of holds, MLP head | −0.13 (−0.14 to −0.12) | −0.08 (−0.11 to −0.06) | −0.08 (−0.11 to −0.05) | −0.05 (−0.09 to −0.01), *p* = 0.09 |
+| LightGBM | bag of holds, MLP head | −0.11 (−0.12 to −0.10) | −0.11 (−0.13 to −0.09) | −0.12 (−0.15 to −0.09) | −0.10 (−0.14 to −0.07) |
+| `null_rule_16`, MLP head | fine-tuned `null_rule_16` | +0.04 (+0.04 to +0.05) | +0.02 (+0.01 to +0.04), *p* = 0.001 | +0.02 (0.00 to +0.04), *p* = 0.08 | 0.00 (−0.03 to +0.02), *p* = 1.00 |
+| `null_rule_16`, MLP head | BERT-style encoder | +0.02 (+0.02 to +0.03) | −0.02 (−0.04 to 0.00), *p* = 0.12 | −0.03 (−0.05 to 0.00), *p* = 0.12 | −0.05 (−0.09 to −0.02), *p* = 0.004 |
+| `null_rule_16`, MLP head | LightGBM | +0.01 (0.00 to +0.01), *p* = 0.12 | +0.01 (0.00 to +0.03), *p* = 0.31 | +0.02 (0.00 to +0.04), *p* = 0.35 | 0.00 (−0.03 to +0.03), *p* = 1.00 |
+| Fine-tuned `null_rule_16` | BERT-style encoder | −0.02 (−0.02 to −0.01) | −0.04 (−0.05 to −0.03) | −0.05 (−0.06 to −0.03) | −0.05 (−0.07 to −0.03) |
+
+**Freezing costs about 0.05 grades of RMSE.** Fine-tuning `null_rule_16` beats the frozen
+probe in every subset on RMSE, by 0.03 to 0.05; the gap with more than 25 ascents is not
+significant (*p* = 0.06). On MAE the gap is 0.04 on all test climbs, smaller with more
+ascents, and zero with more than 25. The fine-tuned model is the best method in the table in
+every subset, on both measures.
+
+**Starting from the generator beats a model built for grading.** The BERT-style encoder has
+five times the parameters and had the largest search. It beats the frozen probe on all test
+climbs, by 0.04 RMSE and 0.02 MAE, but not on well-climbed ones. From 5 ascents on, the RMSE
+differences are not significant, and with more than 25 ascents the frozen probe has the lower
+MAE, by 0.05 (*p* = 0.004). The fine-tuned generator beats it in every subset. The encoder
+predicts low on average (bias −0.23 grades on all test climbs and −0.45 with more than 25
+ascents, against +0.02 and −0.22 for the frozen probe). It also has fewer well-climbed
+predictions within one grade (63% against 68%). The error chart by true grade shows where: the encoder
+has the lowest error of the four plotted methods from V0 to V4, where most test rows are, and
+falls behind the frozen probe at every grade from V6 up.
+
+**Hand-made geometry gets as far as the frozen probe.** LightGBM's gap to the frozen probe is
+not significant in any subset, on either measure. Its trees spend about 24% of their gain on
+the angle, 17% on the bag-of-holds columns, and the rest on the geometry features, most of
+all the distances between consecutive hands. The generator learned features worth as much
+without being given them. Hold-by-hold features alone, the bag of holds with an MLP head, are
+0.12 to 0.15 grades of RMSE behind both, depending on the subset.
+
+The caveats above apply here too. The seeds are averaged, not resampled, and the comparisons
+assume each method was chosen on validation, which holds for all three.

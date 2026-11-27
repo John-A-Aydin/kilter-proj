@@ -72,7 +72,7 @@ test('the README places every probe figure, and the probe data covers every hold
       if (prediction.grip !== null) assert.ok(Number.isFinite(prediction.grip));
     }
   }
-  assert.equal(data.holds.filter(h => h.grip.length === 1).length, 423);
+  assert.equal(data.holds.filter(h => h.grip.length === 1).length, 476);
   for (const name of ['position', 'usage', 'untrained', 'identity', 'hold_vector', 'context']) {
     assert.equal(data.mean[name].hand_type_balanced_accuracy.values.length, 3);
     assert.equal(data.handRecall[name].length, 3);
@@ -113,7 +113,7 @@ test('the grading heatmap has a true-by-predicted grade matrix for every method 
   assert.equal(data.kind, 'grading');
   assert.deepEqual(data.grades, [...Array(17).keys()]);
   assert.deepEqual(data.methods.map(m => m.key), GRADING_METHODS.map(([key]) => key));
-  assert.deepEqual(data.subsets.map(s => s.key), ['all', 'more_than_5_ascents']);
+  assert.deepEqual(data.subsets.map(s => s.key), ['all', 'more_than_5_ascents', 'more_than_10_ascents', 'more_than_25_ascents']);
   assert.ok(data.methods.some(m => m.key === data.defaultMethod));
   for (const method of data.methods) {
     for (const subset of data.subsets) {
@@ -121,6 +121,7 @@ test('the grading heatmap has a true-by-predicted grade matrix for every method 
       assert.equal(matrix.length, 17);
       assert.ok(Math.abs(matrix.flat().reduce((a, b) => a + b, 0) - subset.rows) < 0.1, `${method.key} ${subset.key}`);
       assert.ok(Number.isFinite(data.rmse[method.key][subset.key]));
+      assert.ok(Number.isFinite(data.mae[method.key][subset.key]));
     }
     // Every method sees the same climbs, so each true-grade row has the same total.
     const totals = data.counts[method.key].all.map(row => row.reduce((a, b) => a + b, 0));

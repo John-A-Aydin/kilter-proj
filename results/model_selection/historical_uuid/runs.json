@@ -1,30 +1,84 @@
 {
-  "null_rule_16_tags_labels_s42": {
-    "best.pt": "8922a606469b5dd8c2c4fa5b5f5fd28e7288689aefe0d9881269202d9f8895ca",
+  "null_rule_16_labels_s42": {
+    "best.pt": "e90aa785a145be4666bb91777afcb6f84955bf68caa2f6185548fa5ffc7fe39d",
     "evaluations": {
-      "best_validation.json": "39b000a7078e1d51528b",
-      "quality_validation.json": "849aa8493ec7bfb73f32"
+      "best_validation.json": "a8dae6e7ce3a8048f1ef",
+      "quality_validation.json": "375653d0a80511c2179b"
     },
-    "run": "runs/20261120T182121981136Z_null_rule_16_tags_labels",
-    "run_id": "e0d4062c9be0cd028fc6"
+    "run": "runs/20261126T171410847434Z_null_rule_16_labels",
+    "run_id": "35734ecf1e394516aace"
+  },
+  "null_rule_16_labels_s43": {
+    "best.pt": "a3738e1e615f71929a6aa5e9ab4279a3767194e19ae26a1cc3d16514c1f58280",
+    "evaluations": {
+      "best_validation.json": "57d5c5a40f6a49231771",
+      "quality_validation.json": "808cee5610d5fc02e93b"
+    },
+    "run": "runs/20261126T171541504154Z_null_rule_16_labels",
+    "run_id": "bd74cbcc252d82b49afc"
+  },
+  "null_rule_16_labels_s44": {
+    "best.pt": "0f93012bd446fc0c523f75b9bfb5fb8fb760ee5a913d5e92858fff07337d3f9e",
+    "evaluations": {
+      "best_validation.json": "74a3648f21886daa2fc2",
+      "quality_validation.json": "5e9cacaa76f0e8983dc0"
+    },
+    "run": "runs/20261126T171712454615Z_null_rule_16_labels",
+    "run_id": "1b12d8cc888e8794a303"
+  },
+  "null_rule_16_s42": {
+    "best.pt": "5f7c608b32f818071b666630fa0ec20ae444464ad877588c66bf81ca7c857dd6",
+    "evaluations": {
+      "best_validation.json": "2fead0acbed66db1b280",
+      "quality_validation.json": "8efe7decc9a7ac368028"
+    },
+    "run": "runs/20261126T165239432114Z_null_rule_16",
+    "run_id": "f137e84a5eacc9723ae5"
+  },
+  "null_rule_16_s43": {
+    "best.pt": "51e9365e9e5a0e9bb3ec3cbc66b62167a3c58b7a8296766542f671fc0e61de29",
+    "evaluations": {
+      "best_validation.json": "e4fb5073728ef9cce3ad",
+      "quality_validation.json": "2e50afeb3d3840127ecd"
+    },
+    "run": "runs/20261126T165239432144Z_null_rule_16",
+    "run_id": "745929620296eea69a85"
+  },
+  "null_rule_16_s44": {
+    "best.pt": "036df17318089b819843279282e060097c786eef89a43ce7a1665b3669ee4cb0",
+    "evaluations": {
+      "best_validation.json": "ed0d28bd334559e5be6e",
+      "quality_validation.json": "3918ee4bfaca9e555cad"
+    },
+    "run": "runs/20261126T165239432613Z_null_rule_16",
+    "run_id": "603ffd98a5ad3176d5c0"
+  },
+  "null_rule_16_tags_labels_s42": {
+    "best.pt": "7e25f61dd94ddc42d482b1c5354988e693877bc4e9e7d5c15d0e9861e44cefae",
+    "evaluations": {
+      "best_validation.json": "bab6b1f5699b4a5c75cf",
+      "quality_validation.json": "9022e9c87dea1e6c09d2"
+    },
+    "run": "runs/20261126T173809306270Z_null_rule_16_tags_labels",
+    "run_id": "e6afdeb17b5c7c7575ba"
   },
   "null_rule_16_tags_labels_s43": {
-    "best.pt": "b576458aa2344a0ba33dab99ca5151dee60b641b62f3efce2e407b750fa03733",
+    "best.pt": "cc0c18a20d31234326eed82a03e6eed7755dbcaf5f9f5b2de78327d8c7ae04bf",
     "evaluations": {
-      "best_validation.json": "a4c17d4a0bb16d6607e6",
-      "quality_validation.json": "164cd0ccb2b902b2b46a"
+      "best_validation.json": "209addc7d863c1c93169",
+      "quality_validation.json": "b4babe2f6c40bda6a361"
     },
-    "run": "runs/20261120T182253418590Z_null_rule_16_tags_labels",
-    "run_id": "2a30ba6b8546391e0050"
+    "run": "runs/20261126T173811306683Z_null_rule_16_tags_labels",
+    "run_id": "190ccf18c6fee3fb5278"
   },
   "null_rule_16_tags_labels_s44": {
-    "best.pt": "b33f71953b408472962e1f524f5bf68371be6366da8b1ab6e4d2d8417ea23e1a",
+    "best.pt": "062c3bcdc7705b431aaaec46eb59ebc70a0ba586b5cd5dc2c15a7416bdd4811c",
     "evaluations": {
-      "best_validation.json": "072862d9fc2616b023e6",
-      "quality_validation.json": "728cab13d980533cab07"
+      "best_validation.json": "bb83e6d1532637dbe392",
+      "quality_validation.json": "8cd1cabf48a9f8f0fc31"
     },
-    "run": "runs/20261120T182425308755Z_null_rule_16_tags_labels",
-    "run_id": "352f2b2635d113ede532"
+    "run": "runs/20261126T173811356017Z_null_rule_16_tags_labels",
+    "run_id": "4e149799b552bb888492"
   },
   "null_rule_16_tags_s42": {
     "best.pt": "3bb0717a6ca69fa80ab4ec2dc3f162ab01b24810c2e82a524a0487fa55b61000",

@@ -21,9 +21,10 @@ on seeds 42, 43 and 44. This script measures, for every seed:
    off to on is compared with how real climbs with the tag differ from real climbs without it at
    the same grade and angle.
 
-The tag models are found by identity among the runs compare_models.py trained (so they use the
-current tag file); this refuses to run until both exist on every seed. The reference models are
-the historical runs in results/compare_models/checkpoints.json. summary.json records every run used.
+The tag models and ``null_rule_16_labels`` are found by identity among the runs compare_models.py
+trained (so they use the current tag and hold-label files); this refuses to run until all three
+exist on every seed. ``null_rule_16`` is the historical run in results/compare_models/checkpoints.json.
+summary.json records every run used.
 
 Outputs go to results/tag_conditioning/: summary.json (every number, per seed and averaged) and
 examples.json (generated climbs for a few tags, seed 43, for figures).
@@ -53,6 +54,8 @@ SEEDS = (42, 43, 44)
 PLOT_SEED = 43
 REFERENCE = ("null_rule_16", "null_rule_16_labels")
 TAGGED = ("null_rule_16_tags", "null_rule_16_tags_labels")
+# Models that read the tag or hold-label files, so they must match the current files.
+BY_IDENTITY = (*TAGGED, "null_rule_16_labels")
 SAMPLES = 200
 # The Kilter Original 12x12 is 12 feet (366 cm) wide; the board drawing is 1080 x 1170.
 WIDTH_CM, HEIGHT_CM = 365.8, 365.8 * 1170 / 1080
@@ -220,12 +223,12 @@ def main():
     args.output.mkdir(parents=True, exist_ok=True)
     historical = json.loads((ROOT / "results" / "compare_models" / "checkpoints.json").read_text())
     from compare_models import resolve
-    wanted, trained, _ = resolve(TAGGED, SEEDS, "")
+    wanted, trained, _ = resolve(BY_IDENTITY, SEEDS, "")
     missing = sorted(f"{name} seed {seed}" for name, seed in wanted if (name, seed) not in trained)
     if missing:
-        raise SystemExit(f"Train these with experiments/compare_models.py --models {' '.join(TAGGED)} first: "
+        raise SystemExit(f"Train these with experiments/compare_models.py --models {' '.join(BY_IDENTITY)} first: "
                          + ", ".join(missing))
-    runs = {f"{name}_s{seed}": (trained[name, seed] if name in TAGGED else ROOT / historical[f"{name}_s{seed}"]["run"])
+    runs = {f"{name}_s{seed}": (trained[name, seed] if name in BY_IDENTITY else ROOT / historical[f"{name}_s{seed}"]["run"])
             for name in (*REFERENCE, *TAGGED) for seed in SEEDS}
     checkpoint = lambda name, seed: runs[f"{name}_s{seed}"] / "best.pt"
 

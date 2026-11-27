@@ -426,7 +426,7 @@ test('the hold-label probe figures draw both boards, switch probes and views, an
   await boards.getByRole('button', { name: 'Position', exact: true }).click();
   await expect(note).not.toHaveText(holdVector);
   await boards.getByRole('button', { name: 'Grip direction' }).click();
-  await expect(note).toHaveText(/^\d+ of 423 within 45°$/);
+  await expect(note).toHaveText(/^\d+ of 476 within 45°$/);
   await expect(boards.locator('.probe-arrow').first()).toBeAttached();
   await boards.getByRole('button', { name: 'Type', exact: true }).click();
   const pinch = boards.getByRole('button', { name: /^Pinch \d+$/ });
@@ -505,8 +505,15 @@ test('the hold labeler labels holds by keyboard and compass, keeps them across r
   await expect(page.locator('#svg-board path.label-hold.no-grip')).toHaveCount(0);
   await page.keyboard.press(']');
   await page.keyboard.press(']');
+  await expect(page.locator('#grip-summary')).toHaveText('45°');
+  await expect(page.locator('#svg-board g.grip-badge.shown')).toHaveCount(0);
   await page.locator('#svg-compass path[data-direction="270"]').click();
-  await expect(page.locator('#grip-summary')).toHaveText('45°, 270° (left)');
+  // More than one direction is called out in the summary and badged on the board with the count.
+  await expect(page.locator('#grip-summary')).toHaveText('2 directions · 45°, 270° (left)');
+  await expect(page.locator('#grip-field')).toHaveClass(/multi/);
+  await expect(page.locator('#svg-board path.label-hold.multi-grip')).toHaveCount(1);
+  await expect(page.locator('#svg-board g.grip-badge.shown')).toHaveText('2');
+  await expect(page.locator('#legend')).toContainText('More than one direction 1');
   await expect(page.locator('#svg-compass path.wedge.on')).toHaveCount(2);
   // Several directions are allowed, so the hold stays put until Enter.
   await expect(page.locator('#hold-title')).toHaveText(first);
@@ -522,7 +529,7 @@ test('the hold labeler labels holds by keyboard and compass, keeps them across r
   await page.keyboard.press('Escape');
   await page.keyboard.press('4');
   await page.keyboard.press('a');
-  await expect(page.locator('#grip-summary')).toHaveText('All round');
+  await expect(page.locator('#grip-summary')).toHaveText('All round · 16 directions');
   await expect(page.getByRole('button', { name: /Pinch/ })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#svg-board path.label-hold.partial')).toHaveCount(1);
 
@@ -553,7 +560,7 @@ test('the hold labeler labels holds by keyboard and compass, keeps them across r
   await page.locator('#import-file').setInputFiles({ name: 'hold_labels.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
   await expect(page.locator('#save-status-text')).toHaveText('Imported 3 labeled holds');
   await expect(page.locator('#notes')).toHaveValue('crimpy, "sharp" edge');
-  await expect(page.locator('#grip-summary')).toHaveText('All round');
+  await expect(page.locator('#grip-summary')).toHaveText('All round · 16 directions');
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   expect(errors).toEqual([]);

@@ -162,7 +162,10 @@ side, 180° an undercling, and 270° its left side.
 
 Enter skips holds that are already fully labeled, which can be turned off. Clicking a
 hold on the overview board jumps to it. A typed hold with no grip direction yet
-(other than unsure) gets a red dotted outline, and the legend counts them. The close-up crops Boardsesh's artwork,
+(other than unsure) gets a red dotted outline, and the legend counts them. A hold
+with more than one grip direction gets a solid outline and a dark badge showing how
+many directions it has. The legend counts those too, and the grip summary says
+"2 directions · …". The close-up crops Boardsesh's artwork,
 which shows each hold's shape but not its texture, so label from the real board
 when that isn't enough.
 
@@ -296,6 +299,16 @@ way: `src/tag-figures.mjs` draws them with the probe figures' helpers and styles
 `tagData()`, which keeps only what they need from
 `results/tag_conditioning/summary.json` and embeds it as `#tag-data`. Rerun
 `experiments/tag_conditioning.py` after retagging climbs or retraining, then rebuild.
+
+The grading figures come from `results/grade_climbs/`. `grading-confusion`, the predicted-against-true
+heatmap, is drawn by `src/grading-figure.mjs` from `gradingConfusion()`, which reads
+`confusion.json` and `summary.json` and has one button per method in `GRADING_METHODS`.
+`grading-error` is a line chart of MAE by true grade from `by_grade.csv`, for the methods in
+`gradingSeries`. A method listed in either but missing from the results fails the build. Rerun
+`experiments/grade_climbs.py` after any grader changes (the BERT, fine-tuned and LightGBM graders
+are read from their own `results/<script>/test_predictions.npz`), then rebuild. The "How it
+works" page's Figure 9 reads the same summary through `public/training.json`; regenerate it
+with `experiments/export_training_page.py`.
 
 ## Hosting
 

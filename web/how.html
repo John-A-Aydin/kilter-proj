@@ -284,11 +284,11 @@
         </figure>
         <figure class="figure">
           <h3 class="chart-title">Grading climbs it never generated</h3>
-          <p class="chart-sub">Test mean squared error predicting V grade from holds and angle (grade variance 6.66). Lower is better.</p>
+          <p class="chart-sub">Test root mean squared error, in grades, predicting V grade from holds and angle (standard deviation of the true grades 2.58). Lower is better. Mean of 3 seeds.</p>
           <div class="legend" id="grading-legend"></div>
           <div class="chart" id="grading-chart"></div>
           <details class="chart-table"><summary>Show the numbers</summary><div id="grading-table"></div></details>
-          <figcaption>Figure 9. The generator, frozen and read with no grade, gives better grading features than a bag of holds. The Bayes grader uses no trained head: it scores the climb under each grade.</figcaption>
+          <figcaption>Figure 9. The generator, frozen and read with no grade, gives better grading features than a bag of holds or the same network untrained. The Bayes grader uses no trained head: it scores the climb under each grade. Fine-tuning the generator for grading lowers RMSE by another 0.05; a BERT-style encoder trained only for grading and LightGBM on hand-made geometry land in between. The experiments page has the significance tests.</figcaption>
         </figure>
       </div>
     </section>

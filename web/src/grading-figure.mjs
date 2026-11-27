@@ -63,7 +63,7 @@ export function renderGradingFigure(figure, spec) {
     const matrix = counts();
     const { exact, withinOne } = agreement(matrix);
     stats.innerHTML = `<b>${method().label}</b>, ${subset().label.toLowerCase()}: rounded prediction exact for `
-      + `<b>${percent(exact)}</b>, within one grade for <b>${percent(withinOne)}</b>; RMSE <b>${spec.rmse[state.method][state.subset].toFixed(2)}</b> grades.`;
+      + `<b>${percent(exact)}</b>, within one grade for <b>${percent(withinOne)}</b>; RMSE <b>${spec.rmse[state.method][state.subset].toFixed(2)}</b> and MAE <b>${spec.mae[state.method][state.subset].toFixed(2)}</b> grades.`;
     grid.setAttribute('aria-label', `${method().label}, ${subset().label}: share of each true grade's test climbs by predicted grade. `
       + 'Use the arrow keys to read cells; the data table below lists them all.');
     const cells = [html('span', { class: 'grading-corner' }, 'True ↓ Predicted →')];

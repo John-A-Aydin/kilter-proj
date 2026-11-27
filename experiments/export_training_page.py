@@ -14,6 +14,7 @@ import statistics
 
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "results"
+COMPARE = RESULTS / "compare_models"  # the historical model comparison: summary, runs, samples by grade
 OUTPUT = ROOT / "web/public/training.json"
 CHOSEN = "null_rule_16"
 SERVED_SEED = 43
@@ -30,7 +31,7 @@ def rounded(value, digits=4):
 
 def summary():
     table = {}
-    with (RESULTS / "summary.csv").open() as source:
+    with (COMPARE / "summary.csv").open() as source:
         for row in csv.DictReader(source):
             table[row["model"], row["group"], row["metric"], row["split"]] = (float(row["mean"]), float(row["std"]))
     return table
@@ -42,7 +43,7 @@ def mean_std(table, *key):
 
 
 def metrics(model, seed):
-    with (RESULTS / "runs" / f"{model}_s{seed}" / "metrics.jsonl").open() as source:
+    with (COMPARE / "runs" / f"{model}_s{seed}" / "metrics.jsonl").open() as source:
         return [json.loads(line) for line in source]
 
 
@@ -73,7 +74,7 @@ def curves():
 
 
 def schedule():
-    with (RESULTS / "runs" / f"{CHOSEN}_s{SERVED_SEED}" / "config.json").open() as source:
+    with (COMPARE / "runs" / f"{CHOSEN}_s{SERVED_SEED}" / "config.json").open() as source:
         config = json.load(source)
     train = config["train"]
     steps_per_epoch = metrics(CHOSEN, SERVED_SEED)[0]["step"]
@@ -136,7 +137,7 @@ def headline(table):
 
 def samples_by_grade():
     values = defaultdict(list)
-    with (RESULTS / "samples_by_grade.csv").open() as source:
+    with (COMPARE / "samples_by_grade.csv").open() as source:
         for row in csv.DictReader(source):
             if row["split"] != "test":
                 continue
@@ -166,20 +167,22 @@ def validity(table):
 
 
 def grading():
-    with (RESULTS / "grading/summary.json").open() as source:
+    with (RESULTS / "grade_climbs/summary.json").open() as source:
         data = json.load(source)
     labels = {"mean_at_angle": "Training mean at that angle", "bag_linear": "Bag of holds, ridge",
               "untrained_mlp": "Untrained model, MLP head", "untrained_linear": "Untrained model, ridge", "bag_mlp": "Bag of holds, MLP head",
               "model_linear": "Generator features, ridge", "bayes": "Generator, Bayes over grades",
-              "model_mlp": "Generator features, MLP head"}
-    rows = [{"method": name, "label": labels.get(name, name), "mse": rounded(m["mse"]["mean"]),
-             "mse_std": rounded(m["mse"]["std"]), "within_one": rounded(m["within_one_grade"]["mean"])}
+              "model_mlp": "Generator features, MLP head", "finetuned": "Generator fine-tuned for grading",
+              "bert": "BERT-style encoder, trained for grading", "lightgbm": "LightGBM, bag of holds + geometry"}
+    rows = [{"method": name, "label": labels.get(name, name), "rmse": rounded(m["rmse"]["mean"]),
+             "rmse_std": rounded(m["rmse"]["std"]), "mae": rounded(m["mae"]["mean"]),
+             "within_one": rounded(m["within_one_grade"]["mean"])}
             for name, m in data["methods"].items()]
-    return {"variance": rounded(data["test_grade_variance"]), "rows": sorted(rows, key=lambda r: -r["mse"])}
+    return {"variance": rounded(data["test_grade_variance"]), "rows": sorted(rows, key=lambda r: -r["rmse"])}
 
 
 def served_best_epoch():
-    with (RESULTS / "runs" / f"{CHOSEN}_s{SERVED_SEED}" / "summary.json").open() as source:
+    with (COMPARE / "runs" / f"{CHOSEN}_s{SERVED_SEED}" / "summary.json").open() as source:
         return json.load(source)["best_epoch"]
 
 

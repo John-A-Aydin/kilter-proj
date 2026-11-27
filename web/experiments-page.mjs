@@ -78,23 +78,27 @@ export const GRADING_METHODS = [
   ['mean_at_angle', 'Training mean at that angle'], ['bag_linear', 'Bag of holds, ridge'],
   ['untrained_mlp', 'Untrained model, MLP head'], ['bag_mlp', 'Bag of holds, MLP head (main baseline)'],
   ['model_linear', 'null_rule_16, ridge'], ['bayes', 'null_rule_16, Bayes over grades'], ['model_mlp', 'null_rule_16, MLP head'],
+  // Trained for grading by their own scripts: trees, an encoder from scratch, and the generator fine-tuned.
+  ['lightgbm', 'LightGBM, bag of holds + geometry'], ['bert', 'BERT-style encoder, trained for grading'],
+  ['finetuned', 'null_rule_16, fine-tuned for grading'],
 ];
 
 // Short names for the method buttons.
 const GRADING_SHORT = { mean_at_angle: 'Mean at angle', bag_linear: 'Bag, ridge', untrained_mlp: 'Untrained, MLP',
-  bag_mlp: 'Bag, MLP', model_linear: 'Model, ridge', bayes: 'Model, Bayes', model_mlp: 'Model, MLP' };
+  bag_mlp: 'Bag, MLP', model_linear: 'Model, ridge', bayes: 'Model, Bayes', model_mlp: 'Model, MLP',
+  lightgbm: 'LightGBM', bert: 'BERT', finetuned: 'Fine-tuned' };
 
 // Predicted against true grade for every grading method and test subset, from
-// results/grade_climbs/confusion.json, with each method's RMSE from summary.json.
+// results/grade_climbs/confusion.json, with each method's RMSE and MAE from summary.json.
 export async function gradingConfusion(root = repo) {
   const read = file => readFile(path.join(root, 'results/grade_climbs', file), 'utf8').then(JSON.parse);
   const [confusion, summary] = await Promise.all([read('confusion.json'), read('summary.json')]);
   const subsets = Object.entries(summary.subsets).map(([key, subset]) => ({
     key, suffix: subset.suffix, rows: subset.rows,
     label: key === 'all' ? 'All' : `Over ${key.match(/\d+/)[0]} ascents` }));
-  const counts = {}, rmse = {}, seeds = {};
+  const counts = {}, rmse = {}, mae = {}, seeds = {};
   for (const [key] of GRADING_METHODS) {
-    counts[key] = {}; rmse[key] = {};
+    counts[key] = {}; rmse[key] = {}; mae[key] = {};
     seeds[key] = summary.per_seed[key].length;
     for (const subset of subsets) {
       const matrix = confusion.methods[key]?.[subset.key];
@@ -104,10 +108,11 @@ export async function gradingConfusion(root = repo) {
       if (Math.abs(total - subset.rows) > 0.01) throw new Error(`grade_climbs confusion: ${key} ${subset.key} counts ${total}, not ${subset.rows} rows`);
       counts[key][subset.key] = matrix.map(row => row.map(v => Math.round(v * 1000) / 1000));
       rmse[key][subset.key] = summary.methods[key][`rmse${subset.suffix}`].mean;
+      mae[key][subset.key] = summary.methods[key][`mae${subset.suffix}`].mean;
     }
   }
   return {
-    kind: 'grading', grades: confusion.grades, minRows: 20, defaultMethod: 'model_mlp', seeds, counts, rmse,
+    kind: 'grading', grades: confusion.grades, minRows: 20, defaultMethod: 'model_mlp', seeds, counts, rmse, mae,
     methods: GRADING_METHODS.map(([key, label]) => ({ key, label, short: GRADING_SHORT[key] })),
     subsets: subsets.map(({ key, label, rows }) => ({ key, label: key === 'all' ? 'All test climbs' : label, rows })),
     title: 'Predicted against true grade',
@@ -126,8 +131,8 @@ export async function chartData(root = repo) {
   ];
   const grading = (await read('grade_climbs/by_grade.csv')).filter(r => Number(r.grade) <= 12);
   const gradingSeries = [
-    ['model_mlp', 'null_rule_16, MLP head'], ['bayes', 'null_rule_16, Bayes'],
-    ['bag_mlp', 'Bag of holds, MLP head'], ['untrained_mlp', 'Untrained model, MLP head'],
+    ['finetuned', 'null_rule_16, fine-tuned'], ['bert', 'BERT-style encoder'],
+    ['model_mlp', 'null_rule_16, MLP head'], ['bag_mlp', 'Bag of holds, MLP head'],
   ];
   return {
     'holds-by-grade': {
@@ -143,9 +148,9 @@ export async function chartData(root = repo) {
     'grading-confusion': await gradingConfusion(root),
     'grading-error': {
       title: 'Grade prediction error by true grade',
-      subtitle: 'Test MSE in grades², mean of three seeds; V13 and above have under 20 climbs and are left out',
+      subtitle: 'Test mean absolute error in grades, mean of three seeds; V13 and above have under 20 climbs and are left out',
       xLabel: grade => `V${grade}`, digits: 2, zero: true,
-      ...byGrade(grading, gradingSeries, 'mse'),
+      ...byGrade(grading, gradingSeries, 'mae'),
     },
   };
 }

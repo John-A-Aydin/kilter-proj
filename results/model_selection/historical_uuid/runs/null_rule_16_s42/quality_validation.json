@@ -1,0 +1,1275 @@
+{
+  "angles": [
+    20,
+    40,
+    50
+  ],
+  "baseline": null,
+  "checkpoint": "runs/20261126T165239432114Z_null_rule_16/best.pt",
+  "evaluation": {
+    "checkpoint": "best.pt",
+    "checkpoint_sha256": "5f7c608b32f818071b666630fa0ec20ae444464ad877588c66bf81ca7c857dd6",
+    "data_fingerprint": "40c48fee3a9a2445aa361136ada4e792e6a387497cc0bc7d390695d98c78d010",
+    "evaluation_id": "8efe7decc9a7ac368028",
+    "evaluator_source": {
+      "kilter": {
+        "__init__.py": "8de76ae67a1ea3f3db3513a5b5b7320c8f354d1c4d224c3e985da5cc3100a432",
+        "climb_tags.py": "d27f92dc6fd3ad2067b3354f9e11ce610bdf4dd3d91774d7af73ade9ab067ae6",
+        "config.py": "dc4108cd9e1ea931bf6955a9a76b795822b588980eee48d3b4ac4d31e1d3a99b",
+        "data.py": "11a1d2a033c95bce6b484574ec3b295e4077fb4606db80cef2a3e4ef3947e1cb",
+        "experiment.py": "3a2e9ee621f8314126b60de42749a27f65ae761f0fa905835c21052b037ed6b8",
+        "hold_labels.py": "e573e56ab395a53c004c0569796569249c91aeadbd8800ba5e7af7dd9c44f6a8",
+        "model.py": "716e602a8f59a580392c8224c697fdb4f61a3b5eba40cde19a79ecbc3bb413b5",
+        "quality.py": "6d445128e4ff671759c7f56d9fdf5c1d83a70d332cab4b03f44d63f75bc1a215",
+        "sampling.py": "2ab5e1ce126dcbb774712c42227207157d3302a13b26201ae051514a629fb5f5",
+        "splits.py": "b332b98a7dbf0a925b351a8b778e0df1384eca4d89b49b10775b4fcb8c4ae53f"
+      }
+    },
+    "evaluator_version": 2,
+    "identity_version": 1,
+    "kind": "quality",
+    "run_id": "f137e84a5eacc9723ae5",
+    "settings": {
+      "angles": [
+        20,
+        40,
+        50
+      ],
+      "baseline_checkpoint_sha256": null,
+      "grades": [
+        2,
+        5,
+        8,
+        11
+      ],
+      "likelihood_modes": [
+        "scratch",
+        "starts",
+        "starts_feet"
+      ],
+      "prompt_mode": "starts_feet",
+      "prompt_seed": 7,
+      "samples_per_cell": 50,
+      "temperature": 1.0,
+      "top_k": 0
+    },
+    "split": "validation"
+  },
+  "grades": [
+    2,
+    5,
+    8,
+    11
+  ],
+  "likelihood": {
+    "v2": {
+      "null_grade": {
+        "scratch": {
+          "loss_per_token": 5.730054256631572,
+          "nll_per_climb": 77.97048852170026,
+          "rows": 16936,
+          "token_accuracy": 0.07999895857289772
+        },
+        "selection_nll": 64.76202083606267,
+        "starts": {
+          "loss_per_token": 5.788052353201484,
+          "nll_per_climb": 68.58992413073483,
+          "rows": 16936,
+          "token_accuracy": 0.07972256547215689
+        },
+        "starts_feet": {
+          "loss_per_token": 5.075487943366684,
+          "nll_per_climb": 47.725649855752906,
+          "rows": 16936,
+          "token_accuracy": 0.11758722025469068
+        }
+      },
+      "scratch": {
+        "loss_per_token": 5.688351232960531,
+        "nll_per_climb": 77.40302354094551,
+        "rows": 16936,
+        "token_accuracy": 0.08284552598577584
+      },
+      "selection_nll": 64.2988068669673,
+      "starts": {
+        "loss_per_token": 5.753532495733208,
+        "nll_per_climb": 68.18085485142134,
+        "rows": 16936,
+        "token_accuracy": 0.08417706381791366
+      },
+      "starts_feet": {
+        "loss_per_token": 5.031555112926369,
+        "nll_per_climb": 47.31254220853507,
+        "rows": 16936,
+        "token_accuracy": 0.12325119935699394
+      }
+    }
+  },
+  "prompts": {
+    "cells": {
+      "V11@20": [
+        "ac0d4b68abb443f09da14c094347d6fa:20"
+      ],
+      "V11@40": [
+        "93F23FE76CFE4A828004F513045D0888:40",
+        "836072bf-a449-4b5b-b940-2f567e1412e7:40",
+        "88416A2D1E9C4CE49584F2AD51162E7B:40",
+        "72E205C9D8954CB9BD440FD9D7C58D23:40",
+        "e5bbb00dc62247e8a65913a7e797ac3c:40",
+        "B9B86B3B3EFE4638ADE680055247EA86:40",
+        "daea94c5-3849-4af3-b0a3-b8e2ace1abf4:40",
+        "30D49662A5814ED2A2B99C9B33EEEB57:40",
+        "2612701658DA4BF3B5DAD0B406D924D9:40",
+        "607C85882319414C9D7D772CBF709751:40",
+        "6E2526E215C44F9B8D450B2524377462:40",
+        "102c076b-500a-427c-b63f-c5f3d3b5ced5:40",
+        "2a94f814c2a8403bac3fe9f156c20dc9:40",
+        "f7bc8de0-a0a0-4a13-bfaf-7bcfe570eb9f:40",
+        "4cf34f51a2564ec0bdc40c6e97417733:40",
+        "50aae49fccfd490584fb0e501133dbf4:40",
+        "bbb264d1a29945d6840b51b23798d69b:40",
+        "eaf34991b7574c759218a895fdcef0cb:40",
+        "89b79b4051ec4e1bb9f792bd7ad242ce:40",
+        "944F875E26854B30A873ED680A40CBFC:40",
+        "b0c4144aa2c14f329f6be428d3174fd6:40",
+        "53E652585F4F43B6BB405B51E794592B:40",
+        "E35F7090C2EB490A875136045822E3E9:40",
+        "c49d89d99a3d4c8fa9b73612d65b014f:40",
+        "c13b44b35d3e4d3f82cecaa68ead3295:40"
+      ],
+      "V11@50": [
+        "db98283f7a9c473a86503823968e7996:50",
+        "72E547FD146B43939EF2E354180C32A9:50",
+        "35C92B30A9CB43388E689D2DB9C257C2:50",
+        "6498a9d187a9402aaffe66b25134cdf4:50",
+        "6f788a34-1629-4f48-85d5-b286ec3b8e39:50",
+        "001BB37F792645D08BD8001EAF839FAE:50",
+        "8CCC95AF82364C07A19D0F55190A76AE:50",
+        "2e5185c8-128c-4a42-bf7e-949ccfab58e6:50",
+        "5fe76e49ec744972a0a4ba7f1b196a2b:50",
+        "3FE779FC28784B2097FB927BEDFCA8CA:50",
+        "5D58D1EE163B4297BFD99F8F80857486:50",
+        "172DF3D2CF3C4AAFBCCBED7CD726CCA8:50",
+        "1d05629f-baf9-4521-957a-f650657ce023:50",
+        "ecb36fa0-c4f4-4714-b449-3d5288ec32ef:50",
+        "0cffe15b-8138-495f-8a9b-56ef0f5f7af6:50",
+        "A8BED320E34A4F3AB646CD1BC9B1E8C4:50",
+        "df6641d884ca42bb8ce28acf8ba92edb:50",
+        "174566F58BF34BB59370F6415182138E:50",
+        "31b750a7157b4e67bbbade4317aa7ded:50",
+        "4ED1F3461FA648B0B98FE84CAD15DB0B:50",
+        "555FC51923D149248C75D442BC782037:50",
+        "AD9054E645504C7E8FA858C7626E3DE1:50",
+        "7F89B56EDAB1484B8DA4C5AFE8FC00B1:50",
+        "AB05F65B703F4E1E8B87A41DE0ABFDDC:50",
+        "ef180360-40c3-46e9-b91e-9433e9ed67a2:50",
+        "2b395a22-c5e8-4110-acf4-0259465b5228:50",
+        "e4ca162ebd814c8eae0434d6eaf241b8:50",
+        "7B61C4A0ECE744D7A419C4CD9CF0BE71:50",
+        "d67f802361e24fe6b18f3c4ece0c589c:50",
+        "0F871C55F044420AB6CA92431E57CCCB:50",
+        "AC8221A02AD44BCFAA40D6D86D269BBD:50",
+        "E18A880778804C5BB1C432D3AF159999:50",
+        "51d68bac0c154653835e0f5cb7c89cb1:50",
+        "BAF551C35ED444B8A599C393C601105D:50",
+        "252a4d7acd7f4da3b9cb4356580228ef:50",
+        "8999eb12-44fa-431a-b743-81feb91a6ef3:50",
+        "1BEB49203EC6495E8CBA786F2400B147:50",
+        "719f6885-c8c5-4c51-b293-9606044b92b7:50",
+        "E7D31C1F89EB40318C250BE7BB575EFE:50",
+        "1705c66c-3e2f-4f54-a46f-c973a1c160ca:50",
+        "6ce18f15e77440b883e23c8edbc0187e:50",
+        "AF122D02F0914916A94935B42B53DDC8:50",
+        "AB3C640CFA734792992D6F5DE3C029EB:50",
+        "fa84ee26c9094cd6bf5840512f01342a:50",
+        "3E738FB86BB34BF9ACB8353A6E99DC2A:50",
+        "D2E72A9794C142768894FA29B6CF213C:50",
+        "0861726fa969412989482c376c8f926f:50",
+        "6822C883C25A4B3DB66491002BD89012:50",
+        "fe564c4c-61cd-4f96-9f70-e3aded988f87:50",
+        "9c8fe26da4a0441e9026d4a28aedb47f:50"
+      ],
+      "V2@20": [
+        "7c5508e232eb4559b0b3d751ab1c2cbb:20",
+        "4F08FF71727846439C6C86B3B36ABBAE:20",
+        "FB50D7AF9DE0460A963179A230989341:20",
+        "69EB9E02F5FB429592578DF4B9A0C343:20",
+        "9ccc3804be3e4aeda870d3bacba00a8c:20",
+        "6C4828037EE342F9A8F4E378183A9221:20",
+        "78a597b825b640e9a6a8a6e40409f851:20",
+        "d8b1ddb7c6bb4541aed75a8153af6cb2:20",
+        "7a0d44b2add74c4aa642153ca00a0e11:20",
+        "9F35369A6A224A93AC5DC891E461B280:20",
+        "23AB5627C16146C5819F4CEBE390B0A5:20",
+        "1278B1A1469748C0B90062192925D136:20",
+        "A45945070F2D4737890D8BFB98411465:20",
+        "0029cfff-4be1-4599-babf-00954c326d2e:20",
+        "fbc3b327182b409a924224b50f1550da:20",
+        "7631512CFFE4486DB99E77E9CD8B05D7:20",
+        "819ba4daa4b14fa5a0865bed503215ed:20",
+        "D5CBB4D5E04048E8AEE07B9248E7F677:20",
+        "76237F3F46BC4FE788C070245B129287:20",
+        "b3858355-b11c-4b43-b140-722e15667c9d:20",
+        "aa498c5e-901b-4837-be45-e45fe9fde3ba:20",
+        "43696D7FAC2C40B3B2D3D9606B5F442F:20",
+        "58d9f68fc2e44b328a2f6276bd43d13b:20",
+        "ec7cf615-673f-4264-bcf3-4a1bffb71df3:20",
+        "D352FACAF4D1485196657DE881465B09:20",
+        "A8E911E14A2E4B738594B27518A9F091:20",
+        "365E68FBC1CF4AEDA4FAE89B8DF2C3B4:20",
+        "A89889AB298D4FB5910A478E02E5542D:20",
+        "81459b74-4542-4094-b507-5c88a9f5d9a6:20",
+        "E92B7C06C18B4840997C4B45341E0A3A:20",
+        "7E13FFA3936C447894EF73D7F702AFEB:20",
+        "8111FE685C3D4F9BB3ECC77A7DDE0FC4:20",
+        "8c9cdd9c1f19438fbd05c60971b54c80:20",
+        "A61962EE8D5F4544A745F1DF048F92DD:20",
+        "93b23ba2998b428292f93525a89b7fdb:20",
+        "ad1d07dfaacd463895bee97d99d297ac:20",
+        "4058194DC0B747B0A3EFEC3FED8D975D:20",
+        "D0FC6179E194456088837ECD1784B7DB:20",
+        "D73C4E1BD9C6431C9EC8440D0EFA98EA:20",
+        "4030f599f3e048d392bc5a4de1c0fa6e:20",
+        "ef5812b3367148f78eea5aa09da5ba86:20",
+        "1ffd11c507144397b3cbb1dc9018495c:20",
+        "69F2CD228338468BB1F91F45F584D6FA:20",
+        "aef2df5054c84db6afff5011796f072d:20",
+        "ce6ed351c6f74d4ba217575c6f76dc48:20",
+        "9B4A98F0D488459F81BC0FF6DD8F8CEB:20",
+        "474CA0B98B174E59A92D22877254F68D:20",
+        "287B787FC5E94EB08F365C014123433C:20",
+        "E8664EB7A8A4485184927AB9FD465EB3:20",
+        "315c25d330554b7883a75c73a0d6f4c1:20"
+      ],
+      "V2@40": [
+        "c23dac45-e784-4fea-ab64-1d8d484f4df3:40",
+        "3AE449149D5A4DF8BF32EC45894A028A:40",
+        "3ab214d4-c1cb-44fc-a3b0-bc82db7675fa:40",
+        "863C90F818AA41439FF862687DD21369:40",
+        "1DEDFA5A85B2416289713FAB34272A4B:40",
+        "56F3C73EF5B9443E8ACFB488B6D6EFF8:40",
+        "183016b2a3bb49a8ab0babe8f5528b7e:40",
+        "5844C67F5B2148BD97AF90733D971FC9:40",
+        "a04a825e9cea4eb4aed23b1becabeeae:40",
+        "67b31b56-b199-44e2-a935-9ff657bf6aaa:40",
+        "c5471e030c1a4cfabee6070ca655b190:40",
+        "EAC84D182E5F4FD696EC24BDB9C3E539:40",
+        "ddf8d99a-7b18-4832-a5ab-ac16d401b52f:40",
+        "804AE13F969D4D9E8AD2B3815DB2985B:40",
+        "cd7d4ce9d2ae4ebdaf331e0b8213a2fd:40",
+        "68f96b3503c343638be26560811e3bc9:40",
+        "4966B8BD19C042829F170A0F3DA5318E:40",
+        "9A98160F91A14CD39558B1CF083597B5:40",
+        "48bbe7db0adb4b858ce8aaf393f75f70:40",
+        "ab6fc5c2-08da-4ce3-ac66-03ceef868257:40",
+        "62e5c25a-e213-43aa-836c-2ea028e7b2f8:40",
+        "ee1a6caa-9843-4706-92aa-4d9cff7683b5:40",
+        "bf0db71d0d674289beef46e226216bf6:40",
+        "65E860ABC3B24129BC6AF08A7B71A339:40",
+        "35b2c73c-8c60-4b42-ac4c-8f45e817dee5:40",
+        "B563C0C9226846C6AA7452BBB8F7E358:40",
+        "4FD49E47EBE04917BF75418F121CA6AA:40",
+        "F7D604B31C9D44C9AFF24703D02664D1:40",
+        "2082A666B7544DBF86DC7BA1EDCAF22A:40",
+        "8ec71931881d4c4491bb21ad7724a9d0:40",
+        "198070a6e479434d81c23a40d59fa81f:40",
+        "f6fd0784d43246e2b6356b6bb6e6ead7:40",
+        "72D1C1BB8F314414B1E34CA78702D70C:40",
+        "F61528B79BB14A4EBA81E6F212A55A37:40",
+        "4758f7f15d534620bf188241cf2ed7cb:40",
+        "cc7b10aadc6c4fdf8d3d1f35989ea022:40",
+        "f5694a0b-9357-40b1-8f0a-0fd4907c03db:40",
+        "755C28B2E36B457BA450C077A4DF6EFF:40",
+        "55cf07c9cc8b48c8993cfab2a52b4509:40",
+        "14dd5475df6b4f17953826298a27220a:40",
+        "2C02C12723E9458E9F2CA6075745827B:40",
+        "55e11360-b1af-4863-8137-c8aca5e62e5b:40",
+        "C10CCA190AAF4C6BAEEE8F11150CCC4E:40",
+        "c968067093ee4402befc682653d6efab:40",
+        "ab877ce6eb204aff94d05c20f32389d5:40",
+        "09487da5adf9467d9ccf0bdae734c6a4:40",
+        "7AAF3F13B3E74BCAA1EE8DD70771EC88:40",
+        "35810CA525DF41B89A17BFCB1487ED94:40",
+        "045e8a957f464cbaa3c38a9a0dd06ef7:40",
+        "0c8800e337f94cafbc5c32360c4eacb4:40"
+      ],
+      "V2@50": [
+        "3047fba7fc8f45818cad22abd00575cf:50",
+        "06898db899b140f1911fbb4036f6e69e:50",
+        "D352FACAF4D1485196657DE881465B09:50",
+        "F7D604B31C9D44C9AFF24703D02664D1:50",
+        "36F5FCBA986544BF8447C9F80AB5A2DE:50",
+        "28BA4B136E304E13BB7CB6EBD2848B25:50",
+        "fd3a8ea1-373d-45d2-a545-e400b8d7cbe2:50",
+        "967ccd9693964226ace2589417f4b865:50",
+        "f6a1d51f19ce4a83b18b6c617081ecdf:50",
+        "dba6335d79a74f269062831c895ef94d:50",
+        "C656BCF5E2B34C93B703E7C65B127F53:50",
+        "4E17548E12B445ECB9C16F0ABA7356CA:50",
+        "66BAE42E9AF042B08773180E4A13C9E8:50",
+        "3021686a94a64474a4cc6a4d48629761:50",
+        "b0c6961b0b264abe8e8dee00bbb2245c:50",
+        "0c8800e337f94cafbc5c32360c4eacb4:50",
+        "f9c9f447c6ea4e199214882efe8caff7:50",
+        "D53904082C4344B7B40AED91E085031F:50",
+        "9BB1298E748845A7A5E3369CBC33014E:50",
+        "AAF41B62F3AF4E11A29375068EA49033:50",
+        "72f416f2ce4a44a68131b81181c2d4dd:50",
+        "04EB01088B074108909743F9DC1A1DE0:50",
+        "328b6785-f22d-4028-945c-61405ba50454:50",
+        "f0c507a5a640413fb6c7b04f773c3c16:50",
+        "5D75AA3E50434C508FE9D9B05EBE20AD:50",
+        "11d6820f551b4e439b390c32d8aa752f:50",
+        "fe80940c317247d98e2d8bd6fd616b93:50"
+      ],
+      "V5@20": [
+        "bdf38f99-c11d-4a4f-a308-8df80cd83b9a:20",
+        "D3CCD05A53AA485FAD5A7A549BF23994:20",
+        "C8698E4D20F54C6681BDDB73C6B7BFC2:20",
+        "1BA820C6E06B4F4489254392E39D72BC:20",
+        "2194B6A3DB7E4C4D972D70D687DD8686:20",
+        "56378695939548DC82F0EF50BB5B7B81:20",
+        "5F0B7D27FD9B44078BB8FAF92EEBB4D1:20",
+        "5068B58826D04E0F922CB90111847BCD:20",
+        "80360494DA404701A37C0471B37313E8:20",
+        "3957cc26efcd4718951f01e9fb3591a0:20",
+        "EF9A6A2034C44308BCAEB94FDE403BC5:20",
+        "18A47FCB8E4E482DB15AE79FFF62A519:20",
+        "266e3b8dc3224f978fbf822e58c1d638:20",
+        "5D1FD8D360B94F2F8AC0EBA28564E9B6:20",
+        "C11A44FC4C47423C8C23785E56EC8899:20",
+        "9926352b25e549688e80b3654d8600fd:20",
+        "284EFDB9B9634F70926D40C4F450E987:20",
+        "19BED42D247C46F388B572192BAE0798:20",
+        "9dcf1898f1c74a39a15e8602350b2cc8:20",
+        "C59BAECB8284469FA362C45ACE9DF1A7:20",
+        "cc65883da3ae49288fa5b86283326b98:20",
+        "196AACF6FB40410A95C425848EC738F7:20",
+        "19ABA96102194A0785C5373DB6691AF7:20",
+        "CB25E2546C79422A8C92AF7EB1231342:20",
+        "A1C1DC281B9740FD87329E4E7FD905DE:20",
+        "4cc816a842534777921f6a511c4234d5:20",
+        "72E77FE4B019434BAAD8248D4ECD55D7:20",
+        "3af5009a5f784da2b5d12d870897db32:20",
+        "71DA5E2F7E8A4BA08B683F2B529EB549:20",
+        "AAE70BB3F5124BCAB5C268521FFB1E1D:20",
+        "8675efc2b006446fac17a3a74e7610af:20",
+        "b9cbff4fc001487fb1ff0a28a9beeba5:20",
+        "133EBD48C7CE4654B98B6D5BED22BCA7:20",
+        "E6C894605DDB4C24B4A9927DBA914841:20",
+        "d3f6eecf39bc45c68f06f04db9ef0f6f:20",
+        "213DC8E98BAD4623AA02E07905B43287:20",
+        "7D162C642E734A25A472166A1F59A92B:20",
+        "9F0068FAD9B04F61B76E37B2C988318E:20",
+        "ee09553f51764c5db9b4b5b664168b15:20",
+        "c506560cd49046f88e5d57b72061fd44:20",
+        "5BB3E57E02EC4B75A5276F4A5B702D69:20",
+        "38ECC1E7BB3F427D97850A23D2758273:20",
+        "d706e72519944a3da84c3f884d32e399:20",
+        "5AD5DA4EEF174C8B8F412FE1774D6B3D:20",
+        "FEC8EA46A2D04B6C91B1FF19941E986C:20",
+        "ae472953-9014-4e5f-a9e6-46686b749536:20",
+        "74b862b2f74e4b13945cb51f75b897ea:20",
+        "f8267cfe6e6b497db3e43ea2041aed3d:20",
+        "870d97ffa8d842c9b5d7de9b81667d7c:20",
+        "E90FF015B32C444AB14EF2B87B28CCEF:20"
+      ],
+      "V5@40": [
+        "77391E770E5D4A8F8E98073C71349A2D:40",
+        "6FCCC62BBF2245EB8751934415BA90E4:40",
+        "b67308de414f49e8ab8a5d763250d4ba:40",
+        "D4405B21C30A441CB5301CA617771481:40",
+        "522B8CBC7BAF4E94B882C7CD386A6905:40",
+        "EFB47DF1EA1B4FEE9433D935C9D23F75:40",
+        "be7fcf1b8942417b8a3187fd158dee1b:40",
+        "BF37713CD67A4610B7DDB8A1B7758FFB:40",
+        "9646446a-fc11-46c1-8702-44c68422f4a7:40",
+        "b53e03269634466a96f86e170cd2a211:40",
+        "2CD9F065B45441AFAA5BE77E81BF13AD:40",
+        "e73af9f8f939443b8a0fec4d770fa3b1:40",
+        "0679FA65D9974DCB906246092FFA8ADD:40",
+        "411b9b4e-770d-4f5b-9634-45a5bc2e732a:40",
+        "1773EEF82C114288BC8817CA140CA2A0:40",
+        "4b87ee71785748dcb4cccadb9a1bcac6:40",
+        "bfdf7bfe319a47609839227839d6d356:40",
+        "86170BE5B68B43FCAC3B6A09267C54CB:40",
+        "BDE70D12A76D4E868868E4AF325511E4:40",
+        "CD8C46A555804604B1DD432343118C7B:40",
+        "2E00BE2FD1BE4F098CF6EF8BE50D8C6A:40",
+        "BCF57157A047433C9AC1916AA733216C:40",
+        "EABC555762B146A3A2C59C0A5B3F280E:40",
+        "654C735B69C7464DAB8F8B14594499C9:40",
+        "005c58cc-f6ef-49d8-94b6-eff3fd1dde22:40",
+        "088962cd-733f-40fb-bbe7-3b1b9cbc6854:40",
+        "1E6AB90016D346BD96FD89306BE0DB7C:40",
+        "04ac5ee8a5b745c28ec63448aa646af6:40",
+        "9408B73E2BEE4548B7659D88AFBC663D:40",
+        "512EB1F38E064E27AA5152D6DE679CFC:40",
+        "0d83d6e3562c438a9894963d11efb426:40",
+        "4461575017654407BBA85ECE2C23E69F:40",
+        "C648B3A40C0E4D0DB1A3F77B2285B085:40",
+        "30CBEDA15F884002B54E39A38E3D6D05:40",
+        "ab95e61a-41dc-46cd-aff7-3b3bb33a64e8:40",
+        "41f61db5a164450b9a710ab39630d1ef:40",
+        "1FF79366FB8E466CBE58B44AE4D794E2:40",
+        "B31BDA222CED48DABF84190424EDAFC9:40",
+        "E5DC5CA6D3494CD7B9BC16A4A7296CF2:40",
+        "09c5a7c81b9b47479e9c7863591a480e:40",
+        "d96f682353aa4f5cbce5eb21bf4f3e86:40",
+        "C89851AA883F4D178EB86E70939E2FC4:40",
+        "1E6FED595A04435C87B8796697A94410:40",
+        "b1e98782c5594da0bb4b0a6c5bfa0940:40",
+        "F45BB73B38894D94BFC8142947BBE608:40",
+        "41B96FBF3B6444FD830B5446F54C18A4:40",
+        "c0573e5193524ff7b22ea2d7588a4e07:40",
+        "989600D270104C9EB1067B0E61509D44:40",
+        "d845ca7ae20044c2aacfe196457af53d:40",
+        "04a63c6c4869485fb43f8db5994b14d9:40"
+      ],
+      "V5@50": [
+        "B5DDB8D744664177A6883DD4A2071C02:50",
+        "3250513833cc40d183638df2a2dd17b8:50",
+        "a8f729646b984958af003be087554f95:50",
+        "106FAA1FBC2A4993ACF6FB7455EF733E:50",
+        "46f37d609c6d4ed596cd8ec91e8eec6c:50",
+        "9FC0D8E30D764EBE82B2A2232334A5BE:50",
+        "3fef0708-223d-4dac-b5a9-a575736f4399:50",
+        "A76388E865DD467C8B0DCD6FFCF85D89:50",
+        "e1751632aef34c46bff883d8e58cc924:50",
+        "8f6f3fed40554b169e4f6f59f1c91f7f:50",
+        "d758b23a-c5b5-4965-ba2e-7b7581d7d709:50",
+        "AB531516EFE946F6AEC8B7CEC87F6111:50",
+        "ab8a269c3fdb425c9264fb9998c0b686:50",
+        "9913c404da8f471191e9972a9dbb41f0:50",
+        "6528B31825644B3594997AFDE5EB8A4E:50",
+        "2c666338a274456db9b4003518e31e3f:50",
+        "8150D9C30D744792ABCE8B589E8D14CB:50",
+        "06BCBF3D7C6A4FAF842BAC14688D8659:50",
+        "2DF42B0477F54AC1BADA86B962F9EE1B:50",
+        "d757ecea-a429-4030-9df1-72b33bcb77c6:50",
+        "29e172e56fa14961b7162a8fc543fb25:50",
+        "62BEE5B01F184CA481AAB2AE2AC864EF:50",
+        "21379830BB124D29916DBEFEF695E486:50",
+        "4A8A92EA4979436F953A931FC9085276:50",
+        "E18CBE833C4C49BCA7254F1CCACB7622:50",
+        "93C04F12E7704AE9808A5CB75C2EA999:50",
+        "d1124655340746fdb4bb3a022e465d77:50",
+        "66db08579ae244d59d8fed9418223a5c:50",
+        "A8DC80E8ECCF44A2A9A98DB205E8493B:50",
+        "f9d149cb696c43b7a07e67463f31da70:50",
+        "3ab058e6bb8541488fd44af14d45f323:50",
+        "74A08339459C40ACACD73F951AC73C56:50",
+        "F1C0A67EF36D4F02AC2FAD437A740B48:50",
+        "BB29E4C37309435492F7AC997E2C5F36:50",
+        "AADF3B3432614D74A6562DCFDC8E43EA:50",
+        "30745f8f01714473954ab44942b55349:50",
+        "50F470E9C319495DA83D100BD358B289:50",
+        "F7D444FA6F814E4B938355A4A20883C6:50",
+        "588345058647496BB13167DF4DE0E432:50",
+        "DEF544AE77674C43A5747F471BAE4E93:50",
+        "9DDF8D3A7F704D2B91799CF5E329341C:50",
+        "86dc1284280f4f10bcc7a64f233b12c4:50",
+        "BE88B22C68934813BE7B7F77B4921E30:50",
+        "512EB1F38E064E27AA5152D6DE679CFC:50",
+        "77baaf6887e5470884ef55d3a659c9f2:50",
+        "9E4D8ACD05524B82A90251DDB13CC3E7:50",
+        "DB1B00872B644585A7DBDCC5DA7BFEFF:50",
+        "1f1a674e4bf84b10855094d97629ac42:50",
+        "6e9b972154f741b18f7c1cb3ac66900f:50",
+        "9b30780c2b5b46e5ad5a7dbe9100ed5d:50"
+      ],
+      "V8@20": [
+        "505EEFEDC44A42CD82865EF2D0C9E066:20",
+        "CC034112AAF34961B919763A88C85686:20",
+        "79cea4acd2384e40ac4d7fb85893fdba:20",
+        "c1b2d72e77174cee9905e89a850c0cdf:20",
+        "1AAC5E399A934B00B0ECAB3FA54178D6:20",
+        "63645C50FAB84F429FF24480E9490A9A:20"
+      ],
+      "V8@40": [
+        "2DD5DA65E71948D2B73FA92E51CACE54:40",
+        "1F8CD2E3775C478C971F016356884F05:40",
+        "C2E430294A334222A8488D6112EF47F4:40",
+        "4F04E7A8A1714D469517C83A2A21340E:40",
+        "1b7f4e41-c923-4b0e-8bf2-44c976530291:40",
+        "818C34C106BA4346BFE868D4EEFF77D7:40",
+        "6287864AA21541FCB0C9D90CFC190351:40",
+        "B3EE31E805B4438D919DCAEA58713A43:40",
+        "a8e9ade2941f4bb9a6fdbd8ee60776b9:40",
+        "b58d13a28bb44dd584487b16d10b1fe6:40",
+        "0C1FC2D16E404487A4372B8FF9F7A6FC:40",
+        "a32393c47a5c4f8c980ef2aca2c7c39e:40",
+        "9af72e759c2048a4a7246be095107485:40",
+        "9EA6EB662D2A4630831FBF1E00A616E5:40",
+        "140510eb066443c5b74ad066695c13c3:40",
+        "318587ea34134b52a5925c55d9e0e3c7:40",
+        "D84C7D01137C4718AE4ECC904FD6DADD:40",
+        "62a15e43-33dc-4b0d-b86b-de4b879ec544:40",
+        "2A688EBEE4854D939CE44895024CB538:40",
+        "DAC8026A99EC431EA45DD46D237F10D1:40",
+        "cd5c7a8a-e376-43fd-b8b2-a5344d0c99ae:40",
+        "8913BDC54DD44A5DB9224E0A49D68214:40",
+        "0DFB9B2A395A41FABC8F32EC98A67727:40",
+        "DF14C8B91DDC497085B51BB946ECAB15:40",
+        "A0B05A6B1091493AAD872E16B14B68E8:40",
+        "6F5BCE039533423D99A72222F2B250F4:40",
+        "9ae5dabc-728f-42f1-a31e-2c2a93c1ffcb:40",
+        "7FB12EC8C956462C84A644304208F40E:40",
+        "a47ef0d0344a4cdd95f6331bc34b4de8:40",
+        "9B471ED2208742D9B6AA6E122312A3E4:40",
+        "C48C4260A7FC449DB48B2911EB250FD2:40",
+        "9789F8B79D734064AEE5484B6164BC28:40",
+        "968ad354-c334-4216-95f4-dcc0a1595732:40",
+        "F3A051F96B104FF99782D9EDB696123D:40",
+        "E74192A691BB4363AC55F7716053C382:40",
+        "f7fa89afe517468484f7f36d1d224293:40",
+        "4EE526E63D964B0997247640523596F8:40",
+        "BD4F9D38FBA04EF99A501FFC0D9DD7DA:40",
+        "DD881632D39144E689EB13C4B85F5C80:40",
+        "7d81338fe53f4a75bcc460d7fccda0d1:40",
+        "32763128CD3B4E4A82BB8FA4EFCC0EC8:40",
+        "C24A55E745DF4EB18F4C56379C3C1A57:40",
+        "2B7CB20F93D145BD952424B320E66B5F:40",
+        "3f2f5d0985f9462ebfc2a180276cbeef:40",
+        "571D6A7132F140789202BDE07408B32A:40",
+        "C3379B00696D4CBEAD65B44D7D228D4A:40",
+        "37F841C5A76B472FA72657753B42C6D6:40",
+        "ef98909d091b4cd7bb0e27be9a10990c:40",
+        "44f203a72ab545e2af1d45d8ba906edc:40",
+        "E13E077C436C46259DDC6F08B121E913:40"
+      ],
+      "V8@50": [
+        "6B6C759332C84264BD42B1B2171EDE1B:50",
+        "292333C063A44F738240FC74B67EADB8:50",
+        "15d5f642fb3d4e72a1ed3c9b1c2cc327:50",
+        "1d73d1f443b244fea8ad003edb50ea73:50",
+        "81581638A4EE4BA197E885F55E8EAAB5:50",
+        "AE82F79D0CFB4A25941FC21203174D8F:50",
+        "39d615e10cfd4100a0abdb433ea97395:50",
+        "370D027CA2D6450C837E04EA1A9526A0:50",
+        "e63362a3-a477-4034-a10c-625a54a6e133:50",
+        "20A15FEB531E4FCBBA3A7683DE4A2B59:50",
+        "D062AB7180F34895ABCFF57A0A97B3DE:50",
+        "B365CAA307B0476289D95688A85930B3:50",
+        "1975AED18DC140F087FFE4519A68CCFD:50",
+        "2b21de2886e34f988ae29f87fe7b2d58:50",
+        "2397efb80c4548eba522afec48bc1202:50",
+        "7491196b-cee2-433d-aea2-53b4ddd965b6:50",
+        "d824549a-653d-4a6b-9e85-c1f032dae15d:50",
+        "be1c1b4d8c4b4311807d75aaa307219c:50",
+        "6ddccbf8-4351-4fe7-9045-5984d9e8bf00:50",
+        "afb2d238-0775-4927-8644-d25d7484df5d:50",
+        "55F725B54F5E4E77AE0FF00806F1B558:50",
+        "36403F5FC2A04E20ACC02F02633F523D:50",
+        "bfceb47d6e58426bbed8232df0e15465:50",
+        "08956C6664044E8D93E90AC564D70844:50",
+        "F067C4FB6AFC43008C62B9C9F3DB8079:50",
+        "61e952e8f560409696b0e246ebd660fb:50",
+        "D3CCD05A53AA485FAD5A7A549BF23994:50",
+        "1bf495fd44a944168ed18860051c866a:50",
+        "AD7B167360D7485D89439FCC91D8EE9A:50",
+        "6F5BCE039533423D99A72222F2B250F4:50",
+        "0F0997569EFC4C1E98A5C2BB872508D5:50",
+        "41C905B50AF44EF994EEBC43580323C6:50",
+        "B62159B770D84B7783BE199E3D3873F1:50",
+        "F057F24B5FB142588DB44705CDCF7554:50",
+        "A9A8B89831D049B1BC1F8913AA9E1826:50",
+        "362D9BEAF17F41E9942FF2BE45ECCEB4:50",
+        "6D2C2C2C1F464590BBCB6314080D5501:50",
+        "FA62F9269FCC4978B16EC916ACA958CC:50",
+        "C59BAECB8284469FA362C45ACE9DF1A7:50",
+        "f1cd4a9ba00541f8b963312df6ab2db2:50",
+        "0c80d075-da86-49eb-8b26-ba5253684fc9:50",
+        "f1e3f75857b1435fbd79ee2e4270f757:50",
+        "adac4cf9-8480-4f24-8a60-91da673e7da5:50",
+        "4709eefef303430186cca31675f37bb6:50",
+        "34c898b1e6b147549909c2e0943bcb5c:50",
+        "5d764da8-b6cc-45df-945c-71b1b8fcb57d:50",
+        "7c4b0fc69a1d46db9dd122555bf2e69f:50",
+        "A4DD579E9F6C4AA6AAFB9CE9340FF3FE:50",
+        "d0c65434-b3d4-4f1d-b6d7-1daf2901e5ab:50",
+        "08D503A363404F228E62E10A31B4526C:50"
+      ]
+    },
+    "sha256": "aa66b9c877cfa364879cb33be646e53f4a47085b4783f7eb17de8b1fc2e58830"
+  },
+  "samples": {
+    "real": {
+      "by_cell": {
+        "V11@20": {
+          "count": 1,
+          "feet": 9.0,
+          "finish_height": 0.9743589758872986,
+          "holds": 27.0,
+          "largest_vertical_hand_gap": 0.25641025602817535
+        },
+        "V11@40": {
+          "count": 25,
+          "feet": 4.24,
+          "finish_height": 0.9620512843132019,
+          "holds": 12.28,
+          "largest_vertical_hand_gap": 0.21128205567598343
+        },
+        "V11@50": {
+          "count": 50,
+          "feet": 3.84,
+          "finish_height": 0.964102566242218,
+          "holds": 10.84,
+          "largest_vertical_hand_gap": 0.23333333536982537
+        },
+        "V2@20": {
+          "count": 50,
+          "feet": 4.94,
+          "finish_height": 0.9425641059875488,
+          "holds": 13.36,
+          "largest_vertical_hand_gap": 0.1738461571931839
+        },
+        "V2@40": {
+          "count": 50,
+          "feet": 5.92,
+          "finish_height": 0.917948722243309,
+          "holds": 14.94,
+          "largest_vertical_hand_gap": 0.15333333536982535
+        },
+        "V2@50": {
+          "count": 27,
+          "feet": 6.074074074074074,
+          "finish_height": 0.9135802498570195,
+          "holds": 15.481481481481481,
+          "largest_vertical_hand_gap": 0.1576448259530244
+        },
+        "V5@20": {
+          "count": 50,
+          "feet": 4.06,
+          "finish_height": 0.9487179511785507,
+          "holds": 12.42,
+          "largest_vertical_hand_gap": 0.19589743971824647
+        },
+        "V5@40": {
+          "count": 50,
+          "feet": 3.52,
+          "finish_height": 0.9733333349227905,
+          "holds": 11.08,
+          "largest_vertical_hand_gap": 0.1912820518016815
+        },
+        "V5@50": {
+          "count": 50,
+          "feet": 4.26,
+          "finish_height": 0.9476923097670078,
+          "holds": 11.84,
+          "largest_vertical_hand_gap": 0.18358974307775497
+        },
+        "V8@20": {
+          "count": 6,
+          "feet": 4.0,
+          "finish_height": 0.8888888905445734,
+          "holds": 12.0,
+          "largest_vertical_hand_gap": 0.18376068522532782
+        },
+        "V8@40": {
+          "count": 50,
+          "feet": 4.22,
+          "finish_height": 0.964102566242218,
+          "holds": 11.86,
+          "largest_vertical_hand_gap": 0.21794872254133224
+        },
+        "V8@50": {
+          "count": 50,
+          "feet": 4.22,
+          "finish_height": 0.9723076939582824,
+          "holds": 11.78,
+          "largest_vertical_hand_gap": 0.21435897737741472
+        }
+      },
+      "by_grade": {
+        "11": {
+          "count": 76,
+          "feet": 4.0394736842105265,
+          "finish_height": 0.9635627552082664,
+          "holds": 11.526315789473685,
+          "largest_vertical_hand_gap": 0.2263832686370925
+        },
+        "2": {
+          "count": 127,
+          "feet": 5.566929133858268,
+          "finish_height": 0.9267110878557671,
+          "holds": 14.433070866141732,
+          "largest_vertical_hand_gap": 0.162325865581749
+        },
+        "5": {
+          "count": 150,
+          "feet": 3.9466666666666668,
+          "finish_height": 0.956581198622783,
+          "holds": 11.78,
+          "largest_vertical_hand_gap": 0.19025641153256098
+        },
+        "8": {
+          "count": 106,
+          "feet": 4.2075471698113205,
+          "finish_height": 0.9637155316348346,
+          "holds": 11.830188679245284,
+          "largest_vertical_hand_gap": 0.214320274597069
+        }
+      },
+      "constraint_satisfied": 1.0,
+      "count": 459,
+      "distinct": 0.9847494553376906,
+      "ended_with_eos": 1.0,
+      "explicit_feet_present": 0.9520697167755992,
+      "finishes_1_2": 1.0,
+      "holds_drop_V2_to_V11": 2.9067550766680466,
+      "legacy_valid_v1": 0.9433551198257081,
+      "no_repeated_hold": 1.0,
+      "novel_hand_set_vs_train": 0.9629629629629629,
+      "novel_vs_all_rows": 0.0,
+      "novel_vs_excluded_duplicates": 0.9586056644880174,
+      "novel_vs_train": 1.0,
+      "schema_valid": 1.0,
+      "starts_1_2": 1.0,
+      "starts_below_finishes": 0.9891067538126361,
+      "within_hold_budget": 1.0
+    },
+    "v2_given_starts_feet": {
+      "by_cell": {
+        "V11@20": {
+          "count": 1,
+          "feet": 8.0,
+          "finish_height": 0.025641025975346565,
+          "holds": 12.0,
+          "largest_vertical_hand_gap": 0.05128205195069313
+        },
+        "V11@40": {
+          "count": 25,
+          "feet": 3.28,
+          "finish_height": 0.9600000023841858,
+          "holds": 10.6,
+          "largest_vertical_hand_gap": 0.2246153834462166
+        },
+        "V11@50": {
+          "count": 50,
+          "feet": 2.9,
+          "finish_height": 0.9415384638309479,
+          "holds": 9.78,
+          "largest_vertical_hand_gap": 0.22358974888920785
+        },
+        "V2@20": {
+          "count": 50,
+          "feet": 4.5,
+          "finish_height": 0.9415384644269943,
+          "holds": 12.82,
+          "largest_vertical_hand_gap": 0.1774358955025673
+        },
+        "V2@40": {
+          "count": 50,
+          "feet": 4.9,
+          "finish_height": 0.9517948746681213,
+          "holds": 13.2,
+          "largest_vertical_hand_gap": 0.171282055079937
+        },
+        "V2@50": {
+          "count": 27,
+          "feet": 6.0,
+          "finish_height": 0.9363722734981113,
+          "holds": 14.148148148148149,
+          "largest_vertical_hand_gap": 0.16904083722167546
+        },
+        "V5@20": {
+          "count": 50,
+          "feet": 3.96,
+          "finish_height": 0.9600000023841858,
+          "holds": 11.76,
+          "largest_vertical_hand_gap": 0.21076923429965974
+        },
+        "V5@40": {
+          "count": 50,
+          "feet": 3.86,
+          "finish_height": 0.9630769252777099,
+          "holds": 11.44,
+          "largest_vertical_hand_gap": 0.19794872224330903
+        },
+        "V5@50": {
+          "count": 50,
+          "feet": 3.36,
+          "finish_height": 0.9548717975616455,
+          "holds": 10.42,
+          "largest_vertical_hand_gap": 0.20102564066648484
+        },
+        "V8@20": {
+          "count": 6,
+          "feet": 4.0,
+          "finish_height": 0.9572649598121643,
+          "holds": 12.0,
+          "largest_vertical_hand_gap": 0.1880341942111651
+        },
+        "V8@40": {
+          "count": 50,
+          "feet": 3.64,
+          "finish_height": 0.964615386724472,
+          "holds": 11.18,
+          "largest_vertical_hand_gap": 0.21128205329179764
+        },
+        "V8@50": {
+          "count": 50,
+          "feet": 3.78,
+          "finish_height": 0.9589743608236313,
+          "holds": 11.5,
+          "largest_vertical_hand_gap": 0.20410256937146187
+        }
+      },
+      "by_grade": {
+        "11": {
+          "count": 76,
+          "feet": 3.0921052631578947,
+          "finish_height": 0.9355600562779919,
+          "holds": 10.078947368421053,
+          "largest_vertical_hand_gap": 0.22165992213903288
+        },
+        "2": {
+          "count": 127,
+          "feet": 4.9763779527559056,
+          "finish_height": 0.9444780971590928,
+          "holds": 13.251968503937007,
+          "largest_vertical_hand_gap": 0.1732283475126807
+        },
+        "5": {
+          "count": 150,
+          "feet": 3.7266666666666666,
+          "finish_height": 0.9593162417411805,
+          "holds": 11.206666666666667,
+          "largest_vertical_hand_gap": 0.20324786573648454
+        },
+        "8": {
+          "count": 106,
+          "feet": 3.7264150943396226,
+          "finish_height": 0.9615384635497939,
+          "holds": 11.377358490566039,
+          "largest_vertical_hand_gap": 0.2065795877210374
+        }
+      },
+      "constraint_satisfied": 1.0,
+      "count": 459,
+      "distinct": 1.0,
+      "ended_with_eos": 1.0,
+      "explicit_feet_present": 0.9803921568627451,
+      "finishes_1_2": 1.0,
+      "holds_drop_V2_to_V11": 3.1730211355159543,
+      "legacy_valid_v1": 0.9760348583877996,
+      "no_repeated_hold": 1.0,
+      "novel_hand_set_vs_train": 0.9956427015250545,
+      "novel_vs_all_rows": 1.0,
+      "novel_vs_excluded_duplicates": 1.0,
+      "novel_vs_train": 1.0,
+      "schema_valid": 1.0,
+      "starts_1_2": 1.0,
+      "starts_below_finishes": 0.9956427015250545,
+      "within_hold_budget": 1.0
+    },
+    "v2_scratch": {
+      "by_cell": {
+        "V11@20": {
+          "count": 1,
+          "feet": 2.0,
+          "finish_height": 0.9743589758872986,
+          "holds": 5.0,
+          "largest_vertical_hand_gap": 0.5128205120563507
+        },
+        "V11@40": {
+          "count": 25,
+          "feet": 2.92,
+          "finish_height": 0.964102566242218,
+          "holds": 9.84,
+          "largest_vertical_hand_gap": 0.23179487884044647
+        },
+        "V11@50": {
+          "count": 50,
+          "feet": 2.78,
+          "finish_height": 0.9579487204551697,
+          "holds": 10.02,
+          "largest_vertical_hand_gap": 0.2230769205093384
+        },
+        "V2@20": {
+          "count": 50,
+          "feet": 4.9,
+          "finish_height": 0.9307692342996597,
+          "holds": 13.36,
+          "largest_vertical_hand_gap": 0.17487179692834615
+        },
+        "V2@40": {
+          "count": 50,
+          "feet": 4.5,
+          "finish_height": 0.945641028881073,
+          "holds": 12.2,
+          "largest_vertical_hand_gap": 0.1671794894337654
+        },
+        "V2@50": {
+          "count": 27,
+          "feet": 3.111111111111111,
+          "finish_height": 0.9496676193343269,
+          "holds": 10.962962962962964,
+          "largest_vertical_hand_gap": 0.1576448259530244
+        },
+        "V5@20": {
+          "count": 50,
+          "feet": 3.6,
+          "finish_height": 0.9712820529937745,
+          "holds": 11.06,
+          "largest_vertical_hand_gap": 0.21846154268831014
+        },
+        "V5@40": {
+          "count": 50,
+          "feet": 3.4,
+          "finish_height": 0.9630769252777099,
+          "holds": 10.84,
+          "largest_vertical_hand_gap": 0.2010256452858448
+        },
+        "V5@50": {
+          "count": 50,
+          "feet": 3.5,
+          "finish_height": 0.9651282072067261,
+          "holds": 10.84,
+          "largest_vertical_hand_gap": 0.1841025671362877
+        },
+        "V8@20": {
+          "count": 6,
+          "feet": 2.3333333333333335,
+          "finish_height": 0.94017094373703,
+          "holds": 8.0,
+          "largest_vertical_hand_gap": 0.2735042708615462
+        },
+        "V8@40": {
+          "count": 50,
+          "feet": 3.04,
+          "finish_height": 0.9682051301002502,
+          "holds": 10.26,
+          "largest_vertical_hand_gap": 0.21384615808725357
+        },
+        "V8@50": {
+          "count": 50,
+          "feet": 3.06,
+          "finish_height": 0.9589743614196777,
+          "holds": 10.32,
+          "largest_vertical_hand_gap": 0.20974359288811684
+        }
+      },
+      "by_grade": {
+        "11": {
+          "count": 76,
+          "feet": 2.8157894736842106,
+          "finish_height": 0.9601889362460688,
+          "holds": 9.894736842105264,
+          "largest_vertical_hand_gap": 0.22975708563861094
+        },
+        "2": {
+          "count": 127,
+          "feet": 4.362204724409449,
+          "finish_height": 0.9406420384335705,
+          "holds": 12.393700787401574,
+          "largest_vertical_hand_gap": 0.16818090251052942
+        },
+        "5": {
+          "count": 150,
+          "feet": 3.5,
+          "finish_height": 0.9664957284927368,
+          "holds": 10.913333333333334,
+          "largest_vertical_hand_gap": 0.2011965850368142
+        },
+        "8": {
+          "count": 106,
+          "feet": 3.009433962264151,
+          "finish_height": 0.9622641531926281,
+          "holds": 10.160377358490566,
+          "largest_vertical_hand_gap": 0.21528786013148865
+        }
+      },
+      "constraint_satisfied": 1.0,
+      "count": 459,
+      "distinct": 1.0,
+      "ended_with_eos": 1.0,
+      "explicit_feet_present": 0.9607843137254902,
+      "finishes_1_2": 1.0,
+      "holds_drop_V2_to_V11": 2.4989639452963104,
+      "legacy_valid_v1": 0.9564270152505446,
+      "no_repeated_hold": 1.0,
+      "novel_hand_set_vs_train": 0.9912854030501089,
+      "novel_vs_all_rows": 0.9978213507625272,
+      "novel_vs_excluded_duplicates": 1.0,
+      "novel_vs_train": 0.9978213507625272,
+      "schema_valid": 1.0,
+      "starts_1_2": 1.0,
+      "starts_below_finishes": 0.9934640522875817,
+      "within_hold_budget": 1.0
+    },
+    "v2_scratch_null_grade": {
+      "by_cell": {
+        "V11@20": {
+          "count": 1,
+          "feet": 8.0,
+          "finish_height": 0.9743589758872986,
+          "holds": 22.0,
+          "largest_vertical_hand_gap": 0.20512819290161133
+        },
+        "V11@40": {
+          "count": 25,
+          "feet": 3.64,
+          "finish_height": 0.9743589758872986,
+          "holds": 10.8,
+          "largest_vertical_hand_gap": 0.21948718190193175
+        },
+        "V11@50": {
+          "count": 50,
+          "feet": 3.54,
+          "finish_height": 0.9538461565971375,
+          "holds": 11.04,
+          "largest_vertical_hand_gap": 0.18307692363858222
+        },
+        "V2@20": {
+          "count": 50,
+          "feet": 3.58,
+          "finish_height": 0.9153846198320389,
+          "holds": 11.56,
+          "largest_vertical_hand_gap": 0.17846154451370239
+        },
+        "V2@40": {
+          "count": 50,
+          "feet": 3.5,
+          "finish_height": 0.9548717975616455,
+          "holds": 11.14,
+          "largest_vertical_hand_gap": 0.1953846213966608
+        },
+        "V2@50": {
+          "count": 27,
+          "feet": 3.1481481481481484,
+          "finish_height": 0.9572649598121643,
+          "holds": 10.703703703703704,
+          "largest_vertical_hand_gap": 0.18708452196032913
+        },
+        "V5@20": {
+          "count": 50,
+          "feet": 4.36,
+          "finish_height": 0.924102567434311,
+          "holds": 12.0,
+          "largest_vertical_hand_gap": 0.18820513069629669
+        },
+        "V5@40": {
+          "count": 50,
+          "feet": 3.66,
+          "finish_height": 0.9600000023841858,
+          "holds": 11.4,
+          "largest_vertical_hand_gap": 0.20717949017882348
+        },
+        "V5@50": {
+          "count": 50,
+          "feet": 3.64,
+          "finish_height": 0.9425641053915024,
+          "holds": 11.2,
+          "largest_vertical_hand_gap": 0.18871795475482941
+        },
+        "V8@20": {
+          "count": 6,
+          "feet": 4.5,
+          "finish_height": 0.8974359035491943,
+          "holds": 11.833333333333334,
+          "largest_vertical_hand_gap": 0.1452991540233294
+        },
+        "V8@40": {
+          "count": 50,
+          "feet": 3.84,
+          "finish_height": 0.9487179517745972,
+          "holds": 11.46,
+          "largest_vertical_hand_gap": 0.18717948973178863
+        },
+        "V8@50": {
+          "count": 50,
+          "feet": 3.22,
+          "finish_height": 0.9538461565971375,
+          "holds": 10.64,
+          "largest_vertical_hand_gap": 0.1912820540368557
+        }
+      },
+      "by_grade": {
+        "11": {
+          "count": 76,
+          "feet": 3.6315789473684212,
+          "finish_height": 0.9608637000385084,
+          "holds": 11.105263157894736,
+          "largest_vertical_hand_gap": 0.19534413055761865
+        },
+        "2": {
+          "count": 127,
+          "feet": 3.456692913385827,
+          "finish_height": 0.9398344471229343,
+          "holds": 11.21259842519685,
+          "largest_vertical_hand_gap": 0.18695740463344132
+        },
+        "5": {
+          "count": 150,
+          "feet": 3.8866666666666667,
+          "finish_height": 0.9422222250699996,
+          "holds": 11.533333333333333,
+          "largest_vertical_hand_gap": 0.19470085854331654
+        },
+        "8": {
+          "count": 106,
+          "feet": 3.5849056603773586,
+          "finish_height": 0.9482341588668104,
+          "holds": 11.09433962264151,
+          "largest_vertical_hand_gap": 0.18674407653369993
+        }
+      },
+      "constraint_satisfied": 1.0,
+      "count": 459,
+      "distinct": 1.0,
+      "ended_with_eos": 1.0,
+      "explicit_feet_present": 0.9498910675381264,
+      "finishes_1_2": 1.0,
+      "holds_drop_V2_to_V11": 0.10733526730211373,
+      "legacy_valid_v1": 0.9477124183006536,
+      "no_repeated_hold": 1.0,
+      "novel_hand_set_vs_train": 0.9956427015250545,
+      "novel_vs_all_rows": 1.0,
+      "novel_vs_excluded_duplicates": 1.0,
+      "novel_vs_train": 1.0,
+      "schema_valid": 1.0,
+      "starts_1_2": 1.0,
+      "starts_below_finishes": 0.9956427015250545,
+      "within_hold_budget": 1.0
+    },
+    "v2_scratch_unconstrained": {
+      "by_cell": {
+        "V11@20": {
+          "count": 1,
+          "feet": 0.0,
+          "finish_height": 0.9230769276618958,
+          "holds": 40.0,
+          "largest_vertical_hand_gap": 0.20512819290161133
+        },
+        "V11@40": {
+          "count": 25,
+          "feet": 1.28,
+          "finish_height": 0.9145299176375071,
+          "holds": 37.12,
+          "largest_vertical_hand_gap": 0.1405128198862076
+        },
+        "V11@50": {
+          "count": 50,
+          "feet": 1.44,
+          "finish_height": 0.88763197949704,
+          "holds": 36.58,
+          "largest_vertical_hand_gap": 0.1425641017779708
+        },
+        "V2@20": {
+          "count": 50,
+          "feet": 0.62,
+          "finish_height": 0.8414918477788116,
+          "holds": 37.36,
+          "largest_vertical_hand_gap": 0.13179487712681293
+        },
+        "V2@40": {
+          "count": 50,
+          "feet": 0.66,
+          "finish_height": 0.8506787388640291,
+          "holds": 39.92,
+          "largest_vertical_hand_gap": 0.1184615433588624
+        },
+        "V2@50": {
+          "count": 27,
+          "feet": 0.4074074074074074,
+          "finish_height": 0.8717948762994063,
+          "holds": 38.51851851851852,
+          "largest_vertical_hand_gap": 0.12721893893411526
+        },
+        "V5@20": {
+          "count": 50,
+          "feet": 0.68,
+          "finish_height": 0.9018567672063564,
+          "holds": 38.68,
+          "largest_vertical_hand_gap": 0.1343589735403657
+        },
+        "V5@40": {
+          "count": 50,
+          "feet": 0.86,
+          "finish_height": 0.9313929354822313,
+          "holds": 37.26,
+          "largest_vertical_hand_gap": 0.13487179581075906
+        },
+        "V5@50": {
+          "count": 50,
+          "feet": 1.12,
+          "finish_height": 0.8888888924072186,
+          "holds": 38.72,
+          "largest_vertical_hand_gap": 0.14564102657139302
+        },
+        "V8@20": {
+          "count": 6,
+          "feet": 0.5,
+          "finish_height": 0.9487179517745972,
+          "holds": 38.333333333333336,
+          "largest_vertical_hand_gap": 0.12393163237720728
+        },
+        "V8@40": {
+          "count": 50,
+          "feet": 1.26,
+          "finish_height": 0.7918552085757256,
+          "holds": 37.4,
+          "largest_vertical_hand_gap": 0.13538461446762085
+        },
+        "V8@50": {
+          "count": 50,
+          "feet": 1.42,
+          "finish_height": 0.9157509190695626,
+          "holds": 36.88,
+          "largest_vertical_hand_gap": 0.12820513039827347
+        }
+      },
+      "by_grade": {
+        "11": {
+          "count": 76,
+          "feet": 1.368421052631579,
+          "finish_height": 0.8964102599024772,
+          "holds": 36.80263157894737,
+          "largest_vertical_hand_gap": 0.14271254972309658
+        },
+        "2": {
+          "count": 127,
+          "feet": 0.5905511811023622,
+          "finish_height": 0.8518187296251918,
+          "holds": 38.61417322834646,
+          "largest_vertical_hand_gap": 0.1255596304489743
+        },
+        "5": {
+          "count": 150,
+          "feet": 0.8866666666666667,
+          "finish_height": 0.9079939704753605,
+          "holds": 38.22,
+          "largest_vertical_hand_gap": 0.13829059864083926
+        },
+        "8": {
+          "count": 106,
+          "feet": 1.2924528301886793,
+          "finish_height": 0.8573492276416698,
+          "holds": 37.20754716981132,
+          "largest_vertical_hand_gap": 0.1313497833731883
+        }
+      },
+      "constraint_satisfied": 1.0,
+      "count": 459,
+      "distinct": 1.0,
+      "ended_with_eos": 1.0,
+      "explicit_feet_present": 0.5468409586056645,
+      "finishes_1_2": 0.579520697167756,
+      "holds_drop_V2_to_V11": 1.8115416493990892,
+      "legacy_valid_v1": 0.0,
+      "no_repeated_hold": 0.04357298474945534,
+      "novel_hand_set_vs_train": 1.0,
+      "novel_vs_all_rows": 1.0,
+      "novel_vs_excluded_duplicates": 1.0,
+      "novel_vs_train": 1.0,
+      "schema_valid": 0.0,
+      "starts_1_2": 0.004357298474945534,
+      "starts_below_finishes": 0.3747276688453159,
+      "within_hold_budget": 1.0
+    }
+  },
+  "samples_per_cell": 50,
+  "split": "validation"
+}

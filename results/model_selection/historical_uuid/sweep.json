@@ -1,6 +1,8 @@
 {
-  "collected_at": "2026-11-20T18:53:22.949581+00:00",
+  "collected_at": "2026-11-26T18:10:34.225927+00:00",
   "models": [
+    "null_rule_16",
+    "null_rule_16_labels",
     "null_rule_16_tags",
     "null_rule_16_tags_labels"
   ],

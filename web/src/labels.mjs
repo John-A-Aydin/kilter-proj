@@ -71,6 +71,11 @@ export function missingGrip(label) {
   return Boolean(label?.type) && label.type !== 'unsure' && !label.grip?.length;
 }
 
+// A hold you can pull on from more than one direction.
+export function multiGrip(label) {
+  return (label?.grip?.length || 0) > 1;
+}
+
 export function hasLabel(label) {
   return Boolean(label && (FIELD_NAMES.some(name => label[name]) || label.grip?.length || label.notes));
 }

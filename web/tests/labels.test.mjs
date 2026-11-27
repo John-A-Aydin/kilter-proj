@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { COLUMNS, DIRECTIONS, FIELDS, fromCsv, holdOrder, isComplete, migrateLabel, missingGrip, normalizeGrip, parseCsv, rotateGrip,
+import { COLUMNS, DIRECTIONS, FIELDS, fromCsv, holdOrder, isComplete, migrateLabel, missingGrip, multiGrip, normalizeGrip, parseCsv, rotateGrip,
   toCsv, toggleDirection } from '../src/labels.mjs';
 
 const manifest = JSON.parse(readFileSync(new URL('../public/model/manifest.json', import.meta.url)));
@@ -29,6 +29,10 @@ test('a hold is complete with every field, or with type unsure alone', () => {
   assert.equal(missingGrip({ type: 'edge', grip: [0] }), false);
   assert.equal(missingGrip({ type: 'unsure' }), false);
   assert.equal(missingGrip({ size: 'small' }), false);
+  assert.equal(multiGrip({ type: 'pinch', grip: [90, 270] }), true);
+  assert.equal(multiGrip({ type: 'edge', grip: [0] }), false);
+  assert.equal(multiGrip({ type: 'edge' }), false);
+  assert.equal(multiGrip(undefined), false);
 });
 
 test('every shortcut key is distinct', () => {
